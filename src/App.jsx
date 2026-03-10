@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
@@ -875,17 +875,23 @@ html, body{
   .mobile-ia-selector{
     display:flex !important;
     overflow-x:auto; scrollbar-width:none;
-    padding:5px 10px; gap:5px; flex-shrink:0;
-    background:var(--s1); border-bottom:1px solid var(--bd);
+    padding:8px 10px; gap:8px; flex-shrink:0;
+    background:var(--s1); border-bottom:2px solid var(--bd);
+    align-items:center;
   }
   .mobile-ia-selector::-webkit-scrollbar{ display:none; }
   .mobile-ia-chip{
-    flex-shrink:0; padding:5px 12px; border-radius:20px; border:1px solid;
-    font-size:11px; cursor:pointer; font-family:'IBM Plex Mono',monospace;
-    transition:all .15s; background:transparent; white-space:nowrap;
-    display:flex; align-items:center; gap:4px; min-height:34px;
+    flex-shrink:0; padding:8px 16px; border-radius:8px; border:2px solid;
+    font-size:13px; font-weight:600; cursor:pointer; font-family:'IBM Plex Mono',monospace;
+    transition:all .15s; background:var(--s2); white-space:nowrap;
+    display:flex; align-items:center; gap:6px; min-height:42px;
+    color: var(--tx);
   }
-  .mobile-ia-chip.active{ font-weight:700; }
+  .mobile-ia-chip.active{
+    font-weight:800;
+    box-shadow: 0 0 12px rgba(255,255,255,.1);
+    transform: scale(1.04);
+  }
 
   /* ── Input chat mobile ── */
   .foot{ padding:8px 10px calc(8px + env(safe-area-inset-bottom)) !important; }
@@ -1008,12 +1014,12 @@ html, body{
 }
 
 /* ── Desktop (garde l'ancien comportement) ── */
-@media(min-width:768px){
-  .mobile-header{ display:none !important; }
-  .mobile-ia-selector{ display:none !important; }
-  .mobile-tabbar{ display:none !important; }
+@media(min-width:768px) and (hover:hover){
+  .mobile-header{ display:none; }
+  .mobile-ia-selector{ display:none; }
+  .mobile-tabbar{ display:none; }
   .hist-overlay{ display:none !important; }
-  .col{ display:flex !important; }
+  .col{ display:flex; }
   .hist-sidebar{ position:relative !important; transform:none !important; box-shadow:none !important; }
 }
 
@@ -2523,7 +2529,7 @@ export default function App() {
   // ── Détection mobile & offline ──
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
-  // mobileChatIA unified into mobileCol
+  // mobileCol unified into mobileCol
   
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -2537,22 +2543,8 @@ export default function App() {
     };
   }, []);
 
-  // ── Swipe horizontal pour changer d'IA sur mobile ──
-  const swipeStartX = useRef(null);
-  const handleTouchStart = (e) => { swipeStartX.current = e.touches[0].clientX; };
-  const handleTouchEnd = (e) => {
-    if (swipeStartX.current === null || tab !== "chat") return;
-    const diff = swipeStartX.current - e.changedTouches[0].clientX;
-    const enabledIAIds = IDS.filter(id => enabled[id]);
-    if (Math.abs(diff) < 60 || !enabledIAIds.length) { swipeStartX.current = null; return; }
-    const cur = enabledIAIds.indexOf(mobileCol);
-    if (diff > 0) { // swipe left → IA suivante
-      setMobileCol(enabledIAIds[(cur+1)%enabledIAIds.length]);
-    } else { // swipe right → IA précédente
-      setMobileCol(enabledIAIds[(cur-1+enabledIAIds.length)%enabledIAIds.length]);
-    }
-    swipeStartX.current = null;
-  };
+  const handleTouchStart = () => {};
+  const handleTouchEnd = () => {};
 
   // ── PWA Install prompt ──
   const [pwaPrompt, setPwaPrompt] = useState(null);
@@ -2889,16 +2881,19 @@ export default function App() {
             {IDS.filter(id=>enabled[id]).map(id => {
               const m = MODEL_DEFS[id];
               const lim = isLimited(id);
+              const isActive = mobileCol===id;
               return (
-                <button key={id} className={`mobile-ia-chip ${mobileChatIA===id?"active":""}`}
+                <button key={id}
+                  className={`mobile-ia-chip ${isActive?"active":""}`}
                   style={{
-                    borderColor: lim?"var(--red)":mobileCol===id?m.color:"var(--bd)",
-                    color: lim?"var(--red)":mobileCol===id?m.color:"var(--mu)",
-                    background: mobileCol===id?m.bg:"transparent",
+                    borderColor: lim?"#F87171": isActive ? m.color : "var(--bd)",
+                    color: lim?"#F87171": isActive ? "#fff" : "var(--mu)",
+                    background: isActive ? m.color+"33" : "var(--s2)",
                   }}
                   onClick={()=>setMobileCol(id)}>
-                  {m.icon} {m.short}
-                  {lim && <span style={{fontSize:9,color:"var(--red)"}}> {fmtCd(id)}</span>}
+                  <span style={{fontSize:16}}>{m.icon}</span>
+                  <span>{m.short}</span>
+                  {lim && <span style={{fontSize:9,color:"#F87171",marginLeft:2}}>⏳</span>}
                 </button>
               );
             })}
@@ -3068,8 +3063,9 @@ export default function App() {
                   className={`col ${!enabled[id]?"off":""} ${isSoloDim?"solo-dim":""} ${isSoloFocus?"solo-focus":""}`}
                   style={{
                     background:enabled[id]?`${m.bg}22`:"transparent",
-                    display: isMobile && enabled[id] && mobileCol !== id ? "none" : undefined,
-                    flex: isMobile && enabled[id] && mobileCol === id ? "1" : undefined,
+                    display: isMobile && mobileCol !== id ? "none" : undefined,
+                    flex: isMobile && mobileCol === id ? "1" : undefined,
+                    width: isMobile ? "100%" : undefined,
                   }}>
                   <div className="ch" style={{ borderBottomColor:lim?"var(--red)":m.border }}>
                     <span className="ci" style={{ color:lim?"var(--red)":m.color }}>{m.icon}</span>
@@ -3437,7 +3433,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ── DEBATE TAB ── */}}
+        {/* ── DEBATE TAB ── */}
         {tab === "debate" && <>
           <div className="debate-wrap">
             {debPhase === 0 && (
