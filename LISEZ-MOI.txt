@@ -1,0 +1,32 @@
+═══════════════════════════════════════
+  MultiIA v6 — Application Portable
+═══════════════════════════════════════
+
+LANCEMENT
+─────────
+Double-clique sur : MultiIA.bat
+→ http://localhost:17321
+
+REQUIRES
+────────
+Node.js (nodejs.org) — déjà installé
+
+NOUVEAUTÉS v6
+─────────────
+✦ Responsive (s'adapte à la taille)
+✦ Mode mobile (onglets par IA)
+✦ Onglet Web : 12 IAs en lien direct
+✦ Compteur de cooldown si rate limit
+✦ Débat : synthèse fallback auto
+✦ Section MAJ dans Config
+
+MISE À JOUR
+───────────
+1. Exporte tes clés (Config → Exporter)
+2. Remplace le dossier dist/
+3. Importe tes clés → terminé
+
+FERMER
+──────
+Ferme la fenêtre noire ou Ctrl+C
+═══════════════════════════════════════
