@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "8.5";
+const APP_VERSION = "9.0";
 
 const MODEL_DEFS = {
   claude:   { name:"Claude Sonnet 4",  short:"Claude",   provider:"Anthropic",    color:"#D4A853", bg:"#1A1208", border:"#3D2E0A", icon:"✦", apiType:"claude",  maxTokens:200000, free:true,  desc:"Intégré sans clé" },
@@ -232,8 +232,23 @@ function classifyError(msg) {
   return "other";
 }
 
-async function callClaude(messages, system="Tu es un assistant IA utile et concis.") {
-  const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system,messages:messages.map(m=>({role:m.role,content:m.content}))})});
+async function callClaude(messages, system="Tu es un assistant IA utile et concis.", attachedFile=null) {
+  // Construire les messages avec support fichiers (vision + texte)
+  const apiMessages = messages.map((m, i) => {
+    const isLast = i === messages.length - 1;
+    if (isLast && attachedFile) {
+      if (attachedFile.type === "image") {
+        return { role: m.role, content: [
+          { type: "image", source: { type: "base64", media_type: attachedFile.mimeType, data: attachedFile.base64 } },
+          { type: "text", text: m.content }
+        ]};
+      } else {
+        return { role: m.role, content: `📎 Fichier : ${attachedFile.name}\n\n${attachedFile.content}\n\n---\n${m.content}` };
+      }
+    }
+    return { role: m.role, content: m.content };
+  });
+  const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages:apiMessages})});
   const d = await r.json();
   if(d.error) throw new Error(d.error.message);
   return d.content[0].text;
@@ -252,12 +267,16 @@ async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un ass
   if(d.error) throw new Error(typeof d.error==="string"?d.error:(d.error.message||JSON.stringify(d.error)));
   return d.choices[0].message.content;
 }
-async function callModel(id, messages, keys, system) {
+async function callModel(id, messages, keys, system, attachedFile=null) {
   const m=MODEL_DEFS[id];
-  if(m.apiType==="claude") return callClaude(messages,system);
-  if(m.apiType==="gemini") return callGemini(messages,keys.gemini,system);
-  if(m.apiType==="openai") return callCompat(messages,keys.openai,"https://api.openai.com/v1","gpt-4o",system);
-  if(m.apiType==="compat") return callCompat(messages,keys[m.keyName],m.baseUrl,m.model,system);
+  if(m.apiType==="claude") return callClaude(messages,system,attachedFile);
+  // Pour les autres IAs : injecter le contenu du fichier dans le texte si pas image
+  const msgWithFile = attachedFile && attachedFile.type !== "image"
+    ? messages.map((msg,i) => i===messages.length-1 ? {...msg, content:`📎 Fichier: ${attachedFile.name}\n\n${attachedFile.content}\n\n---\n${msg.content}`} : msg)
+    : messages;
+  if(m.apiType==="gemini") return callGemini(msgWithFile,keys.gemini,system);
+  if(m.apiType==="openai") return callCompat(msgWithFile,keys.openai,"https://api.openai.com/v1","gpt-4o",system);
+  if(m.apiType==="compat") return callCompat(msgWithFile,keys[m.keyName],m.baseUrl,m.model,system);
 }
 async function correctGrammar(text) {
   return callClaude([{role:"user",content:`Corrige les fautes d'orthographe, grammaire et ponctuation. Retourne UNIQUEMENT le texte corrigé, sans commentaires.\n\n${text}`}],"Tu es un correcteur expert. Tu corriges sans changer le sens.");
@@ -814,6 +833,64 @@ html, body{
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   /* padding-bottom géré par la tab bar fixe */
+}
+
+/* ══ NOTES TAB ══ */
+.notes-wrap{flex:1;display:flex;overflow:hidden}
+.notes-list{width:200px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;background:var(--s1)}
+.notes-list-hdr{padding:10px 12px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px;flex-shrink:0}
+.notes-list-hdr span{flex:1;font-size:10px;font-weight:700;color:var(--ac)}
+.notes-new-btn{background:var(--ac);border:none;border-radius:4px;color:#09090B;font-size:11px;padding:4px 8px;cursor:pointer;font-weight:700}
+.notes-item{padding:10px 12px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s}
+.notes-item:hover{background:var(--s2)}.notes-item.on{background:rgba(212,168,83,.1);border-left:2px solid var(--ac)}
+.notes-item-title{font-size:11px;color:var(--tx);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notes-item-date{font-size:8px;color:var(--mu);margin-top:2px}
+.notes-editor{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.notes-editor-hdr{padding:8px 12px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--s1)}
+.notes-title-inp{flex:1;background:none;border:none;color:var(--tx);font-size:13px;font-weight:700;font-family:'Syne',sans-serif;outline:none}
+.notes-del-btn{background:none;border:1px solid var(--bd);border-radius:4px;color:var(--mu);font-size:10px;padding:3px 8px;cursor:pointer}
+.notes-del-btn:hover{color:var(--red);border-color:var(--red)}
+.notes-textarea{flex:1;background:transparent;border:none;color:var(--tx);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:16px;resize:none;outline:none;line-height:1.7}
+.notes-toolbar{padding:6px 12px;border-top:1px solid var(--bd);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;background:var(--s1)}
+.notes-tbtn{background:none;border:1px solid var(--bd);border-radius:4px;color:var(--mu);font-size:10px;padding:4px 10px;cursor:pointer;transition:all .15s}
+.notes-tbtn:hover{color:var(--ac);border-color:var(--ac)}
+/* ══ FILE UPLOAD ══ */
+.attach-btn{background:none;border:1px solid var(--bd);border-radius:6px;color:var(--mu);font-size:14px;padding:0 10px;cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:36px;transition:all .15s;flex-shrink:0}
+.attach-btn:hover{color:var(--ac);border-color:var(--ac)}
+.attach-preview{display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(212,168,83,.1);border:1px solid rgba(212,168,83,.3);border-radius:6px;font-size:10px;color:var(--ac);margin:0 4px 4px}
+.attach-preview button{background:none;border:none;color:var(--mu);cursor:pointer;font-size:12px;padding:0 2px}
+.attach-preview button:hover{color:var(--red)}
+.msg-file-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(212,168,83,.1);border:1px solid rgba(212,168,83,.3);border-radius:4px;font-size:9px;color:var(--ac);margin-bottom:4px;cursor:pointer}
+/* ══ AGENT AUTONOME ══ */
+.agent-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.agent-hdr{padding:14px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--s1)}
+.agent-body{flex:1;overflow-y:auto;padding:12px 16px}
+.agent-step-card{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:10px;transition:border-color .3s}
+.agent-step-card.running{border-color:var(--ac);animation:pulse-border 1.5s infinite}
+.agent-step-card.done{border-color:rgba(74,222,128,.4)}
+@keyframes pulse-border{0%,100%{border-color:var(--ac)}50%{border-color:rgba(212,168,83,.2)}}
+.agent-step-output{font-size:11px;color:var(--mu);line-height:1.65;white-space:pre-wrap;max-height:180px;overflow-y:auto;margin-top:6px}
+.agent-final{background:linear-gradient(135deg,rgba(212,168,83,.08),rgba(74,222,128,.04));border:1px solid rgba(212,168,83,.3);border-radius:8px;padding:14px;margin-top:10px}
+.agent-final-content{font-size:12px;color:var(--tx);line-height:1.7;white-space:pre-wrap}
+/* ══ TRADUCTEUR ══ */
+.trad-wrap{flex:1;display:flex;overflow:hidden}
+.trad-left{width:48%;border-right:1px solid var(--bd);display:flex;flex-direction:column}
+.trad-right{flex:1;display:flex;flex-direction:column;overflow-y:auto}
+.trad-lang-bar{padding:8px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:5px;flex-shrink:0;background:var(--s1);flex-wrap:wrap}
+.trad-lang-btn{padding:4px 10px;border-radius:5px;border:1px solid var(--bd);font-size:10px;cursor:pointer;background:transparent;color:var(--mu);transition:all .15s}
+.trad-lang-btn.on{background:var(--ac);border-color:var(--ac);color:#09090B;font-weight:700}
+.trad-textarea{flex:1;background:transparent;border:none;color:var(--tx);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:14px;resize:none;outline:none;line-height:1.7;min-height:120px}
+.trad-run-btn{margin:8px;background:var(--ac);border:none;border-radius:6px;color:#09090B;font-family:'Syne',sans-serif;font-weight:800;font-size:11px;padding:9px 18px;cursor:pointer;align-self:flex-end}
+.trad-result-card{padding:12px 14px;border-bottom:1px solid var(--bd)}
+/* ══ VIDEO HOVER PLAY ══ */
+.yt-vcard{position:relative}
+.yt-play-overlay{position:absolute;top:0;left:0;right:0;height:90px;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;border-radius:8px 8px 0 0;opacity:0;transition:opacity .2s;pointer-events:none}
+.yt-vcard:hover .yt-play-overlay{opacity:1}
+.yt-play-big{font-size:28px}
+@media(max-width:767px){
+  .notes-list{display:none}
+  .trad-wrap{flex-direction:column}
+  .trad-left{width:100%;border-right:none;border-bottom:1px solid var(--bd);max-height:40vh}
 }
 
 /* ── MOBILE BOTTOM TAB BAR ── */
@@ -1509,6 +1586,296 @@ function AINewsBlock() {
 }
 
 // ── YOUTUBE TAB COMPONENT ─────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════
+// NOTES TAB
+// ═══════════════════════════════════════════════════════════
+function NotesTab({ onCopyToChat }) {
+  const load = () => { try { return JSON.parse(localStorage.getItem("multiia_notes")||"[]"); } catch { return []; } };
+  const save = (list) => { try { localStorage.setItem("multiia_notes", JSON.stringify(list)); } catch {} };
+  const [notes, setNotes] = React.useState(load);
+  const [activeId, setActiveId] = React.useState(null);
+  const activeNote = notes.find(n => n.id === activeId);
+
+  const newNote = () => {
+    const n = { id: "n_"+Date.now(), title: "Nouvelle note", content: "", date: new Date().toISOString() };
+    const updated = [n, ...notes]; setNotes(updated); save(updated); setActiveId(n.id);
+  };
+  const updateNote = (field, val) => {
+    const updated = notes.map(n => n.id===activeId ? {...n, [field]:val, date:new Date().toISOString()} : n);
+    setNotes(updated); save(updated);
+  };
+  const delNote = () => {
+    if (!window.confirm("Supprimer cette note ?")) return;
+    const updated = notes.filter(n => n.id!==activeId);
+    setNotes(updated); save(updated); setActiveId(updated[0]?.id || null);
+  };
+  const fmtDate = (d) => new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+
+  return (
+    <div className="notes-wrap">
+      <div className="notes-list">
+        <div className="notes-list-hdr">
+          <span>📝 {notes.length} note{notes.length!==1?"s":""}</span>
+          <button className="notes-new-btn" onClick={newNote}>＋</button>
+        </div>
+        {notes.length === 0 && <div style={{padding:"20px 12px",fontSize:10,color:"var(--mu)",textAlign:"center"}}>Aucune note.<br/>Clique sur ＋</div>}
+        {notes.map(n => (
+          <div key={n.id} className={`notes-item ${n.id===activeId?"on":""}`} onClick={() => setActiveId(n.id)}>
+            <div className="notes-item-title">{n.title||"Sans titre"}</div>
+            <div className="notes-item-date">{fmtDate(n.date)}</div>
+            {n.content && <div className="notes-item-preview">{n.content.slice(0,50)}</div>}
+          </div>
+        ))}
+      </div>
+      <div className="notes-editor">
+        {!activeNote ? (
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:"var(--mu)"}}>
+            <div style={{fontSize:32}}>📝</div>
+            <div style={{fontSize:11}}>Sélectionne une note ou crée-en une</div>
+            <button className="notes-new-btn" onClick={newNote} style={{padding:"8px 16px",fontSize:11}}>＋ Nouvelle note</button>
+          </div>
+        ) : (
+          <>
+            <div className="notes-editor-hdr">
+              <input className="notes-title-inp" value={activeNote.title}
+                onChange={e => updateNote("title", e.target.value)} placeholder="Titre de la note"/>
+              <button className="notes-del-btn" onClick={delNote}>🗑</button>
+            </div>
+            <textarea className="notes-textarea" value={activeNote.content}
+              onChange={e => updateNote("content", e.target.value)}
+              placeholder="Écris ici... Markdown supporté (visuellement).&#10;&#10;Ctrl+A pour tout sélectionner, puis copie vers le chat."/>
+            <div className="notes-toolbar">
+              <button className="notes-tbtn" onClick={() => navigator.clipboard.writeText(activeNote.content||"")}>⎘ Copier</button>
+              <button className="notes-tbtn" onClick={() => onCopyToChat && onCopyToChat(activeNote.content||"")}>↗ Vers Chat</button>
+              <span style={{marginLeft:"auto",fontSize:8,color:"var(--mu)"}}>{(activeNote.content||"").length} car · {(activeNote.content||"").split(/\s+/).filter(Boolean).length} mots</span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRADUCTEUR TAB
+// ═══════════════════════════════════════════════════════════
+function TraducteurTab({ enabled, apiKeys }) {
+  const LANGS = ["🇫🇷 Français","🇬🇧 Anglais","🇪🇸 Espagnol","🇩🇪 Allemand","🇮🇹 Italien","🇵🇹 Portugais","🇷🇺 Russe","🇯🇵 Japonais","🇨🇳 Chinois","🇦🇪 Arabe"];
+  const [src, setSrc] = React.useState("🇫🇷 Français");
+  const [tgt, setTgt] = React.useState("🇬🇧 Anglais");
+  const [text, setText] = React.useState("");
+  const [results, setResults] = React.useState({});
+  const [loading, setLoading] = React.useState({});
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
+
+  const translate = async () => {
+    if (!text.trim() || !activeIds.length) return;
+    const prompt = `Traduis ce texte du ${src.replace(/^.+\s/,"")} vers le ${tgt.replace(/^.+\s/,"")}. Retourne UNIQUEMENT la traduction, sans commentaires ni explications.\n\n${text}`;
+    const newLoad = {}; activeIds.forEach(id=>{newLoad[id]=true;}); setLoading(newLoad);
+    const newRes = {}; activeIds.forEach(id=>{newRes[id]="";}); setResults(newRes);
+    await Promise.all(activeIds.map(async id => {
+      try {
+        const r = await callModel(id,[{role:"user",content:prompt}],apiKeys,"Tu es un traducteur expert. Tu traduis fidèlement sans ajouter de commentaires.");
+        setResults(prev=>({...prev,[id]:r}));
+      } catch(e) { setResults(prev=>({...prev,[id]:"❌ "+e.message})); }
+      finally { setLoading(prev=>({...prev,[id]:false})); }
+    }));
+  };
+
+  return (
+    <div className="trad-wrap">
+      <div className="trad-left">
+        <div className="trad-lang-bar">
+          <span style={{fontSize:9,color:"var(--mu)"}}>De :</span>
+          <select style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontFamily:"'IBM Plex Mono',monospace",fontSize:10,padding:"3px 6px"}}
+            value={src} onChange={e=>setSrc(e.target.value)}>
+            {LANGS.map(l=><option key={l} value={l}>{l}</option>)}
+          </select>
+          <span style={{fontSize:12,color:"var(--mu)"}}>→</span>
+          <select style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontFamily:"'IBM Plex Mono',monospace",fontSize:10,padding:"3px 6px"}}
+            value={tgt} onChange={e=>setTgt(e.target.value)}>
+            {LANGS.map(l=><option key={l} value={l}>{l}</option>)}
+          </select>
+          <button style={{marginLeft:"auto",background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:10,padding:"2px 6px",cursor:"pointer"}}
+            onClick={()=>{const t=src; setSrc(tgt); setTgt(t);}}>⇄ Inverser</button>
+        </div>
+        <textarea className="trad-textarea" value={text} onChange={e=>setText(e.target.value)}
+          placeholder={`Texte à traduire en ${tgt.replace(/^.+\s/,"")}...`}/>
+        <div style={{padding:"8px 10px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:8,background:"var(--s1)",flexShrink:0}}>
+          <span style={{fontSize:9,color:"var(--mu)",flex:1}}>{activeIds.length} IA{activeIds.length!==1?"s":""} active{activeIds.length!==1?"s":""}</span>
+          <button className="trad-run-btn" onClick={translate} disabled={!text.trim()||!activeIds.length}>
+            🌍 Traduire avec toutes les IAs
+          </button>
+        </div>
+      </div>
+      <div className="trad-right">
+        {activeIds.length===0 && <div style={{padding:20,fontSize:11,color:"var(--mu)"}}>Active au moins une IA dans Config.</div>}
+        {activeIds.map(id => {
+          const m = MODEL_DEFS[id];
+          return (
+            <div key={id} className="trad-result-card">
+              <div style={{fontSize:9,fontWeight:700,color:m.color,marginBottom:6,display:"flex",alignItems:"center",gap:6}}>
+                {m.icon} {m.name}
+                {loading[id] && <span style={{fontSize:8,color:"var(--mu)"}}>⏳ traduction...</span>}
+                {results[id] && !loading[id] && <button onClick={()=>navigator.clipboard.writeText(results[id])} style={{marginLeft:"auto",background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:9,padding:"1px 5px",cursor:"pointer"}}>⎘</button>}
+              </div>
+              {results[id] ? <div style={{fontSize:12,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{results[id]}</div>
+                : <div style={{fontSize:10,color:"var(--bd)"}}>{loading[id]?"...":"—"}</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// AGENT AUTONOME TAB
+// ═══════════════════════════════════════════════════════════
+function AgentTab({ enabled, apiKeys }) {
+  const [objective, setObjective] = React.useState("");
+  const [steps, setSteps] = React.useState([]);
+  const [running, setRunning] = React.useState(false);
+  const [currentStep, setCurrentStep] = React.useState(-1);
+  const [finalResult, setFinalResult] = React.useState("");
+  const [agentIA, setAgentIA] = React.useState("claude");
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
+
+  const run = async () => {
+    if (!objective.trim()) return;
+    const ia = activeIds.includes(agentIA) ? agentIA : activeIds[0];
+    if (!ia) return;
+    setRunning(true); setSteps([]); setFinalResult(""); setCurrentStep(0);
+    try {
+      // Étape 1: Décomposer l'objectif
+      const planPrompt = `Tu es un agent IA autonome. Décompose cet objectif en 3 à 5 étapes concrètes et exécutables.
+Objectif : ${objective}
+
+Réponds UNIQUEMENT avec un JSON valide dans ce format exact :
+{"steps": [{"id":1,"title":"Titre court","action":"Description de l'action à réaliser"},...]}`;
+      
+      const planRaw = await callModel(ia,[{role:"user",content:planPrompt}],apiKeys,"Tu es un agent autonome. Tu réponds uniquement en JSON valide, sans markdown.");
+      let plan;
+      try {
+        const clean = planRaw.replace(/\`\`\`json|\`\`\`/g,"").trim();
+        plan = JSON.parse(clean);
+      } catch { 
+        plan = {steps:[
+          {id:1,title:"Analyse",action:"Analyser l'objectif et les contraintes"},
+          {id:2,title:"Exécution",action:"Réaliser la tâche principale : "+objective},
+          {id:3,title:"Synthèse",action:"Synthétiser et présenter les résultats"}
+        ]};
+      }
+      const plannedSteps = plan.steps.map(s=>({...s,output:"",status:"pending"}));
+      setSteps(plannedSteps);
+
+      // Exécuter chaque étape
+      let context = "";
+      for (let i=0; i<plannedSteps.length; i++) {
+        setCurrentStep(i);
+        const step = plannedSteps[i];
+        setSteps(prev=>prev.map((s,idx)=>idx===i?{...s,status:"running"}:s));
+        
+        const stepPrompt = `Objectif global : ${objective}
+${context ? "Contexte des étapes précédentes :\n"+context+"\n\n" : ""}Étape actuelle (${i+1}/${plannedSteps.length}) : ${step.title}
+Action : ${step.action}
+
+Réalise cette étape de façon concrète et utile. Sois précis et actionnable.`;
+        
+        try {
+          const output = await callModel(ia,[{role:"user",content:stepPrompt}],apiKeys,"Tu es un agent IA expert. Tu exécutes chaque étape de façon concrète et précise.");
+          context += `\nÉtape ${i+1} (${step.title}): ${output.slice(0,500)}`;
+          setSteps(prev=>prev.map((s,idx)=>idx===i?{...s,output,status:"done"}:s));
+        } catch(e) {
+          setSteps(prev=>prev.map((s,idx)=>idx===i?{...s,output:"❌ "+e.message,status:"error"}:s));
+        }
+      }
+
+      // Synthèse finale
+      setCurrentStep(plannedSteps.length);
+      const synthPrompt = `Objectif : ${objective}\n\nToutes les étapes ont été réalisées. Voici le contexte :\n${context}\n\nFais une synthèse finale claire, structurée et actionnable pour l'utilisateur.`;
+      const synthesis = await callModel(ia,[{role:"user",content:synthPrompt}],apiKeys,"Tu es un expert en synthèse. Tu présentes les résultats de façon claire et utile.");
+      setFinalResult(synthesis);
+    } finally { setRunning(false); setCurrentStep(-1); }
+  };
+
+  const STEP_TEMPLATES = [
+    {label:"📝 Article de blog",obj:"Écris un article de blog complet sur l'intelligence artificielle en 2025, avec introduction accrocheuse, 3 sections développées et conclusion"},
+    {label:"📊 Analyse concurrentielle",obj:"Fais une analyse concurrentielle de ChatGPT, Claude et Gemini : forces, faiblesses, cas d'usage idéaux"},
+    {label:"💻 Plan technique",obj:"Crée un plan technique détaillé pour développer une application React de gestion de tâches avec backend Node.js"},
+    {label:"🎯 Stratégie marketing",obj:"Développe une stratégie marketing pour lancer une application mobile IA sur le marché français"},
+  ];
+
+  return (
+    <div className="agent-wrap">
+      <div className="agent-hdr">
+        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🤖 Agent Autonome</div>
+        <div style={{fontSize:9,color:"var(--mu)",marginTop:3}}>Donne un objectif complexe → l'IA planifie, décompose et exécute étape par étape</div>
+      </div>
+      <div style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)"}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+          {STEP_TEMPLATES.map(t=>(
+            <button key={t.label} onClick={()=>setObjective(t.obj)}
+              style={{padding:"4px 10px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <textarea style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontFamily:"'IBM Plex Mono',monospace",fontSize:12,padding:"10px 12px",resize:"none",outline:"none",minHeight:64,boxSizing:"border-box"}}
+          value={objective} onChange={e=>setObjective(e.target.value)}
+          placeholder="Décris ton objectif… Ex: Écris un article complet sur le machine learning, avec exemples de code Python et cas d'usage pratiques"/>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
+          <span style={{fontSize:9,color:"var(--mu)"}}>IA :</span>
+          <select className="yt-add-inp" style={{flex:"none",width:"auto",padding:"3px 6px",fontSize:10}} value={agentIA} onChange={e=>setAgentIA(e.target.value)}>
+            {activeIds.map(id=><option key={id} value={id}>{MODEL_DEFS[id].icon} {MODEL_DEFS[id].short}</option>)}
+          </select>
+          <button onClick={run} disabled={running||!objective.trim()||!activeIds.length}
+            style={{marginLeft:"auto",background:running?"var(--s2)":"var(--ac)",border:"none",borderRadius:7,color:running?"var(--mu)":"#09090B",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:12,padding:"9px 20px",cursor:running?"not-allowed":"pointer"}}>
+            {running?"⏳ Exécution...":"▶ Lancer l'agent"}
+          </button>
+        </div>
+      </div>
+      <div className="agent-body">
+        {steps.length===0 && !running && (
+          <div style={{textAlign:"center",padding:"40px 20px",color:"var(--mu)"}}>
+            <div style={{fontSize:40,marginBottom:12}}>🤖</div>
+            <div style={{fontSize:12,marginBottom:6}}>L'agent va :</div>
+            <div style={{fontSize:10,lineHeight:1.9,color:"#555568"}}>
+              1️⃣ Analyser ton objectif<br/>
+              2️⃣ Le décomposer en étapes<br/>
+              3️⃣ Exécuter chaque étape séquentiellement<br/>
+              4️⃣ Produire une synthèse finale
+            </div>
+          </div>
+        )}
+        {steps.map((s,i)=>(
+          <div key={s.id} className={`agent-step-card ${s.status}`}>
+            <div style={{fontSize:9,color:"var(--mu)",marginBottom:4,display:"flex",alignItems:"center",gap:6}}>
+              <span style={{background:s.status==="done"?"var(--green)":s.status==="running"?"var(--ac)":"var(--bd)",color:s.status==="done"||s.status==="running"?"#09090B":"var(--mu)",padding:"1px 6px",borderRadius:3,fontWeight:700}}>
+                {s.status==="done"?"✓":s.status==="running"?"⏳":i+1}
+              </span>
+              ÉTAPE {i+1}/{steps.length}
+            </div>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",marginBottom:4}}>{s.title}</div>
+            <div style={{fontSize:9,color:"var(--mu)",marginBottom:6,fontStyle:"italic"}}>{s.action}</div>
+            {s.output && <div className="agent-step-output">{s.output}</div>}
+          </div>
+        ))}
+        {finalResult && (
+          <div className="agent-final">
+            <div style={{fontSize:10,color:"var(--ac)",fontWeight:700,marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+              ✨ SYNTHÈSE FINALE
+              <button onClick={()=>navigator.clipboard.writeText(finalResult)} style={{marginLeft:"auto",background:"none",border:"1px solid rgba(212,168,83,.3)",borderRadius:3,color:"var(--ac)",fontSize:9,padding:"2px 8px",cursor:"pointer"}}>⎘ Copier</button>
+            </div>
+            <div className="agent-final-content">{finalResult}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function YouTubeTab() {
   const [chCatFilter, setChCatFilter] = useState("Tout");
   const [vidTheme, setVidTheme] = useState("trending");
@@ -1521,8 +1888,10 @@ function YouTubeTab() {
   const [vidLastFetch, setVidLastFetch] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [langFilter, setLangFilter] = useState("Tout");
+  const [playingVid, setPlayingVid] = useState(null); // videoId en cours de lecture inline
+  const [hoverVid, setHoverVid] = useState(null);     // videoId survolé (aperçu)
+  const hoverTimerRef = React.useRef(null);
 
-  // ── Chaînes personnalisées ──
   const [customChannels, setCustomChannels] = useState(() => {
     try { return JSON.parse(localStorage.getItem("multiia_yt_channels") || "[]"); } catch { return []; }
   });
@@ -1533,25 +1902,16 @@ function YouTubeTab() {
   const CUSTOM_COLORS = ["#FF6B35","#D4A853","#4ADE80","#60A5FA","#A78BFA","#E07FA0","#F97316","#34D399","#60C8E0","#FB923C","#FACC15","#C084FC"];
   const CUSTOM_CATS = ["IA & Tech","IA Technique","Tutoriels","Actualités IA","Dev & Tech","Interviews","IA Locale & OSS","Science & IA","Data Science","IA Business","Autre"];
 
-  const saveCustom = (list) => {
-    setCustomChannels(list);
-    try { localStorage.setItem("multiia_yt_channels", JSON.stringify(list)); } catch {}
-  };
+  const saveCustom = (list) => { setCustomChannels(list); try { localStorage.setItem("multiia_yt_channels", JSON.stringify(list)); } catch {} };
 
   const extractHandle = (url) => {
-    // Extraire @handle ou nom de chaîne depuis URL YouTube
     const m = url.match(/youtube\.com\/@([^/?&]+)/) || url.match(/youtube\.com\/c\/([^/?&]+)/) || url.match(/youtube\.com\/user\/([^/?&]+)/);
     return m ? m[1] : "";
   };
 
   const handleUrlChange = (url) => {
     const handle = extractHandle(url);
-    setAddForm(f => ({
-      ...f,
-      url: url,
-      name: f.name || (handle ? handle : ""),
-      icon: f.icon || "⭐",
-    }));
+    setAddForm(f => ({ ...f, url, name: f.name || (handle || "") }));
   };
 
   const addChannel = () => {
@@ -1559,49 +1919,52 @@ function YouTubeTab() {
     if (!addForm.name.trim()) { setAddError("Le nom est requis"); return; }
     if (!addForm.url.trim() || !addForm.url.includes("youtube")) { setAddError("Lien YouTube invalide"); return; }
     const ch = {
-      id: "custom_" + Date.now(),
-      name: addForm.name.trim(),
+      id: "custom_" + Date.now(), name: addForm.name.trim(),
       url: addForm.url.trim().startsWith("http") ? addForm.url.trim() : "https://" + addForm.url.trim(),
-      desc: addForm.desc.trim() || "Chaîne ajoutée manuellement.",
-      lang: addForm.lang,
-      cat: addForm.cat,
-      icon: addForm.icon || "⭐",
-      color: addForm.color,
-      subs: "",
-      custom: true,
+      desc: addForm.desc.trim() || "Chaîne ajoutée manuellement.", lang: addForm.lang,
+      cat: addForm.cat, icon: addForm.icon || "⭐", color: addForm.color, subs: "", custom: true,
     };
     saveCustom([ch, ...customChannels]);
     setShowAddModal(false);
     setAddForm({ name:"", url:"", desc:"", lang:"🇫🇷", cat:"IA & Tech", icon:"⭐", color:"#FF6B35" });
   };
 
-  const deleteCustom = (e, id) => {
-    e.preventDefault(); e.stopPropagation();
-    saveCustom(customChannels.filter(c => c.id !== id));
-  };
-
+  const deleteCustom = (e, id) => { e.preventDefault(); e.stopPropagation(); saveCustom(customChannels.filter(c => c.id !== id)); };
   const getKeys = () => { try { return JSON.parse(localStorage.getItem("multiia_keys")||"{}"); } catch { return {}; } };
 
-  const fetchVideos = async (themeId) => {
-    if (vidCache[themeId]) {
-      const c = vidCache[themeId];
-      setVidItems(c.items); setVidProvider(c.provider); setVidFallback(c.fallback||false); setVidLastFetch(new Date()); return;
+  const fetchVideos = async (themeId, extraChannels) => {
+    const cacheKey = themeId + (extraChannels ? "_ch" : "");
+    if (vidCache[cacheKey]) {
+      const cached = vidCache[cacheKey];
+      setVidItems(cached.items); setVidProvider(cached.provider); setVidFallback(cached.fallback||false); setVidLastFetch(new Date()); return;
     }
     const theme = YT_VIDEO_THEMES.find(t => t.id === themeId);
     setVidLoading(true); setVidError(null); setVidItems([]);
     try {
-      const result = await fetchYTVideos(theme.query, getKeys());
+      // Injecter les chaînes perso FR/EN dans le prompt
+      const custFrEn = (customChannels||[]).filter(ch => ch.lang === "🇫🇷" || ch.lang === "🇺🇸").slice(0,5);
+      const channelContext = custFrEn.length > 0
+        ? `\n\nChaînes personnalisées à inclure dans les recommandations : ${custFrEn.map(ch => ch.name).join(", ")}`
+        : "";
+      const customTheme = {...theme, query: theme.query + channelContext};
+      const result = await fetchYTVideos(customTheme.query, getKeys());
       setVidItems(result.items); setVidProvider(result.provider); setVidFallback(result.fallback||false);
-      setVidCache(prev => ({...prev, [themeId]: result})); setVidLastFetch(new Date());
+      setVidCache(prev => ({...prev, [cacheKey]: result})); setVidLastFetch(new Date());
     } catch(e) { setVidError("Erreur : " + e.message); }
     finally { setVidLoading(false); }
   };
 
-  useEffect(() => { fetchVideos("trending"); }, []);
+  useEffect(() => { fetchVideos("trending", true); }, []);
 
-  const handleTheme = (id) => { setVidTheme(id); fetchVideos(id); };
+  const handleTheme = (id) => { setVidTheme(id); fetchVideos(id, true); };
   const openYTSearch = () => {
     if (searchQuery.trim()) window.open("https://www.youtube.com/results?search_query=" + encodeURIComponent(searchQuery.trim() + " IA intelligence artificielle"), "_blank");
+  };
+
+  const extractVideoId = (url) => {
+    if (!url) return null;
+    const m = url.match(/[?&]v=([^&]{11})/) || url.match(/youtu\.be\/([^?]{11})/) || url.match(/embed\/([^?]{11})/);
+    return m ? m[1] : null;
   };
 
   const allChannels = [...customChannels, ...YT_CHANNELS];
@@ -1621,13 +1984,21 @@ function YouTubeTab() {
   });
 
   const fmtTime = (d) => {
-    if (!d) return "";
-    const m = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (!d) return ""; const m = Math.floor((Date.now() - d.getTime()) / 60000);
     if (m < 1) return "à l'instant"; if (m < 60) return `${m}min`; return `${Math.floor(m/60)}h`;
   };
-
   const VCatColors = { "Tutoriel":"#4ADE80","Actualité":"#D4A853","Analyse":"#60A5FA","Review":"#A78BFA","Interview":"#E07FA0" };
-  const vcatColor = (c) => VCatColors[c] || "#9CA3AF";
+  const vcatColor = (col) => VCatColors[col] || "#9CA3AF";
+
+  const handleVidMouseEnter = (vidId) => {
+    if (!vidId) return;
+    clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setHoverVid(vidId), 700);
+  };
+  const handleVidMouseLeave = () => {
+    clearTimeout(hoverTimerRef.current);
+    setHoverVid(null);
+  };
 
   return (
     <div className="yt-wrap">
@@ -1636,11 +2007,11 @@ function YouTubeTab() {
         <div className="yt-hero-icon">▶️</div>
         <div>
           <div className="yt-hero-title">YouTube IA & Tech</div>
-          <div className="yt-hero-sub">Les meilleures chaînes françaises et internationales sur l'IA, plus les vidéos tendances générées par tes IAs actives. Chaînes triées par langue et catégorie.</div>
+          <div className="yt-hero-sub">Vidéos recommandées par IA en premier · Chaînes FR &amp; EN · Lecture inline au survol · Tes chaînes perso intégrées aux recommandations.</div>
         </div>
       </div>
 
-      {/* Barre de recherche YouTube */}
+      {/* Barre de recherche */}
       <div className="yt-search-bar">
         <input className="yt-search-inp" placeholder="Rechercher une vidéo IA sur YouTube…"
           value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
@@ -1652,32 +2023,153 @@ function YouTubeTab() {
         </a>
       </div>
 
-      {/* Chaînes recommandées */}
+      {/* ══ VIDÉOS RECOMMANDÉES EN PREMIER ══ */}
+      <div className="yt-sec-title" style={{marginTop:0}}>🎬 Vidéos recommandées
+        {vidProvider && !vidLoading && <span style={{fontWeight:400,fontSize:9,color:"var(--mu)",marginLeft:6}}>via {vidProvider} · {vidLastFetch?fmtTime(vidLastFetch):""}</span>}
+        {customChannels.filter(ch=>ch.lang==="🇫🇷"||ch.lang==="🇺🇸").length>0 &&
+          <span style={{fontSize:8,color:"var(--ac)",marginLeft:8,background:"rgba(212,168,83,.1)",padding:"1px 5px",borderRadius:3}}>+ tes {customChannels.filter(ch=>ch.lang==="🇫🇷"||ch.lang==="🇺🇸").length} chaîne(s) perso</span>
+        }
+        <button className="rss-refresh" style={{marginLeft:"auto"}}
+          onClick={() => { setVidCache({}); fetchVideos(vidTheme, true); }} disabled={vidLoading}>↺</button>
+      </div>
+
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {YT_VIDEO_THEMES.map(t => (
+            <button key={t.id} className={`filter-btn ${vidTheme===t.id?"on":""}`}
+              style={vidTheme!==t.id?{borderColor:"#FF6B6B44"}:{background:"#CC0000",borderColor:"#CC0000",color:"#fff"}}
+              onClick={() => handleTheme(t.id)} disabled={vidLoading}>{t.label}</button>
+          ))}
+        </div>
+        <div style={{marginLeft:"auto",display:"flex",gap:4}}>
+          {["Tout","🇫🇷 Français","🇺🇸 Anglais"].map(l => (
+            <button key={l} className={`filter-btn ${langFilter===l?"on":""}`} style={{fontSize:9}} onClick={() => setLangFilter(l)}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {vidFallback && !vidLoading && (
+        <div style={{padding:"7px 12px",background:"rgba(251,146,60,.08)",border:"1px solid rgba(251,146,60,.2)",borderRadius:6,fontSize:9,color:"var(--orange)",marginBottom:10}}>
+          ⚠️ <strong>Mode cache</strong> — Active <strong>Gemini</strong> ou <strong>Groq</strong> dans Config pour des recommandations dynamiques.
+        </div>
+      )}
+      {vidLoading && (
+        <div className="rss-loading">
+          <span className="dots"><span>·</span><span>·</span><span>·</span></span>
+          <div style={{marginTop:8}}>Génération des recommandations… (Gemini → Groq → Mistral)</div>
+        </div>
+      )}
+      {vidError && !vidLoading && (
+        <div className="rss-err">⚠️ {vidError}
+          <button onClick={() => fetchVideos(vidTheme, true)} style={{marginLeft:10,padding:"2px 8px",borderRadius:3,border:"1px solid var(--orange)",background:"transparent",color:"var(--orange)",fontSize:9,cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>Réessayer</button>
+        </div>
+      )}
+
+      {!vidLoading && filteredVideos.length > 0 && (
+        <div className="yt-vgrid" style={{marginBottom:24}}>
+          {filteredVideos.map((v, i) => {
+            const vidId = extractVideoId(v.url);
+            const isPlaying = playingVid === vidId && vidId;
+            const isHovered = hoverVid === vidId && vidId;
+            return (
+              <div key={i} className={`yt-vcard ${v.important?"important":""}`}
+                style={{cursor:"pointer",display:"flex",flexDirection:"column",borderRadius:8,background:"var(--s1)",border:"1px solid var(--bd)",overflow:"hidden",position:"relative"}}
+                onMouseEnter={() => handleVidMouseEnter(vidId)}
+                onMouseLeave={handleVidMouseLeave}>
+
+                {/* Thumbnail zone */}
+                <div style={{position:"relative",width:"100%",paddingTop:"56.25%",background:"#0a0a0a",flexShrink:0}}>
+                  {/* Thumbnail image */}
+                  {vidId && (
+                    <img
+                      src={`https://img.youtube.com/vi/${vidId}/mqdefault.jpg`}
+                      alt={v.title}
+                      style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",
+                        opacity: isPlaying ? 0 : 1, transition:"opacity .3s"}}
+                    />
+                  )}
+                  {!vidId && (
+                    <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
+                      <span style={{fontSize:28}}>▶</span>
+                    </div>
+                  )}
+
+                  {/* Lecteur iframe inline au survol prolongé ou au clic */}
+                  {vidId && (isPlaying || isHovered) && (
+                    <iframe
+                      style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}}
+                      src={`https://www.youtube.com/embed/${vidId}?autoplay=1&mute=${isHovered&&!isPlaying?1:0}&rel=0`}
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                    />
+                  )}
+
+                  {/* Overlay play button */}
+                  {!isPlaying && !isHovered && (
+                    <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",
+                      background:"rgba(0,0,0,.35)",opacity:0,transition:"opacity .2s"}}
+                      className="yt-play-overlay">
+                      <span style={{fontSize:32,filter:"drop-shadow(0 2px 8px rgba(0,0,0,.9))"}}>▶️</span>
+                    </div>
+                  )}
+
+                  {/* Bouton plein écran */}
+                  {vidId && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setPlayingVid(isPlaying?null:vidId); }}
+                      style={{position:"absolute",bottom:5,right:5,background:"rgba(0,0,0,.75)",border:"none",
+                        borderRadius:4,color:"#fff",fontSize:9,padding:"2px 6px",cursor:"pointer",zIndex:10}}>
+                      {isPlaying ? "✕ Fermer" : "▶ Lire"}
+                    </button>
+                  )}
+                  {v.duration && <span style={{position:"absolute",bottom:5,left:5,fontSize:7,background:"rgba(0,0,0,.8)",color:"#fff",padding:"1px 3px",borderRadius:2,zIndex:5}}>{v.duration}</span>}
+                </div>
+
+                {/* Infos vidéo */}
+                <a href={v.url || "https://www.youtube.com/results?search_query="+encodeURIComponent(v.title+" "+v.channel)}
+                  target="_blank" rel="noreferrer" className="yt-vbody" style={{textDecoration:"none",padding:"8px 10px",flex:1,display:"flex",flexDirection:"column",gap:4}}>
+                  <div className="yt-vtitle">{v.important && <span className="yt-vstar">★ </span>}{v.title}</div>
+                  <div className="yt-vmeta" style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                    <span className="yt-vch">{v.channel}</span>
+                    {v.views && <span className="yt-vviews">· {v.views}</span>}
+                    {v.date && <span className="yt-vdate">· {v.date}</span>}
+                    {v.lang && <span className="yt-vlang">{v.lang==="FR"?"🇫🇷":"🇺🇸"}</span>}
+                    {v.category && <span className="yt-vcat" style={{background:vcatColor(v.category)+"18",color:vcatColor(v.category)}}>{v.category}</span>}
+                  </div>
+                  {v.summary && <div className="yt-vdesc">{v.summary}</div>}
+                  {v.lang==="EN" && <div style={{fontSize:8,color:"var(--mu)",fontStyle:"italic"}}>💬 Sous-titres FR disponibles sur YouTube</div>}
+                </a>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ══ CHAÎNES RECOMMANDÉES ══ */}
       <div className="yt-sec-title">📡 Chaînes recommandées
         <span style={{fontWeight:400,fontSize:9,color:"var(--mu)",marginLeft:4}}>— {filteredChannels.length} chaîne{filteredChannels.length>1?"s":""}{customChannels.length>0&&<span style={{color:"#FF6B6B",marginLeft:6}}>· {customChannels.length} perso</span>}</span>
         <button className="yt-search-btn" style={{marginLeft:"auto",padding:"4px 10px",fontSize:9,background:"rgba(255,107,107,.15)",border:"1px solid rgba(255,107,107,.4)",color:"#FF6B6B"}}
           onClick={() => setShowAddModal(true)}>＋ Ajouter une chaîne</button>
       </div>
       <div className="yt-cat-filter">
-        {["Tout","⭐ Mes chaînes","🇫🇷 Français","🇺🇸 Anglais",...CUSTOM_CATS.slice(0,5)].map(c => (
-          <button key={c} className={`filter-btn ${chCatFilter===c?"on":""}`}
-            style={chCatFilter!==c?{borderColor:"#FF6B6B44",color:"var(--mu)"}:{background:"#FF0000",borderColor:"#FF0000",color:"#fff"}}
-            onClick={() => setChCatFilter(c)}>{c}</button>
+        {["Tout","⭐ Mes chaînes","🇫🇷 Français","🇺🇸 Anglais",...CUSTOM_CATS.slice(0,5)].map(cat => (
+          <button key={cat} className={`filter-btn ${chCatFilter===cat?"on":""}`}
+            style={chCatFilter!==cat?{borderColor:"#FF6B6B44",color:"var(--mu)"}:{background:"#FF0000",borderColor:"#FF0000",color:"#fff"}}
+            onClick={() => setChCatFilter(cat)}>{cat}</button>
         ))}
       </div>
       <div className="yt-ch-grid">
-        {/* Carte Ajouter */}
         <div className="yt-add-card" onClick={() => setShowAddModal(true)}>
           <div className="yt-add-card-icon">＋</div>
           <div className="yt-add-card-label">Ajouter une chaîne<br/><span style={{fontSize:8,color:"var(--mu)"}}>Colle l'URL YouTube</span></div>
         </div>
         {filteredChannels.map(ch => (
-          <div key={ch.id} className="yt-ch-card" style={{borderColor:ch.color+"33",position:"relative",textDecoration:"none",display:"flex",flexDirection:"column",gap:8,padding:"clamp(11px,1.8vw,14px)",background:"var(--s1)",border:`1px solid ${ch.color}33`,borderRadius:9,cursor:"pointer"}}
+          <div key={ch.id} className="yt-ch-card" style={{borderColor:ch.color+"33",position:"relative",display:"flex",flexDirection:"column",gap:8,padding:"clamp(11px,1.8vw,14px)",background:"var(--s1)",border:`1px solid ${ch.color}33`,borderRadius:9,cursor:"pointer"}}
             onClick={() => window.open(ch.url,"_blank")}>
             {ch.custom && (
               <>
                 <span className="yt-custom-badge" style={{position:"absolute",top:7,left:7}}>PERSO</span>
-                <button className="yt-ch-del" onClick={e => deleteCustom(e, ch.id)} title="Supprimer cette chaîne">✕</button>
+                <button className="yt-ch-del" onClick={e => deleteCustom(e, ch.id)} title="Supprimer">✕</button>
               </>
             )}
             <div className="yt-ch-hdr" style={{marginTop:ch.custom?12:0}}>
@@ -1702,38 +2194,30 @@ function YouTubeTab() {
         <div className="yt-add-modal" onClick={e => { if(e.target===e.currentTarget) setShowAddModal(false); }}>
           <div className="yt-add-modal-box">
             <div className="yt-add-modal-title">➕ Ajouter une chaîne YouTube</div>
-
             <div className="yt-add-field">
               <label className="yt-add-label">Lien YouTube *</label>
               <input className="yt-add-inp" placeholder="https://www.youtube.com/@NomDeLaChaine"
                 value={addForm.url} onChange={e => handleUrlChange(e.target.value)}/>
-              <span style={{fontSize:8,color:"var(--mu)"}}>Ex : youtube.com/@Underscore_ · youtube.com/c/NomChaine</span>
+              <span style={{fontSize:8,color:"var(--mu)"}}>Ex : youtube.com/@Underscore_</span>
             </div>
-
             <div className="yt-add-row">
               <div className="yt-add-field" style={{flex:2}}>
-                <label className="yt-add-label">Nom de la chaîne *</label>
-                <input className="yt-add-inp" placeholder="Nom affiché"
-                  value={addForm.name} onChange={e => setAddForm(f => ({...f, name:e.target.value}))}/>
+                <label className="yt-add-label">Nom *</label>
+                <input className="yt-add-inp" value={addForm.name} onChange={e=>setAddForm(f=>({...f,name:e.target.value}))} placeholder="Nom affiché"/>
               </div>
               <div className="yt-add-field" style={{flex:1}}>
                 <label className="yt-add-label">Icône</label>
-                <input className="yt-add-inp" placeholder="🎬" maxLength={2}
-                  value={addForm.icon} onChange={e => setAddForm(f => ({...f, icon:e.target.value}))}
-                  style={{textAlign:"center",fontSize:16}}/>
+                <input className="yt-add-inp" placeholder="🎬" maxLength={2} value={addForm.icon} onChange={e=>setAddForm(f=>({...f,icon:e.target.value}))} style={{textAlign:"center",fontSize:16}}/>
               </div>
             </div>
-
             <div className="yt-add-field">
-              <label className="yt-add-label">Description courte</label>
-              <input className="yt-add-inp" placeholder="Ce que fait cette chaîne…"
-                value={addForm.desc} onChange={e => setAddForm(f => ({...f, desc:e.target.value}))}/>
+              <label className="yt-add-label">Description</label>
+              <input className="yt-add-inp" value={addForm.desc} onChange={e=>setAddForm(f=>({...f,desc:e.target.value}))} placeholder="Ce que fait cette chaîne…"/>
             </div>
-
             <div className="yt-add-row">
               <div className="yt-add-field" style={{flex:1}}>
                 <label className="yt-add-label">Langue</label>
-                <select className="yt-add-inp" value={addForm.lang} onChange={e => setAddForm(f => ({...f, lang:e.target.value}))}>
+                <select className="yt-add-inp" value={addForm.lang} onChange={e=>setAddForm(f=>({...f,lang:e.target.value}))}>
                   <option value="🇫🇷">🇫🇷 Français</option>
                   <option value="🇺🇸">🇺🇸 Anglais</option>
                   <option value="🌐">🌐 Autre</option>
@@ -1741,23 +2225,19 @@ function YouTubeTab() {
               </div>
               <div className="yt-add-field" style={{flex:2}}>
                 <label className="yt-add-label">Catégorie</label>
-                <select className="yt-add-inp" value={addForm.cat} onChange={e => setAddForm(f => ({...f, cat:e.target.value}))}>
-                  {CUSTOM_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                <select className="yt-add-inp" value={addForm.cat} onChange={e=>setAddForm(f=>({...f,cat:e.target.value}))}>
+                  {CUSTOM_CATS.map(cat=><option key={cat} value={cat}>{cat}</option>)}
                 </select>
               </div>
             </div>
-
             <div className="yt-add-field">
               <label className="yt-add-label">Couleur</label>
               <div className="yt-add-colors">
-                {CUSTOM_COLORS.map(c => (
-                  <div key={c} className={`yt-add-color ${addForm.color===c?"sel":""}`}
-                    style={{background:c}} onClick={() => setAddForm(f => ({...f, color:c}))}/>
+                {CUSTOM_COLORS.map(col=>(
+                  <div key={col} className={`yt-add-color ${addForm.color===col?"sel":""}`} style={{background:col}} onClick={()=>setAddForm(f=>({...f,color:col}))}/>
                 ))}
               </div>
             </div>
-
-            {/* Aperçu */}
             {addForm.name && (
               <div style={{padding:"8px 10px",background:addForm.color+"12",border:`1px solid ${addForm.color}33`,borderRadius:6,display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:28,height:28,borderRadius:"50%",background:addForm.color+"22",border:`2px solid ${addForm.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:addForm.color}}>{addForm.icon||"⭐"}</div>
@@ -1767,102 +2247,21 @@ function YouTubeTab() {
                 </div>
               </div>
             )}
-
             {addError && <div style={{fontSize:9,color:"var(--red)",padding:"4px 8px",background:"rgba(248,113,113,.1)",borderRadius:4}}>⚠️ {addError}</div>}
-
             <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-              <button onClick={() => { setShowAddModal(false); setAddError(""); }}
-                style={{padding:"7px 14px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:10}}>
-                Annuler
-              </button>
+              <button onClick={()=>{setShowAddModal(false);setAddError("");}}
+                style={{padding:"7px 14px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:10}}>Annuler</button>
               <button onClick={addChannel}
-                style={{padding:"7px 18px",background:"rgba(255,107,107,.15)",border:"1px solid #FF6B6B",borderRadius:5,color:"#FF6B6B",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:10,fontWeight:700}}>
-                ＋ Ajouter
-              </button>
+                style={{padding:"7px 18px",background:"rgba(255,107,107,.15)",border:"1px solid #FF6B6B",borderRadius:5,color:"#FF6B6B",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:10,fontWeight:700}}>＋ Ajouter</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Vidéos tendances IA via IA */}
-      <div className="yt-sec-title" style={{marginTop:8}}>🎬 Vidéos recommandées
-        {vidProvider && !vidLoading && <span style={{fontWeight:400,fontSize:9,color:"var(--mu)",marginLeft:6}}>via {vidProvider} · {vidLastFetch?fmtTime(vidLastFetch):""}</span>}
-        <button className="rss-refresh" style={{marginLeft:"auto"}}
-          onClick={() => { setVidCache(prev=>({...prev,[vidTheme]:null})); fetchVideos(vidTheme); }}
-          disabled={vidLoading}>↺</button>
-      </div>
-
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-          {YT_VIDEO_THEMES.map(t => (
-            <button key={t.id} className={`filter-btn ${vidTheme===t.id?"on":""}`}
-              style={vidTheme!==t.id?{borderColor:"#FF6B6B44"}:{background:"#CC0000",borderColor:"#CC0000",color:"#fff"}}
-              onClick={() => handleTheme(t.id)} disabled={vidLoading}>{t.label}</button>
-          ))}
-        </div>
-        <div style={{marginLeft:"auto",display:"flex",gap:4}}>
-          {["Tout","🇫🇷 Français","🇺🇸 Anglais"].map(l => (
-            <button key={l} className={`filter-btn ${langFilter===l?"on":""}`} style={{fontSize:9}} onClick={() => setLangFilter(l)}>{l}</button>
-          ))}
-        </div>
-      </div>
-
-      {vidFallback && !vidLoading && (
-        <div style={{padding:"7px 12px",background:"rgba(251,146,60,.08)",border:"1px solid rgba(251,146,60,.2)",borderRadius:6,fontSize:9,color:"var(--orange)",marginBottom:10}}>
-          ⚠️ <strong>Mode cache</strong> — Active <strong>Gemini</strong> ou <strong>Groq</strong> dans Config pour des recommandations dynamiques et à jour.
-        </div>
-      )}
-
-      {vidLoading && (
-        <div className="rss-loading">
-          <span className="dots"><span>·</span><span>·</span><span>·</span></span>
-          <div style={{marginTop:8}}>Génération des recommandations… (Gemini → Groq → Mistral)</div>
-        </div>
-      )}
-      {vidError && !vidLoading && (
-        <div className="rss-err">⚠️ {vidError}
-          <button onClick={() => fetchVideos(vidTheme)} style={{marginLeft:10,padding:"2px 8px",borderRadius:3,border:"1px solid var(--orange)",background:"transparent",color:"var(--orange)",fontSize:9,cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>Réessayer</button>
-        </div>
-      )}
-
-      {!vidLoading && filteredVideos.length > 0 && (
-        <div className="yt-vgrid">
-          {filteredVideos.map((v, i) => (
-            <a key={i} className={`yt-vcard ${v.important?"important":""}`}
-              href={v.url || "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.title + " " + v.channel)}
-              target="_blank" rel="noreferrer">
-              <div className="yt-thumb">
-                <span className="yt-play">▶</span>
-                {v.duration && <span style={{position:"absolute",bottom:3,right:3,fontSize:7,background:"rgba(0,0,0,.8)",color:"#fff",padding:"1px 3px",borderRadius:2}}>{v.duration}</span>}
-              </div>
-              <div className="yt-vbody">
-                <div className="yt-vtitle">{v.important && <span className="yt-vstar">★ </span>}{v.title}</div>
-                <div className="yt-vmeta">
-                  <span className="yt-vch">{v.channel}</span>
-                  {v.views && <span className="yt-vviews">· {v.views}</span>}
-                  {v.date && <span className="yt-vdate">· {v.date}</span>}
-                  {v.lang && <span className="yt-vlang">{v.lang==="FR"?"🇫🇷":"🇺🇸"}</span>}
-                  {v.category && <span className="yt-vcat" style={{background:vcatColor(v.category)+"18",color:vcatColor(v.category)}}>{v.category}</span>}
-                </div>
-                {v.summary && <div className="yt-vdesc">{v.summary}</div>}
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
-
-      {/* Liens directs recherches YouTube populaires */}
+      {/* Recherches rapides */}
       <div className="yt-sec-title" style={{marginTop:8}}>🔗 Recherches rapides YouTube</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        {[
-          ["🤖 IA 2025 FR","intelligence artificielle 2025 français"],
-          ["💻 LLM tutoriel","LLM tutorial local llama ollama"],
-          ["🎨 Stable Diffusion","stable diffusion FLUX tutorial 2025"],
-          ["⚡ Groq Llama","groq llama fast inference"],
-          ["🧠 DeepSeek","deepseek R1 explained"],
-          ["🔥 Claude vs GPT","claude vs gpt-4 comparison 2025"],
-          ["📊 Machine Learning","machine learning course beginner 2025"],
-          ["🇫🇷 IA France","intelligence artificielle France actualités 2025"],
+        {[["🤖 IA 2025 FR","intelligence artificielle 2025 français"],["💻 LLM tutoriel","LLM tutorial local llama ollama"],["🎨 Stable Diffusion","stable diffusion FLUX tutorial 2025"],["⚡ Groq Llama","groq llama fast inference"],["🧠 DeepSeek","deepseek R1 explained"],["🔥 Claude vs GPT","claude vs gpt-4 comparison 2025"],["📊 Machine Learning","machine learning course beginner 2025"],["🇫🇷 IA France","intelligence artificielle France actualités 2025"],
         ].map(([label,q]) => (
           <a key={label} href={"https://www.youtube.com/results?search_query="+encodeURIComponent(q)}
             target="_blank" rel="noreferrer" className="fbtn" style={{fontSize:9,padding:"5px 10px",textDecoration:"none"}}>
@@ -1903,8 +2302,60 @@ function PromptsTab({ onInject }) {
   const delPrompt = (id) => saveCustom(customPrompts.filter(p => p.id !== id));
   const PROMPT_CATS_FORM = ["Code","Rédaction","Analyse","Créatif","Business","Traduction","Autre"];
 
+  const [genDesc, setGenDesc] = React.useState("");
+  const [genLoading, setGenLoading] = React.useState(false);
+  const [genResults, setGenResults] = React.useState([]);
+
+  const generatePrompts = async () => {
+    if (!genDesc.trim()) return;
+    setGenLoading(true); setGenResults([]);
+    try {
+      const prompt = "Tu es un expert en prompt engineering. Genere exactement 5 prompts optimises pour cette intention : " + genDesc + "\n\nChaque prompt doit etre pret a l'emploi, precis et efficace.\nReponds UNIQUEMENT avec JSON valide :\n{\"prompts\":[{\"title\":\"Titre court\",\"prompt\":\"Le prompt complet\",\"use\":\"Ideal pour...\"}]}";
+      const r = await callClaude([{role:"user",content:prompt}],"Tu es expert en prompt engineering. Tu reponds uniquement en JSON valide, sans markdown ni backticks.");
+      const clean = r.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean);
+      setGenResults(data.prompts||[]);
+    } catch(e) { setGenResults([{title:"Erreur",prompt:"Impossible de generer : "+e.message,use:""}]); }
+    setGenLoading(false);
+  };
+
   return (
     <div className="prom-wrap">
+      {/* ══ GÉNÉRATEUR DE PROMPTS IA ══ */}
+      <div style={{padding:"12px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0}}>
+        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:12,color:"var(--ac)",marginBottom:8}}>✨ Générateur de prompts IA
+          <span style={{fontSize:8,color:"var(--mu)",fontWeight:400,marginLeft:6}}>— Décris ton intention → Claude génère 5 prompts optimisés</span>
+        </div>
+        <div style={{display:"flex",gap:8,marginBottom:8}}>
+          <input style={{flex:1,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontFamily:"'IBM Plex Mono',monospace",fontSize:12,padding:"8px 12px",outline:"none"}}
+            value={genDesc} onChange={e=>setGenDesc(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")generatePrompts();}}
+            placeholder="Ex: résumer un PDF, écrire un email pro, déboguer du Python…"/>
+          <button onClick={generatePrompts} disabled={genLoading||!genDesc.trim()}
+            style={{background:genLoading?"var(--s2)":"var(--ac)",border:"none",borderRadius:7,color:genLoading?"var(--mu)":"#09090B",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:11,padding:"8px 14px",cursor:genLoading?"not-allowed":"pointer",whiteSpace:"nowrap"}}>
+            {genLoading?"⏳...":"✨ Générer 5 prompts"}
+          </button>
+        </div>
+        {genResults.length > 0 && (
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {genResults.map((p,i)=>(
+              <div key={i} style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,padding:"9px 11px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,flexWrap:"wrap"}}>
+                  <span style={{fontSize:9,fontWeight:700,color:"var(--ac)"}}>{i+1}. {p.title}</span>
+                  {p.use && <span style={{fontSize:8,color:"var(--mu)",fontStyle:"italic"}}>{p.use}</span>}
+                  <div style={{marginLeft:"auto",display:"flex",gap:4}}>
+                    <button onClick={()=>navigator.clipboard.writeText(p.prompt)}
+                      style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer"}}>⎘ Copier</button>
+                    <button onClick={()=>onInject&&onInject(p.prompt)}
+                      style={{background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:4,color:"var(--ac)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontWeight:700}}>↗ Utiliser</button>
+                  </div>
+                </div>
+                <div style={{fontSize:11,color:"var(--tx)",lineHeight:1.65,fontFamily:"'IBM Plex Mono',monospace",wordBreak:"break-word"}}>{p.prompt}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="prom-hdr">
         <div style={{flex:1}}>
           <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--tx)",marginBottom:4}}>📋 Bibliothèque de Prompts</div>
@@ -2546,6 +2997,49 @@ export default function App() {
   const handleTouchStart = () => {};
   const handleTouchEnd = () => {};
 
+  // ── File attachment ──
+  const [attachedFile, setAttachedFile] = React.useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileAttach = async (file) => {
+    if (!file) return;
+    const name = file.name; const type = file.type;
+    if (type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => setAttachedFile({name, type:"image", base64:reader.result.split(",")[1], mimeType:type, icon:"🖼"});
+      reader.readAsDataURL(file);
+    } else if (name.endsWith(".txt")||name.endsWith(".md")||name.endsWith(".csv")||name.endsWith(".json")) {
+      const text = await file.text();
+      setAttachedFile({name, type:"text", content:text.slice(0,12000), icon:"📄"});
+    } else if (name.endsWith(".pdf")) {
+      // Extraction basique PDF côté client
+      const reader = new FileReader();
+      reader.onload = () => {
+        const raw = reader.result;
+        // Extraire les séquences de texte lisibles (méthode simple sans lib externe)
+        let extracted = "";
+        const matches = raw.match(/[ -~À-ÿ]{4,}/g) || [];
+        extracted = matches.filter(s => /[a-zA-ZÀ-ÿ]{3,}/.test(s)).join(" ").slice(0,8000);
+        setAttachedFile({name, type:"pdf", content:extracted||"[PDF chargé — extraction de texte limitée]", icon:"📕"});
+      };
+      reader.readAsBinaryString(file);
+    } else {
+      showToast("⚠️ Format non supporté. Utilise PDF, TXT, MD, CSV, JSON ou image.");
+    }
+  };
+
+  // ── Notifications PWA ──
+  const requestNotifPerm = async () => {
+    if ("Notification" in window && Notification.permission === "default") {
+      await Notification.requestPermission();
+    }
+  };
+  const sendNotif = (title, body) => {
+    if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+      new Notification(title, { body, icon:"/icon-192.png", badge:"/icon-192.png" });
+    }
+  };
+
   // ── PWA Install prompt ──
   const [pwaPrompt, setPwaPrompt] = useState(null);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
@@ -2569,7 +3063,7 @@ export default function App() {
   };
   const dismissPwaBanner = () => { setShowPwaBanner(false); localStorage.setItem("multiia_pwa_dismissed","1"); };
 
-  const MOBILE_TABS = [["chat","◈","Chat"],["recherche","🔎","Cherche"],["redaction","✍️","Rédac."],["medias","🎬","Médias"],["config","⚙","Config"]];
+  const MOBILE_TABS = [["chat","◈","Chat"],["recherche","🔎","Cherche"],["notes","📝","Notes"],["agent","🤖","Agent"],["config","⚙","Config"]];
 
   const [debInput, setDebInput] = useState("");
   const [debPhase, setDebPhase] = useState(0);
@@ -2741,9 +3235,11 @@ export default function App() {
   const sendChat = async () => {
     const text = chatInput.trim(); if (!text) return;
     setShowGrammarPopup(false); setGrammarResult(null); setChatInput("");
+    const file = attachedFile; setAttachedFile(null);
+    requestNotifPerm();
     const ids = IDS.filter(id => enabled[id] && !isLimited(id));
     const blockedIds = IDS.filter(id => enabled[id] && isLimited(id));
-    const userMsg = { role:"user", content:text };
+    const userMsg = { role:"user", content:text, file: file ? {name:file.name, icon:file.icon} : null };
     const allActive = [...ids, ...blockedIds];
     setConversations(prev => { const n={...prev}; allActive.forEach(id => { n[id] = [...prev[id], userMsg]; }); return n; });
     if (blockedIds.length) {
@@ -2754,7 +3250,7 @@ export default function App() {
     await Promise.all(ids.map(async (id) => {
       try {
         const hist = [...conversations[id], userMsg];
-        const reply = await callModel(id, hist, apiKeys, currentSystem);
+        const reply = await callModel(id, hist, apiKeys, currentSystem, file);
         const replyTok = Math.ceil((reply||"").length / 3.8);
         trackUsage(id, replyTok);
         if (ttsEnabled && ids.length===1) speakText(reply);
@@ -2913,6 +3409,9 @@ export default function App() {
               ["medias","🎬 Médias"],
               ["arena","⚔ Arène"],
               ["debate","⚡ Débat"],
+              ["notes","📝 Notes"],
+              ["traducteur","🌍 Trad."],
+              ["agent","🤖 Agent"],
               ["stats","📊 Stats"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
@@ -3016,6 +3515,13 @@ export default function App() {
               <div className="hist-hdr">
                 <span className="hist-hdr-title">📂 Historique</span>
                 <button className="hist-save-btn" onClick={() => saveConv(null)} title="Sauvegarder maintenant">💾</button>
+                <button className="hist-save-btn" style={{background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.3)",color:"var(--blue)"}} title="Partager la conversation" onClick={() => {
+                  const msgs = Object.values(conversations).flat().slice(-8);
+                  if (!msgs.length) { showToast("Aucun message à partager"); return; }
+                  const txt = msgs.map(m=>(m.role==="user"?"Tu: ":"IA: ")+m.content.slice(0,300)).join("\n\n");
+                  navigator.clipboard.writeText(txt);
+                  showToast("📋 Conversation copiée !");
+                }}>🔗</button>
                 <button className="hist-new-btn" onClick={newConv} title="Nouvelle conversation">＋</button>
               </div>
               <div className="hist-list">
@@ -3111,7 +3617,15 @@ export default function App() {
               );
             })}
           </div>
-          <div className="foot">
+          {/* File attachment preview */}
+        {attachedFile && (
+          <div className="attach-preview">
+            <span>{attachedFile.icon} {attachedFile.name}</span>
+            <span style={{fontSize:8,color:"var(--mu)"}}>{attachedFile.type==="image"?"Image":"Texte"} · {attachedFile.type!=="image"?Math.round((attachedFile.content||"").length/1000)+"k car":""}</span>
+            <button onClick={()=>setAttachedFile(null)}>✕</button>
+          </div>
+        )}
+        <div className="foot">
             <div className="ir">
               <div className="ta-wrap">
                 <textarea rows={1} value={chatInput} style={isMobile?{fontSize:"16px"}:{}}
@@ -3426,6 +3940,31 @@ export default function App() {
           </div>
         )}
 
+        {/* ── NOTES TAB ── */}
+        {tab === "notes" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <NotesTab onCopyToChat={(text) => { setTab("chat"); setTimeout(()=>setChatInput(text),100); }}/>
+          </div>
+        )}
+
+        {/* ── TRADUCTEUR TAB ── */}
+        {tab === "traducteur" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:8}}>
+              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🌍 Traducteur Multi-IA</div>
+              <div style={{fontSize:9,color:"var(--mu)",marginLeft:4}}>Toutes les IAs traduisent en parallèle — compare et choisis la meilleure version</div>
+            </div>
+            <TraducteurTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {/* ── AGENT TAB ── */}
+        {tab === "agent" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <AgentTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
         {/* ── STATS TAB ── */}
         {tab === "stats" && (
           <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
@@ -3583,6 +4122,41 @@ export default function App() {
                 <input type="file" ref={fileRef} accept=".json" onChange={importKeys}/>
               </div>
               <div className="cfg-note" style={{marginTop:8}}>📁 Exporte tes clés avant chaque mise à jour. À la réouverture, importe le fichier → toutes tes clés sont restaurées instantanément.</div>
+            </div>
+
+            <div className="sec">
+              <div className="sec-title">☁️ Backup complet (clés + notes + prompts + chaînes)</div>
+              <div className="file-btns">
+                <button className="fbtn p" onClick={() => {
+                  const keys = JSON.parse(localStorage.getItem("multiia_keys")||"{}");
+                  const prompts = JSON.parse(localStorage.getItem("multiia_prompts")||"[]");
+                  const notes = JSON.parse(localStorage.getItem("multiia_notes")||"[]");
+                  const channels = JSON.parse(localStorage.getItem("multiia_yt_channels")||"[]");
+                  const backup = {_v:"multiia_backup_v1",_date:new Date().toISOString(),keys,prompts,notes,channels};
+                  const blob = new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
+                  const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+                  a.download="multiia-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click();
+                  showToast("✅ Backup complet téléchargé !");
+                }}><span>⬇</span><div><div>Télécharger backup</div><div style={{fontSize:8,opacity:.7}}>Tout en un fichier</div></div></button>
+                <label className="fbtn" style={{cursor:"pointer"}}>
+                  <span>⬆</span><div><div>Restaurer backup</div><div style={{fontSize:8,opacity:.7}}>Importe le .json</div></div>
+                  <input type="file" accept=".json" style={{display:"none"}} onChange={async e => {
+                    const f = e.target.files[0]; if (!f) return;
+                    const text = await f.text();
+                    try {
+                      const backup = JSON.parse(text);
+                      if (!backup._v||!backup._v.startsWith("multiia_backup")) { showToast("❌ Fichier invalide"); return; }
+                      if (backup.keys) { localStorage.setItem("multiia_keys",JSON.stringify(backup.keys)); }
+                      if (backup.prompts) localStorage.setItem("multiia_prompts",JSON.stringify(backup.prompts));
+                      if (backup.notes) localStorage.setItem("multiia_notes",JSON.stringify(backup.notes));
+                      if (backup.channels) localStorage.setItem("multiia_yt_channels",JSON.stringify(backup.channels));
+                      showToast("✅ Tout restauré ! Recharge la page.");
+                    } catch { showToast("❌ Erreur de lecture"); }
+                    e.target.value="";
+                  }}/>
+                </label>
+              </div>
+              <div className="cfg-note" style={{marginTop:8}}>☁️ Ce fichier backup contient TOUT : clés API, prompts perso, notes et chaînes YouTube. Parfait pour sync entre appareils ou après mise à jour.</div>
             </div>
 
             <div className="sec">
