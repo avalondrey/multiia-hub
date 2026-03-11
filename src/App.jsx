@@ -255,14 +255,16 @@ async function callClaude(messages, system="Tu es un assistant IA utile et conci
     ? {"Content-Type":"application/json","x-api-key":"","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}
     : {"Content-Type":"application/json"};
   const r = await fetch(endpoint,{method:"POST",headers:claudeHeaders,body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages:apiMessages})});
-  const d = await r.json();
-  if(d.error) {
-    const msg = d.error.message || JSON.stringify(d.error);
-    if (msg.includes("page") || msg.includes("html") || msg.includes("JSON")) {
-      throw new Error("Claude non disponible sur le web — Configure ANTHROPIC_API_KEY dans Vercel, ou utilise Groq/Mistral (gratuits, aucune config requise)");
+  const rawText = await r.text();
+  let d;
+  try { d = JSON.parse(rawText); } catch {
+    // La réponse n'est pas du JSON → le proxy n'est pas configuré
+    if (!isLocal) {
+      throw new Error("❌ Proxy Claude non configuré sur Vercel. Va dans Vercel → Settings → Environment Variables → ajoute ANTHROPIC_API_KEY. En attendant, utilise Groq ou Mistral (100% gratuits, aucune config).");
     }
-    throw new Error(msg);
+    throw new Error("Réponse invalide de l'API Claude : " + rawText.slice(0,100));
   }
+  if(d.error) throw new Error(d.error.message || JSON.stringify(d.error));
   return d.content[0].text;
 }
 async function callGemini(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
@@ -3224,8 +3226,12 @@ export default function App() {
     setShowGrammarPopup(false); setGrammarResult(null); setChatInput("");
     const file = attachedFile; setAttachedFile(null);
     requestNotifPerm();
-    const ids = IDS.filter(id => enabled[id] && !isLimited(id));
-    const blockedIds = IDS.filter(id => enabled[id] && isLimited(id));
+    // ── Respect du mode solo : n'envoyer qu'à l'IA sélectionnée ──
+    const targetIds = soloId ? [soloId] : IDS.filter(id => enabled[id]);
+    // Sur mobile, n'envoyer qu'à l'IA visible
+    const finalTargets = isMobile && !soloId ? [mobileCol] : targetIds;
+    const ids = finalTargets.filter(id => !isLimited(id));
+    const blockedIds = finalTargets.filter(id => isLimited(id));
     const userMsg = { role:"user", content:text, file: file ? {name:file.name, icon:file.icon} : null };
     const allActive = [...ids, ...blockedIds];
     setConversations(prev => { const n={...prev}; allActive.forEach(id => { n[id] = [...prev[id], userMsg]; }); return n; });
