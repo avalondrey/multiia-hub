@@ -88,7 +88,7 @@ async function fetchYTVideos(themeQuery, savedKeys) {
 
   if (keys.gemini) {
     try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keys.gemini}`,
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`,
         { method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ contents:[{role:"user",parts:[{text:YT_VIDEO_PROMPT(themeQuery)}]}], generationConfig:{maxOutputTokens:2000} }) });
       const d = await r.json();
@@ -248,7 +248,7 @@ async function callClaude(messages, system="Tu es un assistant IA utile et conci
     }
     return { role: m.role, content: m.content };
   });
-  const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages:apiMessages})});
+  const isVercel = window.location.hostname !== "localhost"; const endpoint = isVercel ? "/api/claude" : "https://api.anthropic.com/v1/messages"; const headers = isVercel ? {"Content-Type":"application/json"} : {"Content-Type":"application/json"}; const r = await fetch(endpoint,{method:"POST",headers,body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages:apiMessages})});
   const d = await r.json();
   if(d.error) throw new Error(d.error.message);
   return d.content[0].text;
@@ -256,7 +256,7 @@ async function callClaude(messages, system="Tu es un assistant IA utile et conci
 async function callGemini(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
   const last=messages[messages.length-1].content;
   const history=messages.slice(0,-1).map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
-  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[...history,{role:"user",parts:[{text:last}]}],generationConfig:{maxOutputTokens:1500}})});
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[...history,{role:"user",parts:[{text:last}]}],generationConfig:{maxOutputTokens:1500}})});
   const d=await r.json();
   if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
   return d.candidates[0].content.parts[0].text;
@@ -1249,7 +1249,7 @@ function parseNewsJSON(text) {
 
 async function tryGemini(query, apiKey) {
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     { method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ contents:[{role:"user",parts:[{text:NEWS_PROMPT(query)}]}], generationConfig:{maxOutputTokens:2000} }) }
   );
@@ -2077,8 +2077,9 @@ function YouTubeTab() {
                 onMouseEnter={() => handleVidMouseEnter(vidId)}
                 onMouseLeave={handleVidMouseLeave}>
 
-                {/* Thumbnail zone */}
-                <div style={{position:"relative",width:"100%",paddingTop:"56.25%",background:"#0a0a0a",flexShrink:0}}>
+                {/* Thumbnail zone — clic direct pour lire */}
+                <div style={{position:"relative",width:"100%",paddingTop:"56.25%",background:"#0a0a0a",flexShrink:0,cursor:"pointer"}}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); if(vidId) setPlayingVid(isPlaying?null:vidId); }}>
                   {/* Thumbnail image */}
                   {vidId && (
                     <img
@@ -2116,9 +2117,9 @@ function YouTubeTab() {
                   {/* Bouton plein écran */}
                   {vidId && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); setPlayingVid(isPlaying?null:vidId); }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPlayingVid(isPlaying?null:vidId); }}
                       style={{position:"absolute",bottom:5,right:5,background:"rgba(0,0,0,.75)",border:"none",
-                        borderRadius:4,color:"#fff",fontSize:9,padding:"2px 6px",cursor:"pointer",zIndex:10}}>
+                        borderRadius:4,color:"#fff",fontSize:9,padding:"2px 6px",cursor:"pointer",zIndex:30}}>
                       {isPlaying ? "✕ Fermer" : "▶ Lire"}
                     </button>
                   )}
