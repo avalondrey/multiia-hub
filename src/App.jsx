@@ -3,7 +3,8 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "9.0";
+const APP_VERSION = "9.5";
+const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
   claude:   { name:"Claude Sonnet 4",  short:"Claude",   provider:"Anthropic",    color:"#D4A853", bg:"#1A1208", border:"#3D2E0A", icon:"✦", apiType:"claude",  maxTokens:200000, free:true,  desc:"Intégré sans clé" },
@@ -255,7 +256,13 @@ async function callClaude(messages, system="Tu es un assistant IA utile et conci
     : {"Content-Type":"application/json"};
   const r = await fetch(endpoint,{method:"POST",headers:claudeHeaders,body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages:apiMessages})});
   const d = await r.json();
-  if(d.error) throw new Error(d.error.message);
+  if(d.error) {
+    const msg = d.error.message || JSON.stringify(d.error);
+    if (msg.includes("page") || msg.includes("html") || msg.includes("JSON")) {
+      throw new Error("Claude non disponible sur le web — Configure ANTHROPIC_API_KEY dans Vercel, ou utilise Groq/Mistral (gratuits, aucune config requise)");
+    }
+    throw new Error(msg);
+  }
   return d.content[0].text;
 }
 async function callGemini(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
@@ -2078,78 +2085,39 @@ function YouTubeTab() {
         <div className="yt-vgrid" style={{marginBottom:24}}>
           {filteredVideos.map((v, i) => {
             const vidId = extractVideoId(v.url);
-            const isPlaying = playingVid === vidId && vidId;
-            const isHovered = hoverVid === vidId && vidId;
+            const openUrl = v.url || "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.title + " " + v.channel);
+            const thumbUrl = vidId ? `https://img.youtube.com/vi/${vidId}/mqdefault.jpg` : null;
             return (
-              <div key={i} className={`yt-vcard ${v.important?"important":""}`}
-                style={{cursor:"pointer",display:"flex",flexDirection:"column",borderRadius:8,background:"var(--s1)",border:"1px solid var(--bd)",overflow:"hidden",position:"relative"}}
-                onMouseEnter={() => handleVidMouseEnter(vidId)}
-                onMouseLeave={handleVidMouseLeave}>
-
-                {/* Thumbnail zone — clic direct pour lire */}
-                <div style={{position:"relative",width:"100%",paddingTop:"56.25%",background:"#0a0a0a",flexShrink:0,cursor:"pointer"}}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); if(vidId) setPlayingVid(isPlaying?null:vidId); }}>
-                  {/* Thumbnail image */}
-                  {vidId && (
-                    <img
-                      src={`https://img.youtube.com/vi/${vidId}/mqdefault.jpg`}
-                      alt={v.title}
-                      style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",
-                        opacity: isPlaying ? 0 : 1, transition:"opacity .3s"}}
-                    />
-                  )}
-                  {!vidId && (
-                    <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
-                      <span style={{fontSize:28}}>▶</span>
-                    </div>
-                  )}
-
-                  {/* Lecteur iframe inline au survol prolongé ou au clic */}
-                  {vidId && (isPlaying || isHovered) && (
-                    <iframe
-                      style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}}
-                      src={`https://www.youtube.com/embed/${vidId}?autoplay=1&mute=${isHovered&&!isPlaying?1:0}&rel=0`}
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen
-                    />
-                  )}
-
-                  {/* Overlay play button */}
-                  {!isPlaying && !isHovered && (
-                    <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",
-                      background:"rgba(0,0,0,.35)",opacity:0,transition:"opacity .2s"}}
-                      className="yt-play-overlay">
-                      <span style={{fontSize:32,filter:"drop-shadow(0 2px 8px rgba(0,0,0,.9))"}}>▶️</span>
-                    </div>
-                  )}
-
-                  {/* Bouton plein écran */}
-                  {vidId && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPlayingVid(isPlaying?null:vidId); }}
-                      style={{position:"absolute",bottom:5,right:5,background:"rgba(0,0,0,.75)",border:"none",
-                        borderRadius:4,color:"#fff",fontSize:9,padding:"2px 6px",cursor:"pointer",zIndex:30}}>
-                      {isPlaying ? "✕ Fermer" : "▶ Lire"}
-                    </button>
-                  )}
-                  {v.duration && <span style={{position:"absolute",bottom:5,left:5,fontSize:7,background:"rgba(0,0,0,.8)",color:"#fff",padding:"1px 3px",borderRadius:2,zIndex:5}}>{v.duration}</span>}
+            <a key={i} className={`yt-vcard ${v.important?"important":""}`}
+              href={openUrl} target="_blank" rel="noreferrer"
+              style={{display:"flex",flexDirection:"column",borderRadius:8,background:"var(--s1)",border:"1px solid var(--bd)",overflow:"hidden",textDecoration:"none",transition:"transform .15s,border-color .15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.borderColor="#FF0000"}}
+              onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.borderColor="var(--bd)"}}>
+              {/* Thumbnail */}
+              <div style={{position:"relative",width:"100%",paddingTop:"56.25%",background:"#111",flexShrink:0}}>
+                {thumbUrl
+                  ? <img src={thumbUrl} alt={v.title} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
+                  : <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:28,opacity:.3}}>▶</span></div>
+                }
+                <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0)",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .2s"}}
+                  className="yt-play-overlay">
+                  <span style={{fontSize:36,filter:"drop-shadow(0 2px 10px rgba(0,0,0,1))"}}>▶️</span>
                 </div>
-
-                {/* Infos vidéo */}
-                <a href={v.url || "https://www.youtube.com/results?search_query="+encodeURIComponent(v.title+" "+v.channel)}
-                  target="_blank" rel="noreferrer" className="yt-vbody" style={{textDecoration:"none",padding:"8px 10px",flex:1,display:"flex",flexDirection:"column",gap:4}}>
-                  <div className="yt-vtitle">{v.important && <span className="yt-vstar">★ </span>}{v.title}</div>
-                  <div className="yt-vmeta" style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-                    <span className="yt-vch">{v.channel}</span>
-                    {v.views && <span className="yt-vviews">· {v.views}</span>}
-                    {v.date && <span className="yt-vdate">· {v.date}</span>}
-                    {v.lang && <span className="yt-vlang">{v.lang==="FR"?"🇫🇷":"🇺🇸"}</span>}
-                    {v.category && <span className="yt-vcat" style={{background:vcatColor(v.category)+"18",color:vcatColor(v.category)}}>{v.category}</span>}
-                  </div>
-                  {v.summary && <div className="yt-vdesc">{v.summary}</div>}
-                  {v.lang==="EN" && <div style={{fontSize:8,color:"var(--mu)",fontStyle:"italic"}}>💬 Sous-titres FR disponibles sur YouTube</div>}
-                </a>
+                {v.duration && <span style={{position:"absolute",bottom:4,right:4,fontSize:8,background:"rgba(0,0,0,.85)",color:"#fff",padding:"1px 4px",borderRadius:3}}>{v.duration}</span>}
+                {v.lang && <span style={{position:"absolute",top:4,right:4,fontSize:11}}>{v.lang==="FR"?"🇫🇷":"🇺🇸"}</span>}
               </div>
+              {/* Infos */}
+              <div className="yt-vbody" style={{padding:"8px 10px",flex:1,display:"flex",flexDirection:"column",gap:3}}>
+                <div className="yt-vtitle" style={{fontSize:11,fontWeight:600,color:"var(--tx)",lineHeight:1.4}}>{v.important && <span className="yt-vstar">★ </span>}{v.title}</div>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center",marginTop:2}}>
+                  <span className="yt-vch" style={{fontSize:9,color:"var(--ac)"}}>{v.channel}</span>
+                  {v.views && <span style={{fontSize:8,color:"var(--mu)"}}>· {v.views}</span>}
+                  {v.date && <span style={{fontSize:8,color:"var(--mu)"}}>· {v.date}</span>}
+                  {v.category && <span className="yt-vcat" style={{fontSize:7,background:vcatColor(v.category)+"18",color:vcatColor(v.category),padding:"1px 5px",borderRadius:3}}>{v.category}</span>}
+                </div>
+                {v.summary && <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5,marginTop:2}}>{v.summary}</div>}
+              </div>
+            </a>
             );
           })}
         </div>
@@ -3053,6 +3021,12 @@ export default function App() {
     }
   };
 
+  // ── Zoom / Échelle UI ──
+  const [uiZoom, setUiZoom] = React.useState(() => {
+    try { return parseFloat(localStorage.getItem("multiia_zoom") || "1"); } catch { return 1; }
+  });
+  const saveZoom = (v) => { setUiZoom(v); try { localStorage.setItem("multiia_zoom", v); } catch {} };
+
   // ── PWA Install prompt ──
   const [pwaPrompt, setPwaPrompt] = useState(null);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
@@ -3353,7 +3327,7 @@ export default function App() {
   return (
     <>
       <style>{S}</style>
-      <div className="app">
+      <div className="app" style={{zoom: uiZoom, transformOrigin:"top left"}}>
 
         {/* ── OFFLINE BAR ── */}
         {!isOnline && (
@@ -3411,7 +3385,13 @@ export default function App() {
 
         {/* NAV */}
         <div className="nav" style={isMobile?{display:"none"}:{}}>
-          <div className="logo">multi<em>IA</em> <em style={{fontSize:9,color:"#444455"}}>v{APP_VERSION}</em></div>
+          <div className="logo" style={{display:"flex",alignItems:"center",gap:6}}>multi<em>IA</em>
+  <em style={{fontSize:11,color:"var(--ac)",background:"rgba(212,168,83,.15)",padding:"1px 6px",borderRadius:4,border:"1px solid rgba(212,168,83,.3)",cursor:"pointer"}}
+    title="Cliquer pour forcer le rechargement"
+    onClick={()=>{ if(window.caches) window.caches.keys().then(ks=>ks.forEach(k=>window.caches.delete(k))); window.location.reload(true); }}>
+    v{APP_VERSION}
+  </em>
+</div>
           <div className="nav-tabs">
             {[
               ["chat","◈ Chat"],
@@ -4212,6 +4192,23 @@ export default function App() {
             </div>
 
             <div className="sec">
+              <div className="sec">
+                <div className="sec-title">🔍 Zoom de l'interface</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  {[0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.5,1.75,2.0].map(z=>(
+                    <button key={z} onClick={()=>saveZoom(z)}
+                      style={{padding:"5px 12px",borderRadius:5,border:`1px solid ${uiZoom===z?"var(--ac)":"var(--bd)"}`,
+                        background:uiZoom===z?"rgba(212,168,83,.2)":"transparent",
+                        color:uiZoom===z?"var(--ac)":"var(--mu)",cursor:"pointer",fontSize:11,fontFamily:"'IBM Plex Mono',monospace",fontWeight:uiZoom===z?700:400}}>
+                      {Math.round(z*100)}%
+                    </button>
+                  ))}
+                </div>
+                <div className="cfg-note" style={{marginTop:8}}>
+                  🖥️ 4K / grand écran → essaie <strong style={{color:"var(--ac)"}}>150%</strong> ou <strong style={{color:"var(--ac)"}}>175%</strong>. Laptop → 80% ou 90%. Sauvegardé automatiquement.
+                </div>
+              </div>
+
               <div className="sec-title">☁️ Backup complet (clés + notes + prompts + chaînes)</div>
               <div className="file-btns">
                 <button className="fbtn p" onClick={() => {
