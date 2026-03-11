@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "9.8";
+const APP_VERSION = "9.9";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
@@ -223,10 +223,7 @@ const DEFAULT_PROMPTS = [
   { id:"p16", cat:"Traduction", icon:"🔄", title:"Localiser pour la France", text:"Adapte ce contenu pour le marché français (expressions, exemples, références culturelles, RGPD si besoin) :\n\n[TON CONTENU]" },
 ];
 
-const est = (t) => Math.ceil((t||"").length / 3.8);
-const convTokens = (msgs) => msgs.reduce((a,m) => a + est(m.content), 0);
 const fmt = (n) => n>=1e6?(n/1e6).toFixed(1)+"M":n>=1000?(n/1000).toFixed(1)+"k":String(n);
-const tColor = (p) => p<0.5?"#4ADE80":p<0.8?"#FACC15":"#F87171";
 
 function classifyError(msg) {
   const m = (msg||"").toLowerCase();
@@ -406,8 +403,6 @@ body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;
 .cn{font-family:'Syne',sans-serif;font-weight:700;font-size:clamp(8px,1.5vw,10px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .csub{font-size:7px;color:var(--mu)}
 .cm{margin-left:auto;display:flex;align-items:center;gap:4px;flex-shrink:0;margin-right:4px}
-.mbw{width:clamp(20px,3.5vw,32px);height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
-.mbf{height:100%;border-radius:2px;transition:width .4s}
 .mt{font-size:7px;color:var(--mu);white-space:nowrap}
 .dot{width:5px;height:5px;border-radius:50%;background:var(--mu);flex-shrink:0}
 .dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.5s infinite}
@@ -2952,27 +2947,6 @@ export default function App() {
   };
 
   // ── Statistiques d'usage ──
-  const [usageStats, setUsageStats] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("multiia_stats")||"{}"); } catch { return {}; }
-  });
-  const trackUsage = (id, tokens) => {
-    setUsageStats(prev => {
-      const n = {
-        ...prev,
-        convs: (prev.convs||0),
-        msgs: {...(prev.msgs||{}), [id]:((prev.msgs||{})[id]||0)+1},
-        tokens: {...(prev.tokens||{}), [id]:((prev.tokens||{})[id]||0)+(tokens||0)},
-      };
-      try{localStorage.setItem("multiia_stats",JSON.stringify(n));}catch{}
-      return n;
-    });
-  };
-  const resetStats = () => {
-    const empty = {convs:0,msgs:{},tokens:{}};
-    setUsageStats(empty);
-    try{localStorage.setItem("multiia_stats",JSON.stringify(empty));}catch{}
-    showToast("✓ Statistiques réinitialisées");
-  };
 
   // ── Injection prompt depuis Bibliothèque ──
   const injectPrompt = (text) => { setChatInput(text); setTab("chat"); showToast("✓ Prompt injecté dans le Chat"); };
@@ -3239,7 +3213,6 @@ export default function App() {
   const enabledIds = IDS.filter(id => enabled[id]);
   const availableIds = enabledIds.filter(id => !isLimited(id));
   const isLoadingAny = Object.values(loading).some(Boolean);
-  const totalTok = IDS.reduce((a, id) => a + convTokens(conversations[id]), 0);
 
   const sendChat = async () => {
     const text = chatInput.trim(); if (!text) return;
@@ -3264,8 +3237,6 @@ export default function App() {
       try {
         const hist = [...conversations[id], userMsg];
         const reply = await callModel(id, hist, apiKeys, currentSystem, file);
-        const replyTok = Math.ceil((reply||"").length / 3.8);
-        trackUsage(id, replyTok);
         if (ttsEnabled && ids.length===1) speakText(reply);
         setConversations(prev => {
           const updated = { ...prev, [id]: [...prev[id], { role:"assistant", content:reply }] };
@@ -3279,8 +3250,7 @@ export default function App() {
     }));
     // Auto-save après toutes les réponses
     setConversations(prev => { autoSave(prev);
-      setUsageStats(p => { const n={...p,convs:(p.convs||0)}; return n; });
-      return prev; });
+        return prev; });
   };
 
   const launchDebate = async () => {
@@ -3477,22 +3447,7 @@ export default function App() {
         )}
 
         {/* TOKEN BAR */}
-        <div className="tbar" style={isMobile?{display:"none"}:{}}>
-          <span className="tbar-lbl">TOKENS</span>
-          {IDS.map(id => {
-            const m = MODEL_DEFS[id];
-            const used = convTokens(conversations[id]);
-            const pct = Math.min(used / m.maxTokens, 1);
-            return (
-              <div className="ti" key={id} style={{ opacity:enabled[id]?1:0.2 }}>
-                <span style={{ color:m.color, fontSize:8 }}>{m.icon}</span>
-                <div className="tr"><div className="tf" style={{ width:`${pct*100}%`, background:tColor(pct) }}/></div>
-                <span style={{ fontSize:8 }}>{fmt(used)}/{fmt(m.maxTokens)}</span>
-              </div>
-            );
-          })}
-          <span className="tbar-total">∑ <span style={{ color:"var(--tx)" }}>{fmt(totalTok)}</span></span>
-        </div>
+
 
         {/* MOBILE COL TABS */}
         {tab === "chat" && (
