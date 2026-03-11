@@ -228,7 +228,7 @@ const tColor = (p) => p<0.5?"#4ADE80":p<0.8?"#FACC15":"#F87171";
 function classifyError(msg) {
   const m = (msg||"").toLowerCase();
   if (m.includes("429")||m.includes("rate limit")||m.includes("too many")) return "ratelimit";
-  if (m.includes("quota")||m.includes("credit")||m.includes("billing")||m.includes("insufficient")||m.includes("exceeded")) return "credit";
+  if (m.includes("quota")||m.includes("credit")||m.includes("billing")||m.includes("insufficient")||m.includes("exceeded")) return "credit_warn"; // warn only, don't block
   return "other";
 }
 
@@ -248,7 +248,12 @@ async function callClaude(messages, system="Tu es un assistant IA utile et conci
     }
     return { role: m.role, content: m.content };
   });
-  const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":"","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages:apiMessages})});
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const endpoint = isLocal ? "https://api.anthropic.com/v1/messages" : "/api/claude";
+  const claudeHeaders = isLocal
+    ? {"Content-Type":"application/json","x-api-key":"","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}
+    : {"Content-Type":"application/json"};
+  const r = await fetch(endpoint,{method:"POST",headers:claudeHeaders,body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages:apiMessages})});
   const d = await r.json();
   if(d.error) throw new Error(d.error.message);
   return d.content[0].text;
@@ -2832,7 +2837,8 @@ export default function App() {
   }, [limited]);
 
   const markLimited = (id, type) => {
-    const secs = type === "credit" ? CREDIT_COOLDOWN : RATE_LIMIT_COOLDOWN;
+    if (type === "credit_warn") return; // Ne pas bloquer sur erreur de crédit — l'utilisateur a peut-être du crédit
+    const secs = RATE_LIMIT_COOLDOWN;
     setLimited(prev => ({ ...prev, [id]: { until: Date.now() + secs * 1000, type } }));
   };
   const isLimited = (id) => limited[id] && limited[id].until > Date.now();
@@ -3244,7 +3250,7 @@ export default function App() {
     const allActive = [...ids, ...blockedIds];
     setConversations(prev => { const n={...prev}; allActive.forEach(id => { n[id] = [...prev[id], userMsg]; }); return n; });
     if (blockedIds.length) {
-      setConversations(prev => { const n={...prev}; blockedIds.forEach(id => { n[id] = [...prev[id], { role:"blocked", content:`⏳ ${MODEL_DEFS[id].short} bloqué. Réessai dans ${fmtCd(id)||"..."}s` }]; }); return n; });
+      setConversations(prev => { const n={...prev}; blockedIds.forEach(id => { n[id] = [...prev[id], { role:"blocked", id_blocked:id, content:`⏳ ${MODEL_DEFS[id].short} temporairement limité (rate limit). Réessai dans ${fmtCd(id)||"..."}s — ou clique sur Débloquer` }]; }); return n; });
     }
     if (!ids.length) return;
     setLoading(prev => { const n={...prev}; ids.forEach(id => { n[id]=true; }); return n; });
@@ -3261,7 +3267,7 @@ export default function App() {
         });
       } catch(e) {
         const errType = classifyError(e.message);
-        if (errType==="ratelimit"||errType==="credit") markLimited(id, errType);
+        if (errType==="ratelimit") markLimited(id, errType);
         setConversations(prev => ({ ...prev, [id]: [...prev[id], { role:"error", content:`❌ ${e.message}` }] }));
       } finally { setLoading(prev => ({ ...prev, [id]:false })); }
     }));
@@ -3282,7 +3288,7 @@ export default function App() {
     const r1 = {};
     await Promise.all(ids.map(async (id) => {
       try { r1[id] = await callModel(id, [{ role:"user", content:question }], apiKeys, "Tu es un expert. Réponds à la question de manière complète et précise."); }
-      catch(e) { const t=classifyError(e.message); if(t==="ratelimit"||t==="credit") markLimited(id,t); r1[id]=`❌ ${e.message}`; }
+      catch(e) { const t=classifyError(e.message); if(t==="ratelimit") markLimited(id,t); r1[id]=`❌ ${e.message}`; }
       tick(`Tour 1 — ${MODEL_DEFS[id].short}`);
       setDebRound1(prev => ({ ...prev, [id]:r1[id] }));
     }));
@@ -3292,7 +3298,7 @@ export default function App() {
       const others = ids.filter(o=>o!==id).map(o=>`**${MODEL_DEFS[o].short}**:\n${r1[o]||"(pas de réponse)"}`).join("\n\n---\n\n");
       const prompt = `Question: "${question}"\n\nRéponses des autres IAs:\n\n${others}\n\n---\n\nEn tenant compte de ces perspectives, affine ta réponse finale.`;
       try { r2[id] = await callModel(id, [{ role:"user", content:prompt }], apiKeys, "Tu analyses les réponses de tes pairs et affines ta propre réponse."); }
-      catch(e) { const t=classifyError(e.message); if(t==="ratelimit"||t==="credit") markLimited(id,t); r2[id]=`❌ ${e.message}`; }
+      catch(e) { const t=classifyError(e.message); if(t==="ratelimit") markLimited(id,t); r2[id]=`❌ ${e.message}`; }
       tick(`Tour 2 — ${MODEL_DEFS[id].short}`);
       setDebRound2(prev => ({ ...prev, [id]:r2[id] }));
     }));
@@ -3604,6 +3610,12 @@ export default function App() {
                     {conversations[id].map((msg, i) => (
                       <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative"}:{}}>
                         {msg.content}
+                        {msg.role==="blocked" && (
+                          <button onClick={()=>setLimited(prev=>{const n={...prev};delete n[id];return n;})}
+                            style={{marginLeft:8,background:"rgba(251,146,60,.2)",border:"1px solid rgba(251,146,60,.5)",borderRadius:4,color:"var(--orange)",fontSize:9,padding:"2px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                            🔓 Débloquer
+                          </button>
+                        )}
                         {msg.role==="assistant" && (
                           <div style={{display:"flex",gap:4,marginTop:5,justifyContent:"flex-end"}}>
                             <button className="voice-btn" title="Lire à voix haute" onClick={()=>speakText(msg.content)}>🔊</button>
@@ -3857,12 +3869,48 @@ export default function App() {
         {tab === "medias" && (
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",paddingBottom:isMobile?"64px":"0"}}>
             <div className="media-subtabs">
-              {[["youtube","▶ YouTube"],["images","🎨 Images IA"]].map(([k,l])=>(
+              {[["youtube","▶ YouTube"],["images","🎨 Images IA"],["webia","🌐 IAs Web"]].map(([k,l])=>(
                 <button key={k} className={"media-stab "+(mediaSubTab===k?"on":"")} onClick={()=>setMediaSubTab(k)}>{l}</button>
               ))}
             </div>
             <div className="media-content">
               {mediaSubTab==="youtube" && <YouTubeTab />}
+              {mediaSubTab==="webia" && (
+                <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+                  <div style={{padding:"8px 12px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                    <span style={{fontSize:10,color:"var(--mu)"}}>Clique sur une IA pour l'ouvrir en iframe ·</span>
+                    <span style={{fontSize:9,color:"var(--orange)"}}>⚠️ Certains sites bloquent les iframes (ouvrent dans un nouvel onglet)</span>
+                  </div>
+                  <div style={{display:"flex",gap:8,padding:"10px 12px",flexWrap:"wrap",flexShrink:0,borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
+                    {WEB_IAS.map(ia=>(
+                      <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
+                        style={{display:"flex",alignItems:"center",gap:7,padding:"7px 12px",background:"var(--s2)",border:`1px solid ${ia.color}44`,borderRadius:8,textDecoration:"none",cursor:"pointer",transition:"all .15s"}}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor=ia.color}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor=ia.color+"44"}>
+                        <span style={{fontSize:14,color:ia.color}}>{ia.icon}</span>
+                        <div>
+                          <div style={{fontSize:10,fontWeight:700,color:ia.color}}>{ia.name}</div>
+                          <div style={{fontSize:8,color:"var(--mu)"}}>{ia.subtitle}</div>
+                        </div>
+                        <span style={{fontSize:9,color:"var(--mu)",marginLeft:4}}>↗</span>
+                      </a>
+                    ))}
+                  </div>
+                  <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:"var(--mu)",padding:20,textAlign:"center"}}>
+                    <div style={{fontSize:36}}>🌐</div>
+                    <div style={{fontSize:12}}>Les IAs web s'ouvrent dans un nouvel onglet</div>
+                    <div style={{fontSize:10}}>La plupart des sites IA bloquent les iframes pour des raisons de sécurité.</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center",marginTop:8}}>
+                      {WEB_IAS.map(ia=>(
+                        <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
+                          style={{padding:"8px 16px",background:`${ia.color}18`,border:`1px solid ${ia.color}44`,borderRadius:8,color:ia.color,textDecoration:"none",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
+                          {ia.icon} {ia.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
               {mediaSubTab==="images" && (
           <div className="img-wrap">
             <div style={{ marginBottom:12 }}>
