@@ -3,36 +3,41 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "9.5";
+const APP_VERSION = "9.6";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
-  claude:   { name:"Claude Sonnet 4",  short:"Claude",   provider:"Anthropic",    color:"#D4A853", bg:"#1A1208", border:"#3D2E0A", icon:"✦", apiType:"claude",  maxTokens:200000, free:true,  desc:"Intégré sans clé" },
-  gpt4:     { name:"GPT-4o",           short:"GPT-4o",   provider:"OpenAI",       color:"#74C98C", bg:"#081A0E", border:"#0A3D1A", icon:"◈", apiType:"openai",  maxTokens:128000, free:false, keyName:"openai",   keyLink:"https://platform.openai.com/api-keys",                desc:"Modèle phare OpenAI" },
-  gemini:   { name:"Gemini 1.5 Flash", short:"Gemini",   provider:"Google",       color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"gemini",  maxTokens:1048576,free:true,  keyName:"gemini",   keyLink:"https://aistudio.google.com/app/apikey",              desc:"Tier gratuit généreux" },
-  deepseek: { name:"DeepSeek V3",      short:"DeepSeek", provider:"DeepSeek",     color:"#A0C8FF", bg:"#081018", border:"#0A2040", icon:"⬡", apiType:"compat",  maxTokens:64000,  free:false, keyName:"deepseek", keyLink:"https://platform.deepseek.com/api_keys",              desc:"Très peu cher",      baseUrl:"https://api.deepseek.com/v1",                          model:"deepseek-chat" },
-  mistral:  { name:"Mistral Small",    short:"Mistral",  provider:"Mistral AI",   color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat",  maxTokens:32000,  free:true,  keyName:"mistral",  keyLink:"https://console.mistral.ai/",                         desc:"Tier gratuit dispo", baseUrl:"https://api.mistral.ai/v1",                            model:"mistral-small-latest" },
-  groq:     { name:"Llama 3.3 (Groq)", short:"Groq",     provider:"Groq / Meta",  color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat",  maxTokens:128000, free:true,  keyName:"groq_inf", keyLink:"https://console.groq.com/keys",                       desc:"GRATUIT 14 400/jour",baseUrl:"https://api.groq.com/openai/v1",                     model:"llama-3.3-70b-versatile" },
-  kimi:     { name:"Kimi (Moonshot)",  short:"Kimi",     provider:"Moonshot AI",  color:"#E07FA0", bg:"#1A0812", border:"#3D0A1E", icon:"月", apiType:"compat",  maxTokens:128000, free:false, keyName:"kimi",     keyLink:"https://platform.moonshot.cn/console/api-keys",       desc:"Long contexte",      baseUrl:"https://api.moonshot.cn/v1",                           model:"moonshot-v1-8k" },
-  qwen:     { name:"Qwen Plus",        short:"Qwen",     provider:"Alibaba",      color:"#E0A850", bg:"#1A1208", border:"#3D2A0A", icon:"千", apiType:"compat",  maxTokens:32768,  free:false, keyName:"qwen",     keyLink:"https://dashscope.console.aliyun.com/apiKey",         desc:"Multilingue Alibaba",baseUrl:"https://dashscope.aliyuncs.com/compatible-mode/v1",  model:"qwen-plus" },
-  grok:     { name:"Grok 3",           short:"Grok",     provider:"xAI",          color:"#60C8E0", bg:"#081418", border:"#0A2830", icon:"X", apiType:"compat",  maxTokens:131072, free:false, keyName:"grok",     keyLink:"https://console.x.ai/",                               desc:"IA xAI",             baseUrl:"https://api.x.ai/v1",                                model:"grok-3-latest" },
+  // ── IAs 100% gratuites ────────────────────────────────────────────
+  groq:       { name:"Llama 3.3 (Groq)",   short:"Groq",      provider:"Groq / Meta",   color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat", maxTokens:128000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"GRATUIT 14 400/jour",   baseUrl:"https://api.groq.com/openai/v1",              model:"llama-3.3-70b-versatile" },
+  mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
+  gemini:     { name:"Gemini 2.0 Flash",    short:"Gemini",    provider:"Google",        color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"gemini", maxTokens:1000000,free:true, keyName:"gemini",     keyLink:"https://aistudio.google.com/app/apikey",    desc:"Gratuit — clé AI Studio",url:null, model:"gemini-2.0-flash" },
+  cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-70b" },
+  sambanova:  { name:"Llama 4 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 4",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-4-Scout-17B-16E-Instruct" },
+  openrouter: { name:"Gemma 3 (OpenRouter)",short:"OpenRouter",provider:"OpenRouter",    color:"#E07FA0", bg:"#1A080E", border:"#3D0A1E", icon:"⊕", apiType:"compat", maxTokens:128000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys",                desc:"Gratuit — 50+ modèles",  baseUrl:"https://openrouter.ai/api/v1",                model:"google/gemma-3-12b-it:free" },
 };
 
 const WEB_AIS = [
-  { id:"zai",         name:"Z.ai",          subtitle:"z.ai",           url:"https://chat.z.ai/",                color:"#B07FE0", icon:"Ζ",  desc:"Chat IA nouvelle génération" },
-  { id:"kimi_web",    name:"Kimi",          subtitle:"Moonshot AI",    url:"https://www.kimi.com/",             color:"#E07FA0", icon:"月", desc:"Long contexte par Moonshot" },
-  { id:"qwen_web",    name:"Qwen Chat",     subtitle:"Alibaba",        url:"https://chat.qwen.ai/",             color:"#E0A850", icon:"千", desc:"IA multilingue Alibaba" },
-  { id:"grok_web",    name:"Grok",          subtitle:"xAI",            url:"https://grok.com/",                 color:"#60C8E0", icon:"X",  desc:"IA de xAI / Elon Musk" },
-  { id:"copilot",     name:"Copilot",       subtitle:"Microsoft",      url:"https://copilot.microsoft.com/",    color:"#4FC3F7", icon:"⊞",  desc:"IA Microsoft, GPT-4 gratuit" },
-  { id:"hf",          name:"HuggingFace",   subtitle:"Open Source",    url:"https://huggingface.co/chat/",      color:"#FFD21E", icon:"🤗", desc:"Modèles open-source gratuits" },
-  { id:"perplexity",  name:"Perplexity",    subtitle:"Perplexity AI",  url:"https://www.perplexity.ai/",        color:"#20B2AA", icon:"◎",  desc:"Recherche web augmentée" },
-  { id:"mistral_web", name:"Le Chat",       subtitle:"Mistral AI",     url:"https://chat.mistral.ai/",          color:"#FF8C69", icon:"▲",  desc:"Chat officiel Mistral" },
-  { id:"deepseek_web",name:"DeepSeek Chat", subtitle:"DeepSeek",       url:"https://chat.deepseek.com/",        color:"#A0C8FF", icon:"⬡",  desc:"Chat DeepSeek gratuit" },
-  { id:"gemini_web",  name:"Gemini",        subtitle:"Google",         url:"https://gemini.google.com/",        color:"#6BA5E0", icon:"◇",  desc:"Gemini en version web" },
-  { id:"claude_web",  name:"Claude.ai",     subtitle:"Anthropic",      url:"https://claude.ai/",                color:"#D4A853", icon:"✦",  desc:"Claude version complète" },
-  { id:"chatgpt",     name:"ChatGPT",       subtitle:"OpenAI",         url:"https://chatgpt.com/",              color:"#74C98C", icon:"◈",  desc:"ChatGPT version web" },
-  { id:"ernie_web",   name:"Ernie Bot",     subtitle:"Baidu",          url:"https://yiyan.baidu.com/",          color:"#C89BFF", icon:"文",  desc:"IA de Baidu, optimisée mandarin" },
-  { id:"yi_web",      name:"Yi Chat",       subtitle:"01.AI",          url:"https://www.01.ai/",                color:"#7BE0C0", icon:"一",  desc:"Yi par 01.AI, bilingue fort" },
+  // ── Gratuites ─────────────────────────────────────────────────────
+  { id:"chatgpt",      name:"ChatGPT",        subtitle:"OpenAI • Gratuit", cat:"gratuit",  url:"https://chatgpt.com/",                  color:"#74C98C", icon:"◈", desc:"GPT-4o gratuit via interface web" },
+  { id:"claude_web",   name:"Claude.ai",      subtitle:"Anthropic • Gratuit", cat:"gratuit", url:"https://claude.ai/",                 color:"#D4A853", icon:"✦", desc:"Claude Sonnet gratuit — abonnement optionnel" },
+  { id:"gemini_web",   name:"Gemini",         subtitle:"Google • Gratuit",   cat:"gratuit", url:"https://gemini.google.com/",           color:"#6BA5E0", icon:"◇", desc:"Gemini 2.0 Flash gratuit" },
+  { id:"copilot",      name:"Copilot",        subtitle:"Microsoft • Gratuit",cat:"gratuit", url:"https://copilot.microsoft.com/",       color:"#4FC3F7", icon:"⊞", desc:"GPT-4o via Microsoft, totalement gratuit" },
+  { id:"mistral_web",  name:"Le Chat",        subtitle:"Mistral • Gratuit",  cat:"gratuit", url:"https://chat.mistral.ai/",             color:"#FF8C69", icon:"▲", desc:"Mistral Large gratuit via interface web" },
+  { id:"perplexity",   name:"Perplexity",     subtitle:"Perplexity • Gratuit",cat:"gratuit",url:"https://www.perplexity.ai/",          color:"#20B2AA", icon:"◎", desc:"Recherche web IA — réponses sourcées" },
+  { id:"hf",           name:"HuggingFace",    subtitle:"Open Source • Gratuit",cat:"gratuit",url:"https://huggingface.co/chat/",       color:"#FFD21E", icon:"🤗",desc:"50+ modèles open-source, 100% gratuit" },
+  { id:"deepseek_web", name:"DeepSeek Chat",  subtitle:"DeepSeek • Gratuit", cat:"gratuit", url:"https://chat.deepseek.com/",           color:"#A0C8FF", icon:"⬡", desc:"DeepSeek V3/R1, gratuit et très puissant" },
+  { id:"groq_web",     name:"Groq Console",   subtitle:"Groq • Gratuit",     cat:"gratuit", url:"https://console.groq.com/playground", color:"#F97316", icon:"⚡", desc:"Playground Groq — Llama ultra rapide" },
+  { id:"kimi_web",     name:"Kimi",           subtitle:"Moonshot • Gratuit", cat:"gratuit", url:"https://www.kimi.com/",                color:"#E07FA0", icon:"月",desc:"Long contexte gratuit via interface" },
+  { id:"qwen_web",     name:"Qwen Chat",      subtitle:"Alibaba • Gratuit",  cat:"gratuit", url:"https://chat.qwen.ai/",                color:"#E0A850", icon:"千",desc:"Qwen 2.5 Max gratuit, fort en code" },
+  { id:"zai",          name:"Z.ai",           subtitle:"z.ai • Gratuit",     cat:"gratuit", url:"https://chat.z.ai/",                   color:"#B07FE0", icon:"Ζ", desc:"Nouvelle plateforme multi-modèles" },
+  { id:"poe",          name:"Poe",            subtitle:"Quora • Gratuit",    cat:"gratuit", url:"https://poe.com/",                     color:"#9CA3AF", icon:"P", desc:"Accès à Claude, GPT-4, Llama en un seul endroit" },
+  { id:"you",          name:"You.com",        subtitle:"You.com • Gratuit",  cat:"gratuit", url:"https://you.com/",                     color:"#6366F1", icon:"Y", desc:"IA + recherche web intégrée, gratuit" },
+  // ── Payantes (premium) ───────────────────────────────────────────
+  { id:"gpt4_pay",     name:"ChatGPT Plus",   subtitle:"OpenAI • $20/mois",  cat:"payant",  url:"https://chatgpt.com/",                  color:"#74C98C", icon:"◈", desc:"GPT-4o + o1 + génération images DALL-E 3" },
+  { id:"claude_pro",   name:"Claude Pro",     subtitle:"Anthropic • $20/mois",cat:"payant", url:"https://claude.ai/",                    color:"#D4A853", icon:"✦", desc:"Claude Opus, projets, 5× plus de messages" },
+  { id:"grok_web",     name:"Grok 3",         subtitle:"xAI • Premium",      cat:"payant",  url:"https://grok.com/",                     color:"#60C8E0", icon:"X", desc:"Grok 3 avec accès temps réel Twitter/X" },
+  { id:"midjourney_w", name:"Midjourney",     subtitle:"MJ • $10/mois",      cat:"payant",  url:"https://www.midjourney.com/",            color:"#A78BFA", icon:"🎭",desc:"Meilleure génération images IA artistique" },
+  { id:"perp_pro",     name:"Perplexity Pro", subtitle:"Perplexity • $20/mois",cat:"payant",url:"https://www.perplexity.ai/",           color:"#20B2AA", icon:"◎", desc:"Claude + GPT-4 + recherche illimitée" },
 ];
 
 // ── YouTube : chaînes recommandées ───────────────────────────────
@@ -190,15 +195,12 @@ const CREDIT_COOLDOWN = 300;
 
 // ── Prix API ($ / 1M tokens input·output) ────────────────────────
 const PRICING = {
-  claude:   { in:3.00,  out:15.00,  label:"Claude Sonnet 4" },
-  gpt4:     { in:2.50,  out:10.00,  label:"GPT-4o" },
-  gemini:   { in:0.075, out:0.30,   label:"Gemini 1.5 Flash" },
-  deepseek: { in:0.27,  out:1.10,   label:"DeepSeek V3" },
-  mistral:  { in:0.20,  out:0.60,   label:"Mistral Small" },
-  groq:     { in:0.05,  out:0.08,   label:"Llama 3.3 (Groq)" },
-  kimi:     { in:0.12,  out:0.12,   label:"Kimi (Moonshot)" },
-  qwen:     { in:0.40,  out:1.20,   label:"Qwen Plus" },
-  grok:     { in:2.00,  out:10.00,  label:"Grok 3" },
+  groq:       { in:0.00, out:0.00, label:"Llama 3.3 (Groq) — GRATUIT" },
+  mistral:    { in:0.00, out:0.00, label:"Mistral Small 3 — GRATUIT" },
+  gemini:     { in:0.00, out:0.00, label:"Gemini 2.0 Flash — GRATUIT" },
+  cerebras:   { in:0.00, out:0.00, label:"Llama 3.1 (Cerebras) — GRATUIT" },
+  sambanova:  { in:0.00, out:0.00, label:"Llama 4 (SambaNova) — GRATUIT" },
+  openrouter: { in:0.00, out:0.00, label:"Gemma 3 (OpenRouter) — GRATUIT" },
 };
 
 // ── Prompts par défaut ────────────────────────────────────────────
@@ -268,6 +270,7 @@ async function callClaude(messages, system="Tu es un assistant IA utile et conci
   return d.content[0].text;
 }
 async function callGemini(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
+  if (!apiKey) throw new Error("Clé Gemini manquante. Va sur aistudio.google.com/app/apikey pour en créer une gratuite.");
   const last=messages[messages.length-1].content;
   const history=messages.slice(0,-1).map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[...history,{role:"user",parts:[{text:last}]}],generationConfig:{maxOutputTokens:1500}})});
@@ -283,17 +286,25 @@ async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un ass
 }
 async function callModel(id, messages, keys, system, attachedFile=null) {
   const m=MODEL_DEFS[id];
-  if(m.apiType==="claude") return callClaude(messages,system,attachedFile);
-  // Pour les autres IAs : injecter le contenu du fichier dans le texte si pas image
+  if(!m) throw new Error("IA inconnue : " + id);
+  // Injecter fichier dans le texte
   const msgWithFile = attachedFile && attachedFile.type !== "image"
     ? messages.map((msg,i) => i===messages.length-1 ? {...msg, content:`📎 Fichier: ${attachedFile.name}\n\n${attachedFile.content}\n\n---\n${msg.content}`} : msg)
     : messages;
   if(m.apiType==="gemini") return callGemini(msgWithFile,keys.gemini,system);
-  if(m.apiType==="openai") return callCompat(msgWithFile,keys.openai,"https://api.openai.com/v1","gpt-4o",system);
-  if(m.apiType==="compat") return callCompat(msgWithFile,keys[m.keyName],m.baseUrl,m.model,system);
+  if(m.apiType==="compat") {
+    const key = keys[m.keyName];
+    if(!key) throw new Error(`Clé API manquante pour ${m.name}. Va dans ⚙ Config pour l'ajouter gratuitement.`);
+    return callCompat(msgWithFile,key,m.baseUrl,m.model,system);
+  }
+  throw new Error("Type d'API non supporté : " + m.apiType);
 }
-async function correctGrammar(text) {
-  return callClaude([{role:"user",content:`Corrige les fautes d'orthographe, grammaire et ponctuation. Retourne UNIQUEMENT le texte corrigé, sans commentaires.\n\n${text}`}],"Tu es un correcteur expert. Tu corriges sans changer le sens.");
+async function correctGrammar(text, keys) {
+  const sys = "Tu es un correcteur expert. Tu corriges sans changer le sens.";
+  const msgs = [{role:"user",content:`Corrige les fautes d'orthographe, grammaire et ponctuation. Retourne UNIQUEMENT le texte corrigé, sans commentaires.\n\n${text}`}];
+  if (keys && keys.groq_inf) return callCompat(msgs, keys.groq_inf, "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", sys);
+  if (keys && keys.mistral) return callCompat(msgs, keys.mistral, "https://api.mistral.ai/v1", "mistral-small-latest", sys);
+  throw new Error("Active Groq ou Mistral pour utiliser le correcteur.");
 }
 
 // ── Personas par défaut ───────────────────────────────────────────
@@ -1755,7 +1766,7 @@ function AgentTab({ enabled, apiKeys }) {
   const [currentStep, setCurrentStep] = React.useState(-1);
   const [finalResult, setFinalResult] = React.useState("");
   const activeAgentIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
-  const AGENT_PREF = ["groq","mistral","gemini","gpt4","deepseek","claude"];
+  const AGENT_PREF = ["groq","mistral","gemini","cerebras","sambanova","openrouter"];
   const defaultAgentIA = AGENT_PREF.find(id => enabled[id]) || "mistral";
   const [agentIA, setAgentIA] = React.useState(defaultAgentIA);
   const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
@@ -2573,8 +2584,8 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
 function WorkflowsTab({ enabled, apiKeys }) {
   const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
   // Priorité aux IAs qui fonctionnent sans proxy (pas Claude sur Vercel)
-  const PREFERRED = ["groq","mistral","gemini","deepseek","gpt4","kimi","qwen","grok","claude"];
-  const firstIA = PREFERRED.find(id => enabled[id]) || activeIds[0] || "mistral";
+  const PREFERRED = ["groq","mistral","gemini","cerebras","sambanova","openrouter"];
+  const firstIA = PREFERRED.find(id => enabled[id]) || activeIds[0] || "groq";
   const [steps, setSteps] = React.useState([
     { id:1, label:"Génération d'idées", ia:firstIA, prompt:"Génère 5 idées créatives pour : {INPUT}", useInput:true },
     { id:2, label:"Développement", ia:activeIds[1]||firstIA, prompt:"Développe la meilleure idée :\n\n{PREVIOUS}", useInput:false },
@@ -2775,20 +2786,20 @@ export default function App() {
     const VALID_TABS = ["chat","prompts","redaction","recherche","workflows","medias","arena","debate","stats","config"];
     return VALID_TABS.includes(t) ? t : "chat";
   });
-  const [mobileCol, setMobileCol] = useState("claude");
+  const [mobileCol, setMobileCol] = useState("groq");
   const [soloId, setSoloId] = useState(null);
   const [arenaFilter, setArenaFilter] = useState("all");
   const [imgFilter, setImgFilter] = useState("free");
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { claude:true,gpt4:false,gemini:false,deepseek:false,mistral:false,groq:false,kimi:false,qwen:false,grok:false }; }
-    catch { return { claude:true,gpt4:false,gemini:false,deepseek:false,mistral:false,groq:false,kimi:false,qwen:false,grok:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,gemini:false,cerebras:false,sambanova:false,openrouter:false }; }
+    catch { return { groq:true,mistral:true,gemini:false,cerebras:false,sambanova:false,openrouter:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
-    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { openai:"",gemini:"",deepseek:"",mistral:"",groq_inf:"",kimi:"",qwen:"",grok:"" }; }
-    catch { return { openai:"",gemini:"",deepseek:"",mistral:"",groq_inf:"",kimi:"",qwen:"",grok:"" }; }
+    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { gemini:"",mistral:"",groq_inf:"",cerebras:"",sambanova:"",openrouter:"" }; }
+    catch { return { gemini:"",mistral:"",groq_inf:"",cerebras:"",sambanova:"",openrouter:"" }; }
   });
 
   useEffect(() => { try { localStorage.setItem("multiia_keys", JSON.stringify(apiKeys)); } catch {} }, [apiKeys]);
@@ -3209,7 +3220,7 @@ export default function App() {
     if (grammarResult?.corrected && text === grammarResult.original) { setShowGrammarPopup(true); return; }
     setGrammarLoading(true);
     try {
-      const corrected = await correctGrammar(text);
+      const corrected = await correctGrammar(text, apiKeys);
       if (corrected.trim() === text) showToast("✓ Aucune faute détectée !");
       else { setGrammarResult({ original: text, corrected: corrected.trim() }); setShowGrammarPopup(true); }
     } catch(e) { showToast("✗ Erreur: " + e.message); }
@@ -3985,30 +3996,39 @@ export default function App() {
         {/* ── WEB IAs TAB ── */}
         {tab === "webia" && (
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:10}}>
+            <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
               <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🌐 IAs Web</div>
-              <div style={{fontSize:9,color:"var(--mu)"}}>Accès direct aux interfaces web de chaque IA — s'ouvrent dans un nouvel onglet</div>
+              <div style={{fontSize:9,color:"var(--mu)"}}>Toutes les IAs accessibles via navigateur — s'ouvrent dans un nouvel onglet</div>
             </div>
-            <div style={{flex:1,overflow:"auto",padding:"16px"}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
-                {WEB_AIS.map(ia=>(
-                  <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
-                    style={{display:"flex",flexDirection:"column",gap:10,padding:"14px 16px",background:"var(--s1)",border:`1px solid ${ia.color}33`,borderRadius:10,textDecoration:"none",transition:"all .2s",cursor:"pointer"}}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor=ia.color;e.currentTarget.style.transform="translateY(-2px)"}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor=ia.color+"33";e.currentTarget.style.transform=""}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:38,height:38,borderRadius:"50%",background:ia.color+"18",border:`2px solid ${ia.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:ia.color,flexShrink:0}}>{ia.icon}</div>
-                      <div>
-                        <div style={{fontSize:12,fontWeight:700,color:ia.color}}>{ia.name}</div>
-                        <div style={{fontSize:9,color:"var(--mu)"}}>{ia.subtitle}</div>
-                      </div>
-                      <span style={{marginLeft:"auto",fontSize:14,color:"var(--mu)"}}>↗</span>
+            <div style={{flex:1,overflow:"auto",padding:"16px",display:"flex",flexDirection:"column",gap:20}}>
+              {["gratuit","payant"].map(cat=>{
+                const items = WEB_AIS.filter(ia=>ia.cat===cat);
+                return (
+                  <div key={cat}>
+                    <div style={{fontSize:10,fontWeight:700,color:cat==="gratuit"?"var(--green)":"var(--orange)",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
+                      {cat==="gratuit"?"✅ GRATUITES — Aucun compte requis (ou compte gratuit)":"💳 PREMIUM — Abonnement payant pour accès complet"}
                     </div>
-                    <div style={{fontSize:10,color:"var(--mu)",lineHeight:1.5}}>{ia.desc}</div>
-                    <div style={{padding:"5px 10px",background:ia.color+"12",border:`1px solid ${ia.color}30`,borderRadius:5,fontSize:9,color:ia.color,textAlign:"center",fontWeight:600}}>Ouvrir {ia.name}</div>
-                  </a>
-                ))}
-              </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>
+                      {items.map(ia=>(
+                        <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
+                          style={{display:"flex",flexDirection:"column",gap:8,padding:"12px 14px",background:"var(--s1)",border:`1px solid ${ia.color}33`,borderRadius:8,textDecoration:"none",transition:"all .2s"}}
+                          onMouseEnter={e=>{e.currentTarget.style.borderColor=ia.color;e.currentTarget.style.transform="translateY(-2px)"}}
+                          onMouseLeave={e=>{e.currentTarget.style.borderColor=ia.color+"33";e.currentTarget.style.transform=""}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:32,height:32,borderRadius:"50%",background:ia.color+"18",border:`2px solid ${ia.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,color:ia.color,flexShrink:0}}>{ia.icon}</div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:11,fontWeight:700,color:ia.color}}>{ia.name}</div>
+                              <div style={{fontSize:8,color:"var(--mu)"}}>{ia.subtitle}</div>
+                            </div>
+                            <span style={{fontSize:11,color:"var(--mu)"}}>↗</span>
+                          </div>
+                          <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4}}>{ia.desc}</div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -4150,6 +4170,7 @@ export default function App() {
         {tab === "config" && (
           <div className="cfg-wrap">
             <div className="sec">
+              
               <div className="sec-title">🤖 Modèles & Clés API</div>
               <div className="tbl-wrap">
                 <table className="tbl">
