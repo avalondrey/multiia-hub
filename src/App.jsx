@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "9.6";
+const APP_VERSION = "9.7";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
@@ -12,7 +12,7 @@ const MODEL_DEFS = {
   mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
   gemini:     { name:"Gemini 2.0 Flash",    short:"Gemini",    provider:"Google",        color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"gemini", maxTokens:1000000,free:true, keyName:"gemini",     keyLink:"https://aistudio.google.com/app/apikey",    desc:"Gratuit — clé AI Studio",url:null, model:"gemini-2.0-flash" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-70b" },
-  sambanova:  { name:"Llama 4 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 4",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-4-Scout-17B-16E-Instruct" },
+  sambanova:  { name:"Llama 4 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 4",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Llama-4-Scout-17B-16E-Instruct" },
   openrouter: { name:"Gemma 3 (OpenRouter)",short:"OpenRouter",provider:"OpenRouter",    color:"#E07FA0", bg:"#1A080E", border:"#3D0A1E", icon:"⊕", apiType:"compat", maxTokens:128000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys",                desc:"Gratuit — 50+ modèles",  baseUrl:"https://openrouter.ai/api/v1",                model:"google/gemma-3-12b-it:free" },
 };
 
@@ -279,9 +279,18 @@ async function callGemini(messages, apiKey, system="Tu es un assistant IA utile 
   return d.candidates[0].content.parts[0].text;
 }
 async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un assistant IA utile et concis.") {
-  const r=await fetch(`${baseUrl}/chat/completions`,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},body:JSON.stringify({model,max_tokens:1500,messages:[{role:"system",content:system},...messages.map(m=>({role:m.role,content:m.content}))]})});
-  const d=await r.json();
+  const headers = {"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`};
+  // OpenRouter needs HTTP-Referer
+  if (baseUrl.includes("openrouter")) {
+    headers["HTTP-Referer"] = "https://multiia-hub.vercel.app";
+    headers["X-Title"] = "Multi-IA Hub";
+  }
+  const r = await fetch(`${baseUrl}/chat/completions`,{method:"POST",headers,body:JSON.stringify({model,max_tokens:1500,messages:[{role:"system",content:system},...messages.map(m=>({role:m.role,content:m.content}))]})});
+  const raw = await r.text();
+  let d;
+  try { d = JSON.parse(raw); } catch { throw new Error("Réponse invalide : " + raw.slice(0,120)); }
   if(d.error) throw new Error(typeof d.error==="string"?d.error:(d.error.message||JSON.stringify(d.error)));
+  if(!d.choices || !d.choices[0]) throw new Error("Réponse vide — modèle indisponible. Détail: " + JSON.stringify(d).slice(0,200));
   return d.choices[0].message.content;
 }
 async function callModel(id, messages, keys, system, attachedFile=null) {
@@ -3569,8 +3578,6 @@ export default function App() {
               style={isMobile?{flexDirection:"column"}:{}}>
             {IDS.map(id => {
               const m = MODEL_DEFS[id];
-              const used = convTokens(conversations[id]);
-              const pct = Math.min(used / m.maxTokens, 1);
               const lim = isLimited(id);
               const isMobileHidden = enabledIds.length > 0 && mobileCol !== id;
               const isSoloDim = soloId && soloId !== id;
@@ -3592,7 +3599,6 @@ export default function App() {
                     </div>
                     <div className="cm">
                       {lim && <span className="countdown">⏳ {fmtCd(id)}</span>}
-                      <div><div className="mt">{fmt(used)}t</div><div className="mbw"><div className="mbf" style={{ width:`${pct*100}%`, background:tColor(pct) }}/></div></div>
                       <div className={`dot ${loading[id]?"live":lim?"limited":""}`}/>
                     </div>
                     {/* Boutons Solo + Export */}
