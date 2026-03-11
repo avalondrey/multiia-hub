@@ -10,10 +10,10 @@ const MODEL_DEFS = {
   // ── IAs 100% gratuites ────────────────────────────────────────────
   groq:       { name:"Llama 3.3 (Groq)",   short:"Groq",      provider:"Groq / Meta",   color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat", maxTokens:128000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"GRATUIT 14 400/jour",   baseUrl:"https://api.groq.com/openai/v1",              model:"llama-3.3-70b-versatile" },
   mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
-  gemini:     { name:"Gemini 1.5 Flash",    short:"Gemini",    provider:"Google",        color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"gemini", maxTokens:1000000,free:true, keyName:"gemini",     keyLink:"https://aistudio.google.com/app/apikey",    desc:"Gratuit — clé AI Studio",url:null, model:"gemini-1.5-flash" },
+  gemini:     { name:"Gemini Pro",    short:"Gemini",    provider:"Google",        color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"gemini", maxTokens:1000000,free:true, keyName:"gemini",     keyLink:"https://aistudio.google.com/app/apikey",    desc:"Gratuit — clé AI Studio",url:null, model:"gemini-pro" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  openrouter: { name:"Llama 3.1 8B (OpenRouter)",short:"OpenRouter",provider:"OpenRouter",    color:"#E07FA0", bg:"#1A080E", border:"#3D0A1E", icon:"⊕", apiType:"compat", maxTokens:128000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys",                desc:"Gratuit — 50+ modèles",  baseUrl:"https://openrouter.ai/api/v1",                model:"meta-llama/llama-3.1-8b-instruct:free" },
+  openrouter: { name:"Mistral Small (OpenRouter)",short:"OpenRouter",provider:"OpenRouter",    color:"#E07FA0", bg:"#1A080E", border:"#3D0A1E", icon:"⊕", apiType:"compat", maxTokens:128000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys",                desc:"Gratuit — 50+ modèles",  baseUrl:"https://openrouter.ai/api/v1",                model:"mistralai/mistral-small-3.1-24b-instruct:free" },
 };
 
 const WEB_AIS = [
@@ -94,7 +94,7 @@ async function fetchYTVideos(themeQuery, savedKeys) {
 
   if (keys.gemini) {
     try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keys.gemini}`,
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${keys.gemini}`,
         { method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ contents:[{role:"user",parts:[{text:YT_VIDEO_PROMPT(themeQuery)}]}], generationConfig:{maxOutputTokens:2000} }) });
       const d = await r.json();
@@ -142,7 +142,7 @@ const ARENA_MODELS = [
   { name:"Claude Sonnet 4", provider:"Anthropic",  icon:"✦", color:"#D4A853", params:"~200B*",  ctx:"200k",  target:"Pro / Dev",      score:9.2, prix:"$$",   free:false, strengths:["Raisonnement","Code","Analyse","Éthique"],      weaknesses:["Pas de recherche web native","API payante"],   tag:"TOP" },
   { name:"GPT-4o",          provider:"OpenAI",     icon:"◈", color:"#74C98C", params:"~200B*",  ctx:"128k",  target:"Grand public",   score:9.0, prix:"$$",   free:false, strengths:["Multimodal","Plugins","Polyvalent","Écosystème"],weaknesses:["Prix élevé","Opaque"],                          tag:"TOP" },
   { name:"GPT-o1 / o3",     provider:"OpenAI",     icon:"◉", color:"#5AC87C", params:"~300B*",  ctx:"128k",  target:"Experts / R&D",  score:9.6, prix:"$$$$", free:false, strengths:["Raisonnement profond","Maths","Science","Code"], weaknesses:["Très cher","Lent","Niche"],                     tag:"TOP" },
-  { name:"Gemini 1.5 Flash",provider:"Google",     icon:"◇", color:"#6BA5E0", params:"~unknown",ctx:"1M",    target:"Grand public",   score:8.5, prix:"Free", free:true,  strengths:["Contexte 1M gratuit","Multimodal","Rapide"],    weaknesses:["Hallucinations +","Moins fin"],                tag:"FREE" },
+  { name:"Gemini Pro",provider:"Google",     icon:"◇", color:"#6BA5E0", params:"~unknown",ctx:"1M",    target:"Grand public",   score:8.5, prix:"Free", free:true,  strengths:["Contexte 1M gratuit","Multimodal","Rapide"],    weaknesses:["Hallucinations +","Moins fin"],                tag:"FREE" },
   { name:"Gemini 1.5 Pro",  provider:"Google",     icon:"◈", color:"#4A90E0", params:"~unknown",ctx:"2M",    target:"Entreprise",     score:9.1, prix:"$$$",  free:false, strengths:["2M tokens","Vidéo","Audio","Multimodal++"],     weaknesses:["Cher","Latence"],                              tag:"PUISSANT" },
   { name:"DeepSeek V3",     provider:"DeepSeek",   icon:"⬡", color:"#A0C8FF", params:"671B MoE",ctx:"64k",   target:"Dev / Recherche",score:8.8, prix:"¢",    free:false, strengths:["Prix ultra bas","Code fort","MoE efficace"],    weaknesses:["Infra chinoise","Censure possible"],           tag:"ÉCONOMIQUE" },
   { name:"DeepSeek R1",     provider:"DeepSeek",   icon:"⬡", color:"#80A8DF", params:"671B MoE",ctx:"64k",   target:"Recherche",      score:9.1, prix:"¢",    free:false, strengths:["Raisonnement OSS","Chain-of-thought","Open"],   weaknesses:["Lent","Censure","Saturé"],                     tag:"TOP" },
@@ -268,13 +268,24 @@ async function callClaude(messages, system="Tu es un assistant IA utile et conci
 }
 async function callGemini(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
   if (!apiKey) throw new Error("Clé Gemini manquante. Va sur aistudio.google.com/app/apikey pour en créer une gratuite.");
-  const last=messages[messages.length-1].content;
-  // Injecter system comme premier message user/model (v1 ne supporte pas systemInstruction)
-  const systemTurn = [{role:"user",parts:[{text:system}]},{role:"model",parts:[{text:"Compris, je suis prêt à t'aider."}]}];
-  const history=messages.slice(0,-1).map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
-  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[...systemTurn,...history,{role:"user",parts:[{text:last}]}],generationConfig:{maxOutputTokens:1500}})});
-  const d=await r.json();
+  const last = messages[messages.length-1].content;
+  const history = messages.slice(0,-1).map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{text: m.content}]
+  }));
+  const body = {
+    systemInstruction: { parts: [{text: system}] },
+    contents: [...history, {role:"user", parts:[{text:last}]}],
+    generationConfig: { maxOutputTokens: 1500 }
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+    {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}
+  );
+  const raw = await r.text();
+  let d; try { d = JSON.parse(raw); } catch { throw new Error("Réponse Gemini invalide: " + raw.slice(0,100)); }
   if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  if(!d.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("Gemini: réponse vide. Détail: " + JSON.stringify(d).slice(0,200));
   return d.candidates[0].content.parts[0].text;
 }
 async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un assistant IA utile et concis.") {
@@ -1280,7 +1291,7 @@ function parseNewsJSON(text) {
 
 async function tryGemini(query, apiKey) {
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
     { method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ contents:[{role:"user",parts:[{text:NEWS_PROMPT(query)}]}], generationConfig:{maxOutputTokens:2000} }) }
   );
