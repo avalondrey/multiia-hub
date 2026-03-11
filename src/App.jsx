@@ -88,7 +88,7 @@ async function fetchYTVideos(themeQuery, savedKeys) {
 
   if (keys.gemini) {
     try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${keys.gemini}`,
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`,
         { method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ contents:[{role:"user",parts:[{text:YT_VIDEO_PROMPT(themeQuery)}]}], generationConfig:{maxOutputTokens:2000} }) });
       const d = await r.json();
@@ -261,7 +261,7 @@ async function callClaude(messages, system="Tu es un assistant IA utile et conci
 async function callGemini(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
   const last=messages[messages.length-1].content;
   const history=messages.slice(0,-1).map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
-  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[...history,{role:"user",parts:[{text:last}]}],generationConfig:{maxOutputTokens:1500}})});
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[...history,{role:"user",parts:[{text:last}]}],generationConfig:{maxOutputTokens:1500}})});
   const d=await r.json();
   if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
   return d.candidates[0].content.parts[0].text;
@@ -1254,7 +1254,7 @@ function parseNewsJSON(text) {
 
 async function tryGemini(query, apiKey) {
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     { method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ contents:[{role:"user",parts:[{text:NEWS_PROMPT(query)}]}], generationConfig:{maxOutputTokens:2000} }) }
   );
@@ -1739,12 +1739,16 @@ function TraducteurTab({ enabled, apiKeys }) {
 // AGENT AUTONOME TAB
 // ═══════════════════════════════════════════════════════════
 function AgentTab({ enabled, apiKeys }) {
+  const AGENT_PREFERRED = ["groq","mistral","gemini","gpt4","deepseek","claude"];
   const [objective, setObjective] = React.useState("");
   const [steps, setSteps] = React.useState([]);
   const [running, setRunning] = React.useState(false);
   const [currentStep, setCurrentStep] = React.useState(-1);
   const [finalResult, setFinalResult] = React.useState("");
-  const [agentIA, setAgentIA] = React.useState("claude");
+  const activeAgentIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
+  const AGENT_PREF = ["groq","mistral","gemini","gpt4","deepseek","claude"];
+  const defaultAgentIA = AGENT_PREF.find(id => enabled[id]) || "mistral";
+  const [agentIA, setAgentIA] = React.useState(defaultAgentIA);
   const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
 
   const run = async () => {
@@ -2598,7 +2602,9 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
 // ── WORKFLOWS TAB ─────────────────────────────────────────────────
 function WorkflowsTab({ enabled, apiKeys }) {
   const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
-  const firstIA = activeIds[0]||"claude";
+  // Priorité aux IAs qui fonctionnent sans proxy (pas Claude sur Vercel)
+  const PREFERRED = ["groq","mistral","gemini","deepseek","gpt4","kimi","qwen","grok","claude"];
+  const firstIA = PREFERRED.find(id => enabled[id]) || activeIds[0] || "mistral";
   const [steps, setSteps] = React.useState([
     { id:1, label:"Génération d'idées", ia:firstIA, prompt:"Génère 5 idées créatives pour : {INPUT}", useInput:true },
     { id:2, label:"Développement", ia:activeIds[1]||firstIA, prompt:"Développe la meilleure idée :\n\n{PREVIOUS}", useInput:false },
@@ -3419,6 +3425,7 @@ export default function App() {
               ["notes","📝 Notes"],
               ["traducteur","🌍 Trad."],
               ["agent","🤖 Agent"],
+              ["webia","🌐 IAs Web"],
               ["stats","📊 Stats"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
@@ -3882,7 +3889,7 @@ export default function App() {
                     <span style={{fontSize:9,color:"var(--orange)"}}>⚠️ Certains sites bloquent les iframes (ouvrent dans un nouvel onglet)</span>
                   </div>
                   <div style={{display:"flex",gap:8,padding:"10px 12px",flexWrap:"wrap",flexShrink:0,borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
-                    {WEB_IAS.map(ia=>(
+                    {WEB_AIS.map(ia=>(
                       <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
                         style={{display:"flex",alignItems:"center",gap:7,padding:"7px 12px",background:"var(--s2)",border:`1px solid ${ia.color}44`,borderRadius:8,textDecoration:"none",cursor:"pointer",transition:"all .15s"}}
                         onMouseEnter={e=>e.currentTarget.style.borderColor=ia.color}
@@ -3901,7 +3908,7 @@ export default function App() {
                     <div style={{fontSize:12}}>Les IAs web s'ouvrent dans un nouvel onglet</div>
                     <div style={{fontSize:10}}>La plupart des sites IA bloquent les iframes pour des raisons de sécurité.</div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center",marginTop:8}}>
-                      {WEB_IAS.map(ia=>(
+                      {WEB_AIS.map(ia=>(
                         <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
                           style={{padding:"8px 16px",background:`${ia.color}18`,border:`1px solid ${ia.color}44`,borderRadius:8,color:ia.color,textDecoration:"none",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
                           {ia.icon} {ia.name}
@@ -3986,6 +3993,37 @@ export default function App() {
         {tab === "workflows" && (
           <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <WorkflowsTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {/* ── WEB IAs TAB ── */}
+        {tab === "webia" && (
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:10}}>
+              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🌐 IAs Web</div>
+              <div style={{fontSize:9,color:"var(--mu)"}}>Accès direct aux interfaces web de chaque IA — s'ouvrent dans un nouvel onglet</div>
+            </div>
+            <div style={{flex:1,overflow:"auto",padding:"16px"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+                {WEB_AIS.map(ia=>(
+                  <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
+                    style={{display:"flex",flexDirection:"column",gap:10,padding:"14px 16px",background:"var(--s1)",border:`1px solid ${ia.color}33`,borderRadius:10,textDecoration:"none",transition:"all .2s",cursor:"pointer"}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor=ia.color;e.currentTarget.style.transform="translateY(-2px)"}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor=ia.color+"33";e.currentTarget.style.transform=""}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{width:38,height:38,borderRadius:"50%",background:ia.color+"18",border:`2px solid ${ia.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:ia.color,flexShrink:0}}>{ia.icon}</div>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:700,color:ia.color}}>{ia.name}</div>
+                        <div style={{fontSize:9,color:"var(--mu)"}}>{ia.subtitle}</div>
+                      </div>
+                      <span style={{marginLeft:"auto",fontSize:14,color:"var(--mu)"}}>↗</span>
+                    </div>
+                    <div style={{fontSize:10,color:"var(--mu)",lineHeight:1.5}}>{ia.desc}</div>
+                    <div style={{padding:"5px 10px",background:ia.color+"12",border:`1px solid ${ia.color}30`,borderRadius:5,fontSize:9,color:ia.color,textAlign:"center",fontWeight:600}}>Ouvrir {ia.name}</div>
+                  </a>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
