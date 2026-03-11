@@ -13,8 +13,7 @@ const MODEL_DEFS = {
   cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  fireworks:  { name:"Llama 3.1 (Fireworks)",  short:"Fireworks", provider:"Fireworks AI",    color:"#FF6B35", bg:"#180C04", border:"#3D1A00", icon:"🎆", apiType:"compat", maxTokens:131072, free:true, keyName:"fireworks",  keyLink:"https://fireworks.ai/api-keys",             desc:"Gratuit — $1 crédit offert",  baseUrl:"https://api.fireworks.ai/inference/v1",    model:"accounts/fireworks/models/llama-v3p1-8b-instruct" },
-  huggingface:{ name:"Zephyr (HuggingFace)",    short:"HuggingFace",provider:"HuggingFace",    color:"#FFD21E", bg:"#181408", border:"#3D3000", icon:"🤗", apiType:"compat", maxTokens:4096,   free:true, keyName:"huggingface",keyLink:"https://huggingface.co/settings/tokens",      desc:"Gratuit — token READ gratuit", baseUrl:"https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta/v1", model:"HuggingFaceH4/zephyr-7b-beta" },
+  nvidia:     { name:"Llama 3.1 (NVIDIA NIM)", short:"NVIDIA",    provider:"NVIDIA NIM",     color:"#76B900", bg:"#0A1800", border:"#1A3D00", icon:"⬡", apiType:"compat", maxTokens:131072, free:true, keyName:"nvidia",     keyLink:"https://build.nvidia.com/meta/llama-3_1-8b-instruct", desc:"Gratuit — 1000 req/mois",    baseUrl:"https://integrate.api.nvidia.com/v1",      model:"meta/llama-3.1-8b-instruct" },
 };
 
 const WEB_AIS = [
@@ -2829,13 +2828,13 @@ export default function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,fireworks:false,huggingface:false }; }
-    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,fireworks:false,huggingface:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,nvidia:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,nvidia:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
-    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",fireworks:"",huggingface:"" }; }
-    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",fireworks:"",huggingface:"" }; }
+    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",nvidia:"" }; }
+    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",nvidia:"" }; }
   });
 
   useEffect(() => { try { localStorage.setItem("multiia_keys", JSON.stringify(apiKeys)); } catch {} }, [apiKeys]);
