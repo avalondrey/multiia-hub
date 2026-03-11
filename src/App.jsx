@@ -10,10 +10,10 @@ const MODEL_DEFS = {
   // ── IAs 100% gratuites ────────────────────────────────────────────
   groq:       { name:"Llama 3.3 (Groq)",   short:"Groq",      provider:"Groq / Meta",   color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat", maxTokens:128000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"GRATUIT 14 400/jour",   baseUrl:"https://api.groq.com/openai/v1",              model:"llama-3.3-70b-versatile" },
   mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
-  cohere:     { name:"Command R (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
+  cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  together:   { name:"Llama 3 (Together AI)", short:"Together",  provider:"Together AI",    color:"#F59E0B", bg:"#181008", border:"#3D2800", icon:"∿", apiType:"compat", maxTokens:32000,  free:true, keyName:"together",   keyLink:"https://api.together.ai/settings/api-keys", desc:"Gratuit — $1 crédit offert", baseUrl:"https://api.together.xyz/v1",               model:"meta-llama/Llama-3-8b-chat-hf" },
+  huggingface:{ name:"Phi-3 (HuggingFace)",   short:"HuggingFace",provider:"HuggingFace",    color:"#FFD21E", bg:"#181408", border:"#3D3000", icon:"🤗", apiType:"compat", maxTokens:4000,   free:true, keyName:"huggingface",keyLink:"https://huggingface.co/settings/tokens",      desc:"Gratuit — token HF gratuit", baseUrl:"https://api-inference.huggingface.co/v1",   model:"microsoft/Phi-3-mini-4k-instruct" },
 };
 
 const WEB_AIS = [
@@ -313,7 +313,7 @@ async function callCohere(messages, apiKey, system="Tu es un assistant IA utile 
   const r = await fetch("https://api.cohere.ai/v1/chat", {
     method:"POST",
     headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
-    body: JSON.stringify({ model:"command-r", message: last, chat_history: chatHistory, preamble: system, max_tokens: 1500 })
+    body: JSON.stringify({ model:"command-r-plus-08-2024", message: last, chat_history: chatHistory, preamble: system, max_tokens: 1500 })
   });
   const raw = await r.text();
   let d; try { d = JSON.parse(raw); } catch { throw new Error("Réponse Cohere invalide"); }
@@ -2828,13 +2828,13 @@ export default function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,together:false }; }
-    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,together:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,huggingface:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,huggingface:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
-    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",together:"" }; }
-    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",together:"" }; }
+    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",huggingface:"" }; }
+    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",huggingface:"" }; }
   });
 
   useEffect(() => { try { localStorage.setItem("multiia_keys", JSON.stringify(apiKeys)); } catch {} }, [apiKeys]);
