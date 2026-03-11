@@ -3,17 +3,17 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "9.9";
+const APP_VERSION = "10.0";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
   // ── IAs 100% gratuites ────────────────────────────────────────────
   groq:       { name:"Llama 3.3 (Groq)",   short:"Groq",      provider:"Groq / Meta",   color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat", maxTokens:128000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"GRATUIT 14 400/jour",   baseUrl:"https://api.groq.com/openai/v1",              model:"llama-3.3-70b-versatile" },
   mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
-  gemini:     { name:"Gemini 1.5 Flash",    short:"Gemini",    provider:"Google",        color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"gemini", maxTokens:1000000,free:true, keyName:"gemini",     keyLink:"https://aistudio.google.com/app/apikey",    desc:"Gratuit — clé AI Studio",url:null, model:"gemini-1.5-flash" },
+  cohere:     { name:"Command R (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  openrouter: { name:"Hermes 3 (OpenRouter)",short:"OpenRouter",provider:"OpenRouter",    color:"#E07FA0", bg:"#1A080E", border:"#3D0A1E", icon:"⊕", apiType:"compat", maxTokens:128000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys",                desc:"Gratuit — 50+ modèles",  baseUrl:"https://openrouter.ai/api/v1",                model:"nousresearch/hermes-3-llama-3.1-8b:free" },
+  together:   { name:"Llama 3 (Together AI)", short:"Together",  provider:"Together AI",    color:"#F59E0B", bg:"#181008", border:"#3D2800", icon:"∿", apiType:"compat", maxTokens:32000,  free:true, keyName:"together",   keyLink:"https://api.together.ai/settings/api-keys", desc:"Gratuit — $1 crédit offert", baseUrl:"https://api.together.xyz/v1",               model:"meta-llama/Llama-3-8b-chat-hf" },
 };
 
 const WEB_AIS = [
@@ -303,6 +303,23 @@ async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un ass
   if(!d.choices || !d.choices[0]) throw new Error("Réponse vide — modèle indisponible. Détail: " + JSON.stringify(d).slice(0,200));
   return d.choices[0].message.content;
 }
+async function callCohere(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
+  if (!apiKey) throw new Error("Clé Cohere manquante. Va sur dashboard.cohere.com/api-keys");
+  const chatHistory = messages.slice(0,-1).map(m => ({
+    role: m.role === "assistant" ? "CHATBOT" : "USER",
+    message: m.content
+  }));
+  const last = messages[messages.length-1].content;
+  const r = await fetch("https://api.cohere.ai/v1/chat", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+    body: JSON.stringify({ model:"command-r", message: last, chat_history: chatHistory, preamble: system, max_tokens: 1500 })
+  });
+  const raw = await r.text();
+  let d; try { d = JSON.parse(raw); } catch { throw new Error("Réponse Cohere invalide"); }
+  if(d.message) throw new Error(d.message);
+  return d.text;
+}
 async function callModel(id, messages, keys, system, attachedFile=null) {
   const m=MODEL_DEFS[id];
   if(!m) throw new Error("IA inconnue : " + id);
@@ -311,6 +328,7 @@ async function callModel(id, messages, keys, system, attachedFile=null) {
     ? messages.map((msg,i) => i===messages.length-1 ? {...msg, content:`📎 Fichier: ${attachedFile.name}\n\n${attachedFile.content}\n\n---\n${msg.content}`} : msg)
     : messages;
   if(m.apiType==="gemini") return callGemini(msgWithFile,keys.gemini,system);
+  if(m.apiType==="cohere") return callCohere(messages,keys.cohere,system);
   if(m.apiType==="compat") {
     const key = keys[m.keyName];
     if(!key) throw new Error(`Clé API manquante pour ${m.name}. Va dans ⚙ Config pour l'ajouter gratuitement.`);
@@ -2810,13 +2828,13 @@ export default function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,gemini:false,cerebras:false,sambanova:false,openrouter:false }; }
-    catch { return { groq:true,mistral:true,gemini:false,cerebras:false,sambanova:false,openrouter:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,together:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,together:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
-    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { gemini:"",mistral:"",groq_inf:"",cerebras:"",sambanova:"",openrouter:"" }; }
-    catch { return { gemini:"",mistral:"",groq_inf:"",cerebras:"",sambanova:"",openrouter:"" }; }
+    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",together:"" }; }
+    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",together:"" }; }
   });
 
   useEffect(() => { try { localStorage.setItem("multiia_keys", JSON.stringify(apiKeys)); } catch {} }, [apiKeys]);
