@@ -3321,8 +3321,13 @@ function App() {
   };
 
   // ── Vote automatique "Meilleure réponse" ────────────────────────
-  const [bestVote, setBestVote] = useState(null); // { id, scores:{id:score} }
+  const [bestVote, setBestVote] = useState(null); // { winner, scores:{id:{precision,clarte,completude,utilite,total}}, reason, points:{id:[]} }
   const [voteLoading, setVoteLoading] = useState(false);
+  const [voteHistory, setVoteHistory] = useState([]); // historique tous les verdicts
+  const [showVoteDetail, setShowVoteDetail] = useState(false); // expand jury bandeau
+  const [showDiffModal, setShowDiffModal] = useState(false); // modal diff
+  const [diffPair, setDiffPair] = useState([null,null]); // [id1, id2] pour diff
+  const [showRecap, setShowRecap] = useState(false); // recap table collapsible
   const runAutoVote = async (convSnapshot) => {
     const activeIds = IDS.filter(id => enabled[id]);
     if (activeIds.length < 2) return;
@@ -3336,13 +3341,17 @@ function App() {
     try {
       const judge = IDS.find(id => enabled[id] && !isLimited(id));
       if (!judge) return;
-      const prompt = `Tu es un juge neutre. Évalue ces ${responses.length} réponses IA à la même question. Critères : précision, clarté, complétude, utilité (1-10 chacun).
-${responses.map((r,i)=>`\n**IA ${i+1} (id:${r.id}):**\n${r.text.slice(0,600)}`).join("\n")}
-Réponds UNIQUEMENT en JSON valide sans markdown: {"winner":"id_gagnant","scores":{"${responses.map(r=>r.id).join('":0,"')}":0},"reason":"raison courte en 1 phrase"}`;
-      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Tu es un juge objectif. JSON uniquement, sans markdown.");
-      const clean = reply.replace(/```json|```/g,"").trim();
+      const sep = ",";
+      const scoresSchema = responses.map(r=>'"'+r.id+'": {"precision":0,"clarte":0,"completude":0,"utilite":0,"total":0}').join(sep);
+      const pointsSchema = responses.map(r=>'"'+r.id+'": ["point clé 1","point clé 2"]').join(sep);
+      const rankingSchema = responses.map(r=>'"'+r.id+'"').join(",");
+      const responsesText = responses.map((r,i)=>"IA "+(i+1)+" (id:"+r.id+"):\n"+r.text.slice(0,500)).join("\n\n");
+      const prompt = "Tu es un juge expert en IA. Évalue ces "+responses.length+" réponses à la même question.\n\n"+responsesText+"\n\nRéponds UNIQUEMENT en JSON valide, sans markdown, sans texte autour :\n{\n  \"winner\": \"id_du_gagnant\",\n  \"scores\": {"+scoresSchema+"},\n  \"reason\": \"explication 1-2 phrases du classement\",\n  \"points\": {"+pointsSchema+"},\n  \"ranking\": ["+rankingSchema+"]\n}\nScores de 1 à 10. total = moyenne des 4. ranking = du meilleur au moins bon.";
+      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Tu es un juge objectif. JSON uniquement, sans markdown ni texte autour.");
+      const clean = reply.replace(/```json[\s\S]*?```|```[\s\S]*?```/g, s => s.replace(/```json|```/g,"")).replace(/```/g,"").trim();
       const result = JSON.parse(clean);
       setBestVote(result);
+      setVoteHistory(prev => [...prev.slice(-49), {...result, ts: Date.now(), question: (Object.values(convSnapshot).find(msgs=>msgs)?.[0]?.content||"").slice(0,60) }]);
     } catch(e) { console.warn("Vote err:", e.message); }
     setVoteLoading(false);
   };
@@ -3986,6 +3995,7 @@ ${allMsgs.map(m=>`
               ["traducteur","🌍 Trad."],
               ["agent","🤖 Agent"],
               ["webia","🌐 IAs Web"],
+              ["compare","⚖ Comparer"],
               ["stats","📊 Stats"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
@@ -4122,17 +4132,113 @@ ${allMsgs.map(m=>`
           <div className="cols tab-content-mobile"
               onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
               style={isMobile?{flexDirection:"column"}:{}}>
-            {/* 🏆 Bandeau vote si résultat dispo */}
-            {bestVote && !voteLoading && (
-              <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",zIndex:99,background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.5)",borderRadius:6,padding:"4px 14px",fontSize:10,color:"var(--ac)",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap",pointerEvents:"none",backdropFilter:"blur(6px)"}}>
-                🏆 Meilleure réponse : <strong>{MODEL_DEFS[bestVote.winner]?.icon} {MODEL_DEFS[bestVote.winner]?.short}</strong> — {bestVote.reason?.slice(0,80)}
-              </div>
-            )}
+            {/* 🏆 Bandeau jury amélioré */}
             {voteLoading && (
-              <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",zIndex:99,background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.3)",borderRadius:6,padding:"4px 14px",fontSize:10,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap",pointerEvents:"none"}}>
-                ⚖️ Jury IA en train de noter…
+              <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",zIndex:99,background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.35)",borderRadius:8,padding:"5px 16px",fontSize:10,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap",pointerEvents:"none",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",gap:6}}>
+                <span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⚖️</span> Jury IA en train de noter…
               </div>
             )}
+            {bestVote && !voteLoading && (() => {
+              const ranking = bestVote.ranking || [bestVote.winner];
+              const medals = ["🥇","🥈","🥉"];
+              const winM = MODEL_DEFS[bestVote.winner];
+              return (
+                <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",zIndex:99,maxWidth:680,width:"calc(100% - 32px)",backdropFilter:"blur(10px)"}}>
+                  {/* Header cliquable */}
+                  <div onClick={()=>setShowVoteDetail(v=>!v)} style={{cursor:"pointer",background:`linear-gradient(135deg,rgba(212,168,83,.18),rgba(212,168,83,.08))`,border:"1px solid rgba(212,168,83,.5)",borderRadius:showVoteDetail?"8px 8px 0 0":"8px",padding:"6px 12px",display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:14}}>🏆</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <span style={{fontSize:10,fontWeight:700,color:winM?.color||"var(--ac)",fontFamily:"'Syne',sans-serif"}}>{winM?.icon} {winM?.short}</span>
+                      <span style={{fontSize:9,color:"var(--mu)",marginLeft:8,fontFamily:"'IBM Plex Mono',monospace"}}>— {bestVote.reason?.slice(0,70)}{(bestVote.reason?.length||0)>70?"…":""}</span>
+                    </div>
+                    <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
+                      {ranking.slice(0,3).map((id,i)=>( <span key={id} style={{fontSize:9,opacity:.85}}>{medals[i]}{MODEL_DEFS[id]?.icon}</span> ))}
+                      <span style={{fontSize:9,color:"var(--mu)",marginLeft:4}}>{showVoteDetail?"▲":"▼"}</span>
+                    </div>
+                  </div>
+                  {/* Détail expand */}
+                  {showVoteDetail && (
+                    <div style={{background:"rgba(18,18,28,.96)",border:"1px solid rgba(212,168,83,.35)",borderTop:"none",borderRadius:"0 0 8px 8px",padding:"10px 12px",display:"flex",flexDirection:"column",gap:8}}>
+                      {/* Podium scores */}
+                      <div style={{display:"grid",gridTemplateColumns:`repeat(${ranking.length},1fr)`,gap:6}}>
+                        {ranking.map((id,rank) => {
+                          const m = MODEL_DEFS[id]; const sc = bestVote.scores?.[id]; const tot = sc?.total||0;
+                          const pts = bestVote.points?.[id]||[];
+                          return (
+                            <div key={id} style={{background:`${m.color}12`,border:`1px solid ${m.color}40`,borderRadius:6,padding:"6px 8px",position:"relative"}}>
+                              <div style={{position:"absolute",top:4,right:6,fontSize:12}}>{medals[rank]||""}</div>
+                              <div style={{fontSize:10,fontWeight:700,color:m.color,marginBottom:4,fontFamily:"'Syne',sans-serif"}}>{m.icon} {m.short}</div>
+                              {/* Mini score bars */}
+                              {[["précision",sc?.precision],["clarté",sc?.clarte],["complétude",sc?.completude],["utilité",sc?.utilite]].map(([lbl,val])=>(
+                                <div key={lbl} style={{marginBottom:3}}>
+                                  <div style={{display:"flex",justifyContent:"space-between",fontSize:7,color:"var(--mu)",marginBottom:1}}><span>{lbl}</span><span style={{color:m.color}}>{val||0}/10</span></div>
+                                  <div style={{height:3,background:"var(--s1)",borderRadius:2,overflow:"hidden"}}>
+                                    <div style={{height:"100%",width:`${(val||0)*10}%`,background:m.color,borderRadius:2,transition:"width .4s"}}/>
+                                  </div>
+                                </div>
+                              ))}
+                              <div style={{marginTop:5,fontSize:8,fontWeight:700,color:m.color}}>TOTAL : {typeof tot==="number"?tot.toFixed(1):tot}/10</div>
+                              {pts.length>0 && <div style={{marginTop:4,borderTop:`1px solid ${m.color}25`,paddingTop:4}}>{pts.slice(0,2).map((p,i)=><div key={i} style={{fontSize:7,color:"var(--mu)",marginBottom:1}}>• {p}</div>)}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Raison complète + actions */}
+                      <div style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",background:"var(--s1)",padding:"6px 8px",borderRadius:4,borderLeft:"3px solid rgba(212,168,83,.5)"}}>
+                        {bestVote.reason}
+                      </div>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                        {ranking.length>=2 && (
+                          <button onClick={()=>{setDiffPair([ranking[0],ranking[1]]);setShowDiffModal(true);}} style={{fontSize:8,padding:"4px 10px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:4,color:"var(--blue)",cursor:"pointer"}}>
+                            🔍 Voir diff {MODEL_DEFS[ranking[0]]?.icon} vs {MODEL_DEFS[ranking[1]]?.icon}
+                          </button>
+                        )}
+                        <button onClick={()=>setShowRecap(v=>!v)} style={{fontSize:8,padding:"4px 10px",background:"rgba(74,222,128,.08)",border:"1px solid rgba(74,222,128,.25)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>
+                          📋 {showRecap?"Masquer":"Voir"} tableau récap
+                        </button>
+                        <button onClick={()=>setTab("compare")} style={{fontSize:8,padding:"4px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>
+                          📊 Historique comparaisons
+                        </button>
+                      </div>
+                      {/* Tableau récap collapsible */}
+                      {showRecap && (
+                        <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,overflow:"hidden"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:8}}>
+                            <thead>
+                              <tr style={{background:"var(--s2)"}}>
+                                <th style={{padding:"4px 8px",textAlign:"left",color:"var(--mu)",fontWeight:600}}>IA</th>
+                                <th style={{padding:"4px 8px",color:"var(--mu)",fontWeight:600}}>Précision</th>
+                                <th style={{padding:"4px 8px",color:"var(--mu)",fontWeight:600}}>Clarté</th>
+                                <th style={{padding:"4px 8px",color:"var(--mu)",fontWeight:600}}>Complétude</th>
+                                <th style={{padding:"4px 8px",color:"var(--mu)",fontWeight:600}}>Utilité</th>
+                                <th style={{padding:"4px 8px",color:"var(--mu)",fontWeight:600}}>Total</th>
+                                <th style={{padding:"4px 8px",color:"var(--mu)",fontWeight:600}}>Points clés</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ranking.map((id,i) => {
+                                const m=MODEL_DEFS[id]; const sc=bestVote.scores?.[id]||{}; const pts=bestVote.points?.[id]||[];
+                                return (
+                                  <tr key={id} style={{borderTop:"1px solid var(--bd)",background:i===0?`${m.color}08`:"transparent"}}>
+                                    <td style={{padding:"4px 8px",color:m.color,fontWeight:700}}>{medals[i]||""} {m.icon} {m.short}</td>
+                                    <td style={{padding:"4px 8px",textAlign:"center",color:"var(--tx)"}}>{sc.precision||"-"}</td>
+                                    <td style={{padding:"4px 8px",textAlign:"center",color:"var(--tx)"}}>{sc.clarte||"-"}</td>
+                                    <td style={{padding:"4px 8px",textAlign:"center",color:"var(--tx)"}}>{sc.completude||"-"}</td>
+                                    <td style={{padding:"4px 8px",textAlign:"center",color:"var(--tx)"}}>{sc.utilite||"-"}</td>
+                                    <td style={{padding:"4px 8px",textAlign:"center",fontWeight:700,color:m.color}}>{typeof sc.total==="number"?sc.total.toFixed(1):"-"}</td>
+                                    <td style={{padding:"4px 8px",color:"var(--mu)"}}>{pts.slice(0,2).join(" · ")}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {IDS.map(id => {
               const m = MODEL_DEFS[id];
               const lim = isLimited(id);
@@ -4944,7 +5050,157 @@ ${allMsgs.map(m=>`
           </div>
         )}
 
-        {tab === "config" && (
+        {/* ── DIFF MODAL ── */}
+        {showDiffModal && diffPair[0] && diffPair[1] && (() => {
+          const id1 = diffPair[0], id2 = diffPair[1];
+          const m1 = MODEL_DEFS[id1], m2 = MODEL_DEFS[id2];
+          const conv1 = conversations[id1]||[], conv2 = conversations[id2]||[];
+          const last1 = [...conv1].reverse().find(m=>m.role==="assistant")?.content||"";
+          const last2 = [...conv2].reverse().find(m=>m.role==="assistant")?.content||"";
+          // Tokenize simple
+          const tokenize = t => t.toLowerCase().replace(/[^a-zà-ÿ0-9\s]/g,"").split(/\s+/).filter(Boolean);
+          const words1 = new Set(tokenize(last1));
+          const words2 = new Set(tokenize(last2));
+          const common = new Set([...words1].filter(w=>words2.has(w)&&w.length>3));
+          const highlightText = (text, commonSet, uniqueColor) => {
+            const parts = text.split(/(\s+)/);
+            return parts.map((word, i) => {
+              const clean = word.toLowerCase().replace(/[^a-zà-ÿ0-9]/g,"");
+              if (clean.length <= 3) return word;
+              if (commonSet.has(clean)) return (<span key={i} style={{background:"rgba(74,222,128,.2)",borderRadius:2,padding:"0 1px"}}>{word}</span>);
+              return (<span key={i} style={{background:`rgba(${uniqueColor},.15)`,borderRadius:2,padding:"0 1px"}}>{word}</span>);
+            });
+          };
+          return (
+            <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.75)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowDiffModal(false)}>
+              <div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:10,width:"min(900px,100%)",maxHeight:"85vh",display:"flex",flexDirection:"column",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
+                <div style={{padding:"10px 16px",borderBottom:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+                  <span style={{fontSize:16}}>🔍</span>
+                  <span style={{fontWeight:700,color:"var(--tx)",fontSize:12,fontFamily:"'Syne',sans-serif"}}>Vue diff — comparaison côte à côte</span>
+                  <div style={{display:"flex",gap:8,marginLeft:8,fontSize:9,color:"var(--mu)"}}>
+                    <span style={{background:"rgba(74,222,128,.15)",border:"1px solid rgba(74,222,128,.3)",borderRadius:3,padding:"1px 6px",color:"var(--green)"}}>● mots communs</span>
+                    <span style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.2)",borderRadius:3,padding:"1px 6px",color:"var(--red)"}}>● unique IA 1</span>
+                    <span style={{background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,padding:"1px 6px",color:"var(--blue)"}}>● unique IA 2</span>
+                  </div>
+                  <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+                    {[id1,id2].map((id,i)=>(
+                      <select key={i} value={id} onChange={e=>{const p=[...diffPair];p[i]=e.target.value;setDiffPair(p);}}
+                        style={{fontSize:9,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",padding:"2px 6px"}}>
+                        {IDS.filter(x=>enabled[x]).map(x=><option key={x} value={x}>{MODEL_DEFS[x]?.icon} {MODEL_DEFS[x]?.short}</option>)}
+                      </select>
+                    ))}
+                    <button onClick={()=>setShowDiffModal(false)} style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",padding:"2px 8px",cursor:"pointer",fontSize:12}}>✕</button>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0,overflow:"auto",flex:1}}>
+                  {[[id1,last1,"248,113,113"],[id2,last2,"96,165,250"]].map(([id,text,uniqueRgb],i)=>{
+                    const m=MODEL_DEFS[id];
+                    const otherWords = i===0 ? words2 : words1;
+                    const myWords = i===0 ? words1 : words2;
+                    return (
+                      <div key={id} style={{padding:"12px 14px",borderRight:i===0?"1px solid var(--bd)":undefined}}>
+                        <div style={{fontSize:10,fontWeight:700,color:m.color,marginBottom:8,fontFamily:"'Syne',sans-serif"}}>{m.icon} {m.name}</div>
+                        <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap",fontFamily:"'IBM Plex Mono',monospace",fontSize:9}}>
+                          {text.split(/(\s+)/).map((word,j)=>{
+                            const clean = word.toLowerCase().replace(/[^a-zà-ÿ0-9]/g,"");
+                            if(clean.length<=3) return <span key={j}>{word}</span>;
+                            if(common.has(clean)) return <span key={j} style={{background:"rgba(74,222,128,.2)",borderRadius:2}}>{word}</span>;
+                            return <span key={j} style={{background:`rgba(${uniqueRgb},.12)`,borderRadius:2}}>{word}</span>;
+                          })}
+                        </div>
+                        <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid var(--bd)",fontSize:8,color:"var(--mu)",display:"flex",gap:12}}>
+                          <span>📝 {text.split(/\s+/).length} mots</span>
+                          <span style={{color:"var(--green)"}}>✦ {[...new Set(tokenize(text))].filter(w=>w.length>3&&common.has(w)).length} communs</span>
+                          <span style={{color:`rgb(${uniqueRgb})`}}>◆ {[...new Set(tokenize(text))].filter(w=>w.length>3&&!common.has(w)).length} uniques</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── ONGLET COMPARE ── */}
+        {tab === "compare" && (
+          <div style={{flex:1,overflow:"auto",padding:16,display:"flex",flexDirection:"column",gap:16}}>
+            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)",letterSpacing:1}}>📊 HISTORIQUE DES COMPARAISONS</div>
+            {voteHistory.length === 0 ? (
+              <div style={{textAlign:"center",color:"var(--mu)",fontSize:11,padding:40}}>
+                Aucune comparaison encore.<br/>
+                <span style={{fontSize:9}}>Active 2+ IAs et envoie un message → le jury notera automatiquement.</span>
+              </div>
+            ) : (<>
+              {/* Win rate cumulé */}
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 16px"}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,fontFamily:"'Syne',sans-serif"}}>🏆 CLASSEMENT CUMULÉ — {voteHistory.length} verdicts</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {(() => {
+                    const wins = {}; const totals = {}; const counts = {};
+                    IDS.forEach(id => { wins[id]=0; totals[id]=0; counts[id]=0; });
+                    voteHistory.forEach(v => {
+                      if(v.winner) wins[v.winner]=(wins[v.winner]||0)+1;
+                      Object.entries(v.scores||{}).forEach(([id,sc])=>{ const t=typeof sc==="object"?sc.total:sc; if(t){totals[id]=(totals[id]||0)+t; counts[id]=(counts[id]||0)+1;} });
+                    });
+                    const sorted = IDS.filter(id=>wins[id]||counts[id]).sort((a,b)=>wins[b]-wins[a]);
+                    const maxWins = Math.max(...sorted.map(id=>wins[id]),1);
+                    return sorted.map((id,i)=>{
+                      const m=MODEL_DEFS[id];
+                      const avgScore = counts[id]>0?(totals[id]/counts[id]).toFixed(1):"-";
+                      const winRate = voteHistory.length>0?Math.round(wins[id]/voteHistory.length*100):0;
+                      return (
+                        <div key={id} style={{display:"flex",alignItems:"center",gap:10}}>
+                          <span style={{fontSize:12,width:20}}>{["🥇","🥈","🥉"][i]||"  "}</span>
+                          <span style={{width:80,fontSize:10,fontWeight:700,color:m.color,fontFamily:"'Syne',sans-serif"}}>{m.icon} {m.short}</span>
+                          <div style={{flex:1,height:12,background:"var(--s2)",borderRadius:6,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${(wins[id]/maxWins)*100}%`,background:m.color,borderRadius:6,transition:"width .5s",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:4}}>
+                            </div>
+                          </div>
+                          <span style={{fontSize:9,color:m.color,width:50,textAlign:"right",fontWeight:700}}>{wins[id]} victoire{wins[id]!==1?"s":""}</span>
+                          <span style={{fontSize:9,color:"var(--mu)",width:40,textAlign:"right"}}>{winRate}%</span>
+                          <span style={{fontSize:9,color:"var(--ac)",width:50,textAlign:"right"}}>⌀ {avgScore}/10</span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+              {/* Liste des verdicts */}
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",fontFamily:"'Syne',sans-serif"}}>📋 TOUS LES VERDICTS</div>
+                {[...voteHistory].reverse().map((v,i)=>{
+                  const wm = MODEL_DEFS[v.winner];
+                  const ranking = v.ranking||[v.winner];
+                  const medals = ["🥇","🥈","🥉"];
+                  return (
+                    <div key={i} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,padding:"8px 12px",display:"flex",gap:10,alignItems:"flex-start"}}>
+                      <div style={{flexShrink:0,textAlign:"center"}}>
+                        <div style={{fontSize:16}}>🏆</div>
+                        <div style={{fontSize:7,color:"var(--mu)",marginTop:2}}>{v.ts?new Date(v.ts).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):""}</div>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        {v.question && <div style={{fontSize:9,color:"var(--mu)",marginBottom:4,fontStyle:"italic"}}>« {v.question}… »</div>}
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
+                          {ranking.slice(0,3).map((id,ri)=>{ const m=MODEL_DEFS[id]; const sc=v.scores?.[id]; const tot=typeof sc==="object"?sc?.total:sc; return (
+                            <span key={id} style={{fontSize:9,background:`${m?.color||"#888"}18`,border:`1px solid ${m?.color||"#888"}35`,borderRadius:4,padding:"2px 7px",color:m?.color||"var(--tx)"}}>
+                              {medals[ri]} {m?.icon} {m?.short} {tot?`· ${typeof tot==="number"?tot.toFixed(1):tot}/10`:""}
+                            </span>
+                          );})}
+                        </div>
+                        <div style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace"}}>{v.reason}</div>
+                      </div>
+                      <button onClick={()=>{setBestVote(v);setShowVoteDetail(true);setShowDiffModal(false);setTab("chat");}} style={{flexShrink:0,fontSize:8,padding:"3px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>↩ Revoir</button>
+                    </div>
+                  );
+                })}
+              </div>
+              <button onClick={()=>setVoteHistory([])} style={{alignSelf:"flex-start",fontSize:9,padding:"5px 12px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer"}}>🗑 Effacer l'historique</button>
+            </>)}
+          </div>
+        )}
+
+                {tab === "config" && (
           <div className="cfg-wrap">
             <div className="sec">
               <div className="sec-title">⌨️ Raccourcis clavier</div>
