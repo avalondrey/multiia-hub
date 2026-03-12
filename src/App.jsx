@@ -29,6 +29,10 @@ const BASE_WEB_AIS = [
   { id:"kimi_web",     name:"Kimi",            subtitle:"Moonshot • Gratuit",    cat:"gratuit", url:"https://www.kimi.com/",                   color:"#E07FA0", icon:"月", desc:"Contexte 1M tokens gratuit" },
   { id:"qwen_web",     name:"Qwen Chat",       subtitle:"Alibaba • Gratuit",     cat:"gratuit", url:"https://chat.qwen.ai/",                   color:"#E0A850", icon:"千", desc:"Qwen3 gratuit, fort en code et raisonnement" },
   { id:"llama_meta",   name:"Meta AI",         subtitle:"Meta • Gratuit",        cat:"gratuit", url:"https://www.meta.ai/",                    color:"#1877F2", icon:"⬟", desc:"Llama 4 Maverick gratuit via Meta" },
+  { id:"zai",          name:"Z.ai",            subtitle:"z.ai • Gratuit",         cat:"gratuit", url:"https://chat.z.ai/",                      color:"#B07FE0", icon:"Ζ",  desc:"Modèles ultra-puissants : Z1 et accès à GPT-4o, Claude, Gemini gratuits" },
+  { id:"t3chat",       name:"T3 Chat",          subtitle:"T3 • Gratuit",           cat:"gratuit", url:"https://t3.chat/",                        color:"#A855F7", icon:"T",  desc:"Interface rapide et épurée, accès Llama, Gemini gratuit" },
+  { id:"cerebras_w",   name:"Cerebras Chat",    subtitle:"Cerebras • Gratuit",     cat:"gratuit", url:"https://inference.cerebras.ai/",          color:"#FF6B35", icon:"◉", desc:"Llama 3.1 à vitesse extrême — 2000 tokens/s" },
+  { id:"sambanova_w",  name:"SambaNova Chat",   subtitle:"SambaNova • Gratuit",    cat:"gratuit", url:"https://cloud.sambanova.ai/",             color:"#E0A850", icon:"∞", desc:"Llama 4 et Qwen très rapides, gratuit" },
   // ── Recherche & spécialisés gratuits ────────────────────────────
   { id:"perplexity",   name:"Perplexity",      subtitle:"Perplexity • Gratuit",  cat:"recherche",url:"https://www.perplexity.ai/",            color:"#20B2AA", icon:"◎", desc:"Recherche IA avec sources en temps réel" },
   { id:"you",          name:"You.com",         subtitle:"You.com • Gratuit",     cat:"recherche",url:"https://you.com/",                      color:"#6366F1", icon:"Y", desc:"IA + recherche web intégrée" },
@@ -243,10 +247,10 @@ const CREDIT_COOLDOWN = 300;
 const PRICING = {
   groq:       { in:0.00, out:0.00, label:"Llama 3.3 (Groq) — GRATUIT" },
   mistral:    { in:0.00, out:0.00, label:"Mistral Small 3 — GRATUIT" },
-  gemini:     { in:0.00, out:0.00, label:"Gemini 2.0 Flash — GRATUIT" },
+  cohere:     { in:0.00, out:0.00, label:"Command R+ (Cohere) — GRATUIT" },
   cerebras:   { in:0.00, out:0.00, label:"Llama 3.1 (Cerebras) — GRATUIT" },
   sambanova:  { in:0.00, out:0.00, label:"Llama 4 (SambaNova) — GRATUIT" },
-  openrouter: { in:0.00, out:0.00, label:"Gemma 3 (OpenRouter) — GRATUIT" },
+  mixtral:    { in:0.00, out:0.00, label:"Qwen3 32B (Groq) — GRATUIT" },
 };
 
 // ── Prompts par défaut ────────────────────────────────────────────
@@ -1485,7 +1489,7 @@ const FALLBACK_NEWS = [
 async function fetchAINews(themeQuery, savedKeys) {
   const keys = savedKeys || {};
   const errors = [];
-  if (keys.gemini)   { try { return { items:await tryGemini(themeQuery,keys.gemini),   provider:"Gemini ◇",      fallback:false }; } catch(e) { errors.push(e.message); } }
+  // Gemini retiré (non disponible dans cette config)
   if (keys.groq_inf) { try { return { items:await tryGroq(themeQuery,keys.groq_inf),   provider:"Groq/Llama ⚡", fallback:false }; } catch(e) { errors.push(e.message); } }
   if (keys.mistral)  { try { return { items:await tryMistral(themeQuery,keys.mistral), provider:"Mistral ▲",     fallback:false }; } catch(e) { errors.push(e.message); } }
   if (keys.openai)   { try { return { items:await tryOpenAI(themeQuery,keys.openai),   provider:"GPT-4o mini ◈", fallback:false }; } catch(e) { errors.push(e.message); } }
@@ -1840,14 +1844,14 @@ function TraducteurTab({ enabled, apiKeys }) {
 // AGENT AUTONOME TAB
 // ═══════════════════════════════════════════════════════════
 function AgentTab({ enabled, apiKeys }) {
-  const AGENT_PREFERRED = ["groq","mistral","gemini","gpt4","deepseek","claude"];
+  const AGENT_PREFERRED = ["groq","mistral","cohere","cerebras","sambanova","mixtral"];
   const [objective, setObjective] = React.useState("");
   const [steps, setSteps] = React.useState([]);
   const [running, setRunning] = React.useState(false);
   const [currentStep, setCurrentStep] = React.useState(-1);
   const [finalResult, setFinalResult] = React.useState("");
   const activeAgentIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
-  const AGENT_PREF = ["groq","mistral","gemini","cerebras","sambanova","openrouter"];
+  const AGENT_PREF = ["groq","mistral","cohere","cerebras","sambanova","mixtral"];
   const defaultAgentIA = AGENT_PREF.find(id => enabled[id]) || "mistral";
   const [agentIA, setAgentIA] = React.useState(defaultAgentIA);
   const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
@@ -2662,7 +2666,7 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
 function WorkflowsTab({ enabled, apiKeys }) {
   const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
   // Priorité aux IAs qui fonctionnent sans proxy (pas Claude sur Vercel)
-  const PREFERRED = ["groq","mistral","gemini","cerebras","sambanova","openrouter"];
+  const PREFERRED = ["groq","mistral","cohere","cerebras","sambanova","mixtral"];
   const firstIA = PREFERRED.find(id => enabled[id]) || activeIds[0] || "groq";
   const [steps, setSteps] = React.useState([
     { id:1, label:"Génération d'idées", ia:firstIA, prompt:"Génère 5 idées créatives pour : {INPUT}", useInput:true },
@@ -3106,6 +3110,13 @@ function App() {
   const [activeHistId, setActiveHistId] = useState(null);
   const [showHist, setShowHist] = useState(true);
   const [toast, setToast] = useState(null);
+
+  // ── Stats d'usage ───────────────────────────────────────────────
+  const STATS_KEY = "multiia_stats";
+  const loadStats = () => { try { return JSON.parse(localStorage.getItem(STATS_KEY)||"{}"); } catch { return {}; } };
+  const [usageStats, setUsageStats] = React.useState(loadStats);
+  const resetStats = () => { setUsageStats({}); localStorage.removeItem(STATS_KEY); };
+  React.useEffect(() => { localStorage.setItem(STATS_KEY, JSON.stringify(usageStats)); }, [usageStats]);
   const [cfgDrafts, setCfgDrafts] = useState({});
   const [showExportModal, setShowExportModal] = useState(false);
   const fileRef = useRef(null);
@@ -3497,7 +3508,7 @@ function App() {
     setDebPhase(3);
     const allAnswers = ids.map(id=>`**${MODEL_DEFS[id].short}**:\n${r2[id]||r1[id]||"(pas de réponse)"}`).join("\n\n---\n\n");
     const synPrompt = `Question: "${question}"\n\nRéponses finales:\n\n${allAnswers}\n\n---\n\nProduis:\n1. La MEILLEURE RÉPONSE SYNTHÉTISÉE\n2. POINTS DE CONSENSUS\n3. DIVERGENCES notables`;
-    const synthPriority = ["claude","gemini","mistral","groq","gpt4","deepseek","kimi","qwen","grok"];
+    const synthPriority = ["groq","mistral","cohere","cerebras","sambanova","mixtral"];
     let synDone = false;
     for (const sid of synthPriority) {
       if (!enabled[sid] || isLimited(sid)) continue;
