@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "10.1";
+const APP_VERSION = "11.0";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
@@ -17,7 +17,7 @@ const MODEL_DEFS = {
   // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
   poll_gpt:   { name:"GPT-4o (Pollinations)",  short:"GPT-4o",  provider:"OpenAI via Pollinations", color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"openai" },
   poll_claude:{ name:"Claude (Pollinations)",  short:"Claude",  provider:"Anthropic via Pollinations",color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"claude-airforce" },
-  poll_gemini:{ name:"Gemini (Pollinations)",  short:"Gemini",  provider:"Google via Pollinations",  color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"gemini" },
+  poll_deepseek:{ name:"DeepSeek (Pollinations)", short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"deepseek" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -257,7 +257,7 @@ const PRICING = {
   mixtral:    { in:0.00, out:0.00, label:"Qwen3 32B (Groq) — GRATUIT" },
   poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — SANS CLÉ" },
   poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — SANS CLÉ" },
-  poll_gemini:{ in:0.00, out:0.00, label:"Gemini (Pollinations) — SANS CLÉ" },
+  poll_deepseek:{ in:0.00, out:0.00, label:"DeepSeek (Pollinations) — SANS CLÉ" },
 };
 
 // ── Prompts par défaut ────────────────────────────────────────────
@@ -425,12 +425,17 @@ async function correctGrammar(text, keys) {
 
 // ── Personas par défaut ───────────────────────────────────────────
 const DEFAULT_PERSONAS = [
-  { id:"default", name:"Assistant général", icon:"🤖", color:"#D4A853", system:"Tu es un assistant IA utile, précis et concis. Tu réponds en français sauf si l'utilisateur écrit dans une autre langue." },
-  { id:"dev",     name:"Développeur senior", icon:"💻", color:"#4ADE80", system:"Tu es un développeur senior full-stack avec 15 ans d'expérience. Tu fournis du code propre, documenté et optimisé. Tu expliques toujours tes choix techniques et signales les erreurs potentielles." },
-  { id:"writer",  name:"Rédacteur professionnel", icon:"✍️", color:"#60A5FA", system:"Tu es un rédacteur professionnel expert en copywriting et communication. Tu écris des textes clairs, convaincants et adaptés au public cible. Tu maîtrises parfaitement le français." },
-  { id:"analyst", name:"Analyste business", icon:"📊", color:"#A78BFA", system:"Tu es un consultant business senior avec expertise en stratégie, marketing et finance. Tu analyses les situations avec rigueur et fournis des insights actionnables basés sur des données." },
-  { id:"teacher", name:"Pédagogue expert", icon:"🎓", color:"#FB923C", system:"Tu es un pédagogue passionné qui explique les concepts complexes simplement. Tu utilises des analogies, des exemples concrets et tu vérifies la compréhension. Tu adaptes ton niveau à l'interlocuteur." },
-  { id:"creative",name:"Créatif / Storyteller", icon:"🎨", color:"#E07FA0", system:"Tu es un directeur créatif avec une imagination débordante. Tu génères des idées originales, des histoires captivantes et du contenu créatif. Tu penses hors des sentiers battus." },
+  { id:"default",  name:"Assistant général",     icon:"🤖", color:"#D4A853", system:"Tu es un assistant IA utile, précis et concis. Tu réponds en français sauf si l'utilisateur écrit dans une autre langue." },
+  { id:"dev",      name:"Développeur senior",    icon:"💻", color:"#4ADE80", system:"Tu es un développeur senior full-stack avec 15 ans d'expérience. Tu fournis du code propre, documenté et optimisé. Tu expliques toujours tes choix techniques et signales les erreurs potentielles." },
+  { id:"writer",   name:"Rédacteur pro",         icon:"✍️", color:"#60A5FA", system:"Tu es un rédacteur professionnel expert en copywriting et communication. Tu écris des textes clairs, convaincants et adaptés au public cible. Tu maîtrises parfaitement le français." },
+  { id:"analyst",  name:"Analyste business",     icon:"📊", color:"#A78BFA", system:"Tu es un consultant business senior avec expertise en stratégie, marketing et finance. Tu analyses les situations avec rigueur et fournis des insights actionnables basés sur des données." },
+  { id:"teacher",  name:"Pédagogue expert",      icon:"🎓", color:"#FB923C", system:"Tu es un pédagogue passionné qui explique les concepts complexes simplement. Tu utilises des analogies, des exemples concrets et tu vérifies la compréhension. Tu adaptes ton niveau à l'interlocuteur." },
+  { id:"creative", name:"Créatif / Storyteller", icon:"🎨", color:"#E07FA0", system:"Tu es un directeur créatif avec une imagination débordante. Tu génères des idées originales, des histoires captivantes et du contenu créatif. Tu penses hors des sentiers battus." },
+  { id:"devil",    name:"Avocat du diable",      icon:"😈", color:"#F87171", system:"Tu es l'avocat du diable. Tu dois TOUJOURS argumenter CONTRE l'idée présentée, même si tu es d'accord. Tu trouves tous les défauts, risques, contradictions et failles. Tu es incisif, provocateur mais constructif. Commence par 'Contre-argument :'" },
+  { id:"expert",   name:"Expert ultra-spécialiste", icon:"🔬", color:"#34D399", system:"Tu es un expert ultra-spécialisé dans le domaine de la question posée. Tu réponds avec une précision extrême, des données chiffrées, des références, et tu n'hésites pas à nuancer. Tu signales si tu n'es pas certain d'une information." },
+  { id:"socratic", name:"Maïeuticien / Socrate",    icon:"🏛️", color:"#C084FC", system:"Tu es Socrate. Au lieu de donner des réponses directes, tu poses des questions puissantes pour aider l'utilisateur à trouver lui-même la vérité. Tu utilises la méthode maïeutique : tu ne juges pas, tu questionnes, tu fais réfléchir." },
+  { id:"optimist", name:"Optimiste radical",     icon:"🌟", color:"#FCD34D", system:"Tu es un optimiste radical. Pour chaque sujet, tu identifies le potentiel positif maximal, les opportunités cachées, et les raisons d'espérer. Tu es enthousiaste et énergisant, sans être naïf." },
+  { id:"stoic",    name:"Philosophe stoïcien",   icon:"⚖️", color:"#94A3B8", system:"Tu réfléchis en philosophe stoïcien. Tu analyses les situations avec calme et détachement, en séparant ce qui dépend de nous de ce qui n'en dépend pas. Tu cites Marcus Aurèle, Épictète ou Sénèque si pertinent." },
 ];
 
 // ── Actions de rédaction ──────────────────────────────────────────
@@ -3044,8 +3049,8 @@ function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_gemini:false }; }
-    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_gemini:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_deepseek:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_deepseek:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
@@ -3162,6 +3167,213 @@ function App() {
     try { localStorage.setItem("multiia_theme", darkMode?"dark":"light"); } catch {}
   }, [darkMode]);
 
+  // ── Mode Focus (1 IA plein écran) ──────────────────────────────
+  const [focusId, setFocusId] = useState(null);
+
+  // ── Recherche plein-texte historique ───────────────────────────
+  const [histSearch, setHistSearch] = useState("");
+  const filteredConvs = histSearch.trim()
+    ? savedConvs.filter(c => {
+        const q = histSearch.toLowerCase();
+        if (c.title.toLowerCase().includes(q)) return true;
+        return Object.values(c.conversations||{}).flat().some(m => m.content?.toLowerCase().includes(q));
+      })
+    : savedConvs;
+
+  // ── RAG : document long → chunks ───────────────────────────────
+  const [ragText, setRagText] = useState("");
+  const [ragChunks, setRagChunks] = useState([]);
+  const [showRagPanel, setShowRagPanel] = useState(false);
+  const processRagText = (text) => {
+    const CHUNK = 1200;
+    const chunks = [];
+    for (let i = 0; i < text.length; i += CHUNK) chunks.push(text.slice(i, i+CHUNK));
+    setRagChunks(chunks);
+    setRagText(text);
+    showToast(`✓ Document découpé en ${chunks.length} morceaux`);
+  };
+  const getRagContext = (query) => {
+    if (!ragChunks.length) return null;
+    const words = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const scored = ragChunks.map((chunk, i) => ({
+      chunk, i,
+      score: words.reduce((acc, w) => acc + (chunk.toLowerCase().split(w).length - 1), 0)
+    })).sort((a,b) => b.score - a.score);
+    const top = scored.slice(0, 2).map(s => s.chunk).join("\n\n---\n\n");
+    return `[Contexte du document]\n${top}\n\n[Question de l'utilisateur]\n${query}`;
+  };
+
+  // ── Ollama local ────────────────────────────────────────────────
+  const [ollamaUrl, setOllamaUrl] = useState(() => { try { return localStorage.getItem("multiia_ollama")||"http://localhost:11434"; } catch { return "http://localhost:11434"; } });
+  const [ollamaModels, setOllamaModels] = useState([]);
+  const [ollamaConnected, setOllamaConnected] = useState(false);
+  const [ollamaActive, setOllamaActive] = useState(false);
+  const [ollamaModel, setOllamaModel] = useState("");
+  const [showOllamaPanel, setShowOllamaPanel] = useState(false);
+  const checkOllama = async (url) => {
+    const base = (url||ollamaUrl).replace(/\/$/, "");
+    try {
+      const r = await fetch(base+"/api/tags", { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        const d = await r.json();
+        const models = (d.models||[]).map(m => m.name);
+        setOllamaModels(models);
+        setOllamaConnected(true);
+        if (models.length && !ollamaModel) setOllamaModel(models[0]);
+        localStorage.setItem("multiia_ollama", base);
+        showToast(`✓ Ollama connecté — ${models.length} modèle(s)`);
+        return true;
+      }
+    } catch {}
+    setOllamaConnected(false);
+    setOllamaModels([]);
+    showToast("✗ Ollama non trouvé — Lance Ollama sur ton PC");
+    return false;
+  };
+  const callOllama = async (model, messages, system) => {
+    const base = ollamaUrl.replace(/\/$/, "");
+    const msgs = system ? [{role:"system",content:system},...messages] : messages;
+    const r = await fetch(base+"/api/chat", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ model: model||ollamaModel, messages: msgs, stream: false })
+    });
+    if (!r.ok) throw new Error("Ollama "+r.status+" — modèle disponible ?");
+    const d = await r.json();
+    return d.message?.content || "";
+  };
+
+  // ── Vote automatique "Meilleure réponse" ────────────────────────
+  const [bestVote, setBestVote] = useState(null); // { id, scores:{id:score} }
+  const [voteLoading, setVoteLoading] = useState(false);
+  const runAutoVote = async (convSnapshot) => {
+    const activeIds = IDS.filter(id => enabled[id]);
+    if (activeIds.length < 2) return;
+    const responses = activeIds.map(id => {
+      const msgs = convSnapshot[id] || [];
+      const last = [...msgs].reverse().find(m => m.role === "assistant");
+      return { id, text: last?.content || "" };
+    }).filter(r => r.text.length > 10);
+    if (responses.length < 2) return;
+    setVoteLoading(true);
+    try {
+      const judge = IDS.find(id => enabled[id] && !isLimited(id));
+      if (!judge) return;
+      const prompt = `Tu es un juge neutre. Évalue ces ${responses.length} réponses IA à la même question. Critères : précision, clarté, complétude, utilité (1-10 chacun).
+${responses.map((r,i)=>`\n**IA ${i+1} (id:${r.id}):**\n${r.text.slice(0,600)}`).join("\n")}
+Réponds UNIQUEMENT en JSON valide sans markdown: {"winner":"id_gagnant","scores":{"${responses.map(r=>r.id).join('":0,"')}":0},"reason":"raison courte en 1 phrase"}`;
+      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Tu es un juge objectif. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const result = JSON.parse(clean);
+      setBestVote(result);
+    } catch(e) { console.warn("Vote err:", e.message); }
+    setVoteLoading(false);
+  };
+
+  // ── Workflow visuel (chaîne de prompts) ────────────────────────
+  const [workflowNodes, setWorkflowNodes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_workflow")||"[]"); } catch { return []; }
+  });
+  const [workflowRunning, setWorkflowRunning] = useState(false);
+  const [workflowResults, setWorkflowResults] = useState([]);
+  const [workflowDrag, setWorkflowDrag] = useState(null);
+  const saveWorkflow = (nodes) => { setWorkflowNodes(nodes); try { localStorage.setItem("multiia_workflow", JSON.stringify(nodes)); } catch {} };
+  const addWorkflowNode = () => {
+    const node = { id: Date.now().toString(), prompt: "", ia: IDS.find(id=>enabled[id])||IDS[0], usePrevOutput: workflowNodes.length > 0, label: `Étape ${workflowNodes.length+1}` };
+    saveWorkflow([...workflowNodes, node]);
+  };
+  const runWorkflow = async (input) => {
+    if (!workflowNodes.length) { showToast("Ajoute des étapes d'abord !"); return; }
+    setWorkflowRunning(true); setWorkflowResults([]);
+    let prevOutput = input || "";
+    const results = [];
+    for (const node of workflowNodes) {
+      const prompt = node.usePrevOutput && prevOutput ? `${node.prompt}\n\n[Entrée précédente]\n${prevOutput}` : (node.prompt || prevOutput);
+      try {
+        const reply = await callModel(node.ia, [{role:"user",content:prompt}], apiKeys, currentSystem, null);
+        prevOutput = reply;
+        results.push({ nodeId: node.id, label: node.label, ia: node.ia, output: reply, ok: true });
+      } catch(e) {
+        results.push({ nodeId: node.id, label: node.label, ia: node.ia, output: e.message, ok: false });
+        break;
+      }
+      setWorkflowResults([...results]);
+    }
+    setWorkflowRunning(false);
+    showToast(`✓ Workflow terminé — ${results.filter(r=>r.ok).length}/${workflowNodes.length} étapes`);
+  };
+
+  // ── Plugins JS ──────────────────────────────────────────────────
+  const [plugins, setPlugins] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_plugins")||"[]"); } catch { return []; }
+  });
+  const [showPluginPanel, setShowPluginPanel] = useState(false);
+  const [pluginUrlInput, setPluginUrlInput] = useState("");
+  const loadPlugin = async (url) => {
+    try {
+      const script = document.createElement("script");
+      script.src = url;
+      script.onload = () => {
+        const name = url.split("/").pop().replace(".js","");
+        const newPlugins = [...plugins.filter(p=>p.url!==url), {name, url, loaded:true}];
+        setPlugins(newPlugins);
+        localStorage.setItem("multiia_plugins", JSON.stringify(newPlugins));
+        showToast(`✓ Plugin "${name}" chargé`);
+      };
+      script.onerror = () => showToast("✗ Impossible de charger le plugin");
+      document.head.appendChild(script);
+    } catch(e) { showToast("✗ Erreur plugin: "+e.message); }
+  };
+
+  // ── Export Markdown / PDF ───────────────────────────────────────
+  const exportMarkdown = (id) => {
+    const m = MODEL_DEFS[id] || { name:"Toutes les IAs", short:"all" };
+    const ids = id ? [id] : IDS.filter(i => enabled[i]);
+    let md = `# Conversation Multi-IA Hub\n**IA:** ${ids.map(i=>MODEL_DEFS[i]?.name||i).join(", ")}\n**Date:** ${new Date().toLocaleString("fr-FR")}\n\n---\n\n`;
+    ids.forEach(cid => {
+      const msgs = (conversations[cid]||[]).filter(m=>m.role==="user"||m.role==="assistant");
+      if (!msgs.length) return;
+      md += `## ${MODEL_DEFS[cid]?.icon} ${MODEL_DEFS[cid]?.name}\n\n`;
+      msgs.forEach(msg => {
+        md += msg.role==="user" ? `**👤 Vous :**\n${msg.content}\n\n` : `**🤖 ${MODEL_DEFS[cid]?.short} :**\n${msg.content}\n\n---\n\n`;
+      });
+    });
+    const blob = new Blob([md], {type:"text/markdown;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=`conversation-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url); showToast("✓ Export Markdown téléchargé");
+  };
+  const exportPDF = (id) => {
+    const ids = id ? [id] : IDS.filter(i => enabled[i]);
+    const allMsgs = ids.flatMap(cid =>
+      (conversations[cid]||[]).filter(m=>m.role==="user"||m.role==="assistant")
+        .map(m=>({...m, ia:MODEL_DEFS[cid]?.short||cid, color:MODEL_DEFS[cid]?.color||"#888"}))
+    );
+    if (!allMsgs.length) { showToast("Aucun message à exporter"); return; }
+    const win = window.open("","_blank");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Conversation Multi-IA Hub</title><style>
+body{font-family:Georgia,serif;max-width:800px;margin:40px auto;color:#222;line-height:1.7}
+h1{font-size:22px;border-bottom:2px solid #D4A853;padding-bottom:8px}
+.msg{margin:16px 0;padding:14px 18px;border-radius:8px}
+.user{background:#F3F4F6;border-left:4px solid #6B7280}
+.assistant{background:#FFF9F0;border-left:4px solid #D4A853}
+.ia-label{font-size:11px;font-weight:bold;color:#888;margin-bottom:6px;text-transform:uppercase}
+.content{font-size:14px;white-space:pre-wrap}
+.footer{margin-top:40px;font-size:11px;color:#AAA;text-align:center}
+</style></head><body>
+<h1>🤖 Conversation Multi-IA Hub</h1>
+<p style="color:#888;font-size:12px">Exporté le ${new Date().toLocaleString("fr-FR")}</p>
+${allMsgs.map(m=>`
+<div class="msg ${m.role}">
+  <div class="ia-label">${m.role==="user"?"👤 Vous":("🤖 "+m.ia)}</div>
+  <div class="content">${m.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
+</div>`).join("")}
+<div class="footer">Généré par Multi-IA Hub v${APP_VERSION}</div>
+</body></html>`;
+    win.document.write(html); win.document.close();
+    setTimeout(()=>win.print(), 500);
+    showToast("✓ Fenêtre impression ouverte → Enregistrer en PDF");
+  };
+
   // ── Persona actif ──
   const [activePersona, setActivePersona] = useState("default");
   const [customPersonas, setCustomPersonas] = useState(() => {
@@ -3173,6 +3385,32 @@ function App() {
   const allPersonas = [...DEFAULT_PERSONAS, ...customPersonas];
   const currentPersona = allPersonas.find(p=>p.id===activePersona) || DEFAULT_PERSONAS[0];
   const currentSystem = currentPersona.system;
+
+  // ── Raccourcis clavier globaux ─────────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      const active = document.activeElement;
+      const inInput = active && (active.tagName==="INPUT"||active.tagName==="TEXTAREA");
+      // Ctrl+Enter = envoyer même depuis textarea
+      if (e.ctrlKey && e.key==="Enter") { e.preventDefault(); if(tab==="chat" && chatInput.trim()) sendChat(); return; }
+      if (inInput && e.key!=="Escape") return;
+      // Ctrl+1..9 = toggle IA
+      if (e.ctrlKey && e.key>="1" && e.key<="9") {
+        const idx = parseInt(e.key)-1; const id = IDS[idx];
+        if (id) { e.preventDefault(); setEnabled(prev=>({...prev,[id]:!prev[id]})); showToast(`${MODEL_DEFS[id].icon} ${MODEL_DEFS[id].short} ${enabled[id]?"désactivé":"activé"}`); }
+      }
+      // Ctrl+K = focus recherche historique
+      if (e.ctrlKey && e.key==="k") { e.preventDefault(); setTab("chat"); setTimeout(()=>document.getElementById("hist-search-inp")?.focus(),150); }
+      // Ctrl+L = clear conversations
+      if (e.ctrlKey && e.key==="l") { e.preventDefault(); setConversations(Object.fromEntries(IDS.map(id=>[id,[]]))); showToast("💬 Conversations effacées"); }
+      // Ctrl+M = export markdown
+      if (e.ctrlKey && e.key==="m") { e.preventDefault(); exportMarkdown(null); }
+      // Escape = quitter focus / solo
+      if (e.key==="Escape") { setFocusId(null); setSoloId(null); setShowRagPanel(false); }
+    };
+    window.addEventListener("keydown", handler);
+    return ()=>window.removeEventListener("keydown", handler);
+  }, [tab, chatInput, enabled, soloId, focusId]);
 
   // ── Voix (TTS) ──
   const [ttsEnabled, setTtsEnabled] = useState(false);
@@ -3470,16 +3708,19 @@ function App() {
 
   const sendChat = async () => {
     const text = chatInput.trim(); if (!text) return;
-    setShowGrammarPopup(false); setGrammarResult(null); setChatInput("");
+    setShowGrammarPopup(false); setGrammarResult(null); setChatInput(""); setBestVote(null);
     const file = attachedFile; setAttachedFile(null);
     requestNotifPerm();
+    // ── RAG : enrichir le message avec contexte document ──────────
+    const ragCtx = ragChunks.length > 0 ? getRagContext(text) : null;
+    const effectiveText = ragCtx || text;
     // ── Respect du mode solo : n'envoyer qu'à l'IA sélectionnée ──
     const targetIds = soloId ? [soloId] : IDS.filter(id => enabled[id]);
     // Sur mobile, n'envoyer qu'à l'IA visible
     const finalTargets = isMobile && !soloId ? [mobileCol] : targetIds;
     const ids = finalTargets.filter(id => !isLimited(id));
     const blockedIds = finalTargets.filter(id => isLimited(id));
-    const userMsg = { role:"user", content:text, file: file ? {name:file.name, icon:file.icon} : null };
+    const userMsg = { role:"user", content:effectiveText, displayContent: ragCtx ? text : null, file: file ? {name:file.name, icon:file.icon} : null };
     const allActive = [...ids, ...blockedIds];
     setConversations(prev => { const n={...prev}; allActive.forEach(id => { n[id] = [...prev[id], userMsg]; }); return n; });
     if (blockedIds.length) {
@@ -3490,7 +3731,12 @@ function App() {
     await Promise.all(ids.map(async (id) => {
       try {
         const hist = [...conversations[id], userMsg];
-        const reply = await callModel(id, hist, apiKeys, currentSystem, file);
+        let reply;
+        if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
+          reply = await callOllama(ollamaModel, hist, currentSystem);
+        } else {
+          reply = await callModel(id, hist, apiKeys, currentSystem, file);
+        }
         if (ttsEnabled && ids.length===1) speakText(reply);
         setConversations(prev => {
           const updated = { ...prev, [id]: [...prev[id], { role:"assistant", content:reply }] };
@@ -3503,8 +3749,13 @@ function App() {
       } finally { setLoading(prev => ({ ...prev, [id]:false })); }
     }));
     // Auto-save après toutes les réponses
-    setConversations(prev => { autoSave(prev);
-        return prev; });
+    setConversations(prev => {
+      autoSave(prev);
+      // Vote automatique si 2+ IAs actives
+      const activeCount = IDS.filter(id => enabled[id]).length;
+      if (activeCount >= 2) setTimeout(()=>runAutoVote(prev), 500);
+      return prev;
+    });
   };
 
   const launchDebate = async () => {
@@ -3649,6 +3900,7 @@ function App() {
               ["redaction","✍️ Rédaction"],
               ["recherche","🔎 Recherche"],
               ["workflows","🤖 Workflows"],
+              ["workflow","🔀 Workflow"],
               ["medias","🎬 Médias"],
               ["arena","⚔ Arène"],
               ["debate","⚡ Débat"],
@@ -3753,16 +4005,23 @@ function App() {
                 }}>🔗</button>
                 <button className="hist-new-btn" onClick={newConv} title="Nouvelle conversation">＋</button>
               </div>
+              {/* 🔍 Recherche plein-texte */}
+              <div style={{padding:"6px 8px",borderBottom:"1px solid var(--bd)",flexShrink:0}}>
+                <input id="hist-search-inp" type="text" value={histSearch} onChange={e=>setHistSearch(e.target.value)}
+                  placeholder="🔍 Rechercher… (Ctrl+K)"
+                  style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,padding:"4px 8px",color:"var(--tx)",fontSize:9,fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}
+                />
+              </div>
               <div className="hist-list">
-                {savedConvs.length === 0 ? (
+                {filteredConvs.length === 0 ? (
                   <div className="hist-empty">
-                    Aucune conversation.<br/>Envoie un message,<br/>ça se sauvegarde<br/>automatiquement. 💬
+                    {histSearch ? `Aucun résultat pour "${histSearch}"` : <>Aucune conversation.<br/>Envoie un message,<br/>ça se sauvegarde<br/>automatiquement. 💬</>}
                   </div>
-                ) : savedConvs.map(entry => (
+                ) : filteredConvs.map(entry => (
                   <div key={entry.id}
                     className={`hist-item ${activeHistId === entry.id ? "active" : ""}`}
                     onClick={() => loadConv(entry)}>
-                    <div className="hist-item-title">{entry.title}</div>
+                    <div className="hist-item-title">{histSearch ? entry.title.replace(new RegExp(`(${histSearch})`, "gi"), "**$1**") : entry.title}</div>
                     <div className="hist-item-meta">
                       <span className="hist-item-date">🕐 {entry.date}</span>
                       <div className="hist-item-ias">
@@ -3785,38 +4044,63 @@ function App() {
           <div className="cols tab-content-mobile"
               onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
               style={isMobile?{flexDirection:"column"}:{}}>
+            {/* 🏆 Bandeau vote si résultat dispo */}
+            {bestVote && !voteLoading && (
+              <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",zIndex:99,background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.5)",borderRadius:6,padding:"4px 14px",fontSize:10,color:"var(--ac)",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap",pointerEvents:"none",backdropFilter:"blur(6px)"}}>
+                🏆 Meilleure réponse : <strong>{MODEL_DEFS[bestVote.winner]?.icon} {MODEL_DEFS[bestVote.winner]?.short}</strong> — {bestVote.reason?.slice(0,80)}
+              </div>
+            )}
+            {voteLoading && (
+              <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",zIndex:99,background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.3)",borderRadius:6,padding:"4px 14px",fontSize:10,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap",pointerEvents:"none"}}>
+                ⚖️ Jury IA en train de noter…
+              </div>
+            )}
             {IDS.map(id => {
               const m = MODEL_DEFS[id];
               const lim = isLimited(id);
               const isMobileHidden = enabledIds.length > 0 && mobileCol !== id;
               const isSoloDim = soloId && soloId !== id;
               const isSoloFocus = soloId === id;
+              const isFocus = focusId === id;
+              const isWinner = bestVote?.winner === id;
               return (
                 <div key={id}
                   className={`col ${!enabled[id]?"off":""} ${isSoloDim?"solo-dim":""} ${isSoloFocus?"solo-focus":""}`}
                   style={{
                     background:enabled[id]?`${m.bg}22`:"transparent",
-                    display: isMobile && mobileCol !== id ? "none" : undefined,
-                    flex: isMobile && mobileCol === id ? "1" : undefined,
+                    display: focusId ? (focusId===id?"flex":"none") : isMobile && mobileCol !== id ? "none" : undefined,
+                    flex: focusId===id ? "1" : isMobile && mobileCol === id ? "1" : undefined,
                     width: isMobile ? "100%" : undefined,
+                    outline: isWinner ? `2px solid ${m.color}` : undefined,
+                    boxShadow: isWinner ? `0 0 20px ${m.color}40` : undefined,
                   }}>
                   <div className="ch" style={{ borderBottomColor:lim?"var(--red)":m.border }}>
                     <span className="ci" style={{ color:lim?"var(--red)":m.color }}>{m.icon}</span>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div className="cn" style={{ color:lim?"var(--red)":m.color }}>{m.name}</div>
+                      <div className="cn" style={{ color:lim?"var(--red)":m.color }}>
+                        {m.name}
+                        {isWinner && <span style={{marginLeft:5,fontSize:9,color:"var(--ac)"}}>🏆</span>}
+                      </div>
                       <div className="csub">{m.provider}{m.free&&<span style={{color:"var(--green)",marginLeft:4}}>· FREE</span>}</div>
                     </div>
                     <div className="cm">
                       {lim && <span className="countdown">⏳ {fmtCd(id)}</span>}
                       <div className={`dot ${loading[id]?"live":lim?"limited":""}`}/>
                     </div>
-                    {/* Boutons Solo + Export */}
+                    {/* Boutons Solo + Focus + Export */}
                     <div className="ch-actions">
+                      <button className={`ch-btn ${isFocus?"solo-on":""}`}
+                        title={isFocus?"Quitter le mode plein écran":"Mode plein écran — cette IA uniquement"}
+                        onClick={() => setFocusId(isFocus ? null : id)}>
+                        {isFocus ? "⊡" : "⛶"}
+                      </button>
                       <button className={`ch-btn ${isSoloFocus?"solo-on":""}`}
-                        title={isSoloFocus?"Quitter le mode solo (voir toutes les IAs)":"Mode solo — afficher uniquement cette IA"}
+                        title={isSoloFocus?"Quitter le mode solo":"Mode solo — envoyer uniquement à cette IA"}
                         onClick={() => setSoloId(isSoloFocus ? null : id)}>
                         {isSoloFocus ? "⊙" : "◎"}
                       </button>
+                      <button className="ch-btn" title="Export Markdown" onClick={() => exportMarkdown(id)}>📝</button>
+                      <button className="ch-btn" title="Export PDF / Impression" onClick={() => exportPDF(id)}>🖨</button>
                       <button className="ch-btn"
                         title="Exporter la conversation (fichier .txt collable dans une autre IA)"
                         onClick={() => exportConv(id)}>
@@ -3828,7 +4112,8 @@ function App() {
                     {conversations[id].length === 0 && !loading[id] && <div className="empty">{enabled[id]?lim?`⏳ Bloqué — ${fmtCd(id)}`:"En attente…":"Désactivé"}</div>}
                     {conversations[id].map((msg, i) => (
                       <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative"}:{}}>
-                        {msg.content}
+                        {msg.displayContent || msg.content}
+                        {msg.displayContent && <span style={{fontSize:8,color:"var(--mu)",marginLeft:6,verticalAlign:"middle"}}>📄 RAG</span>}
                         {msg.role==="blocked" && (
                           <button onClick={()=>setLimited(prev=>{const n={...prev};delete n[id];return n;})}
                             style={{marginLeft:8,background:"rgba(251,146,60,.2)",border:"1px solid rgba(251,146,60,.5)",borderRadius:4,color:"var(--orange)",fontSize:9,padding:"2px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
@@ -3857,11 +4142,79 @@ function App() {
             <button onClick={()=>setAttachedFile(null)}>✕</button>
           </div>
         )}
+        {/* ── RAG Panel ── */}
+        {showRagPanel && (
+          <div style={{padding:"8px 14px",background:"rgba(96,165,250,.06)",borderBottom:"1px solid rgba(96,165,250,.25)",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <span style={{fontSize:10,color:"var(--blue)",fontWeight:700}}>📄 RAG — Document contextuel</span>
+              {ragChunks.length>0&&<span style={{fontSize:9,color:"var(--green)"}}>✓ {ragChunks.length} morceaux · {Math.round(ragText.length/1000)}k car</span>}
+              <button onClick={()=>{setRagText("");setRagChunks([]);showToast("Document RAG effacé");}} style={{marginLeft:"auto",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:9,padding:"2px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>✕ Effacer</button>
+              <button onClick={()=>setShowRagPanel(false)} style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>Masquer</button>
+            </div>
+            <textarea
+              placeholder="Colle ici un texte long (article, PDF, code, rapport…) et pose tes questions dessous. Les passages pertinents seront envoyés automatiquement aux IAs."
+              value={ragText}
+              onChange={e=>processRagText(e.target.value)}
+              style={{width:"100%",minHeight:70,maxHeight:120,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,fontFamily:"'IBM Plex Mono',monospace",padding:"6px 10px",resize:"vertical",outline:"none"}}
+            />
+          </div>
+        )}
         <div className="foot">
+            {/* Barre d'outils supérieure */}
+            <div style={{display:"flex",gap:4,padding:"3px 8px",borderBottom:"1px solid var(--bd)",flexWrap:"wrap",alignItems:"center"}}>
+              <button onClick={()=>setShowRagPanel(r=>!r)} title="RAG — coller un document long"
+                style={{background:showRagPanel?"rgba(96,165,250,.2)":"transparent",border:"1px solid "+(showRagPanel?"rgba(96,165,250,.6)":"var(--bd)"),borderRadius:4,color:showRagPanel?"var(--blue)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                📄 RAG{ragChunks.length>0&&<span style={{color:"var(--green)",marginLeft:3}}>●</span>}
+              </button>
+              <button onClick={()=>setShowOllamaPanel(r=>!r)} title="Ollama local"
+                style={{background:ollamaConnected?"rgba(74,222,128,.12)":"transparent",border:"1px solid "+(ollamaConnected?"rgba(74,222,128,.4)":"var(--bd)"),borderRadius:4,color:ollamaConnected?"var(--green)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                🖥 Ollama{ollamaConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
+              </button>
+              <button onClick={()=>setTab("workflow")} title="Éditeur de workflow visuel"
+                style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                🔀 Workflow
+              </button>
+              <button onClick={()=>exportMarkdown(null)} title="Exporter toutes les conversations en Markdown (Ctrl+M)"
+                style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                📝 .md
+              </button>
+              <button onClick={()=>exportPDF(null)} title="Exporter en PDF / Imprimer"
+                style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                🖨 PDF
+              </button>
+              {focusId && <span style={{fontSize:9,color:"var(--ac)",marginLeft:"auto"}}>⛶ Plein écran : {MODEL_DEFS[focusId]?.short} — <button onClick={()=>setFocusId(null)} style={{background:"none",border:"none",color:"var(--ac)",cursor:"pointer",fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>Esc pour quitter</button></span>}
+            </div>
+            {/* Ollama mini-panel */}
+            {showOllamaPanel && (
+              <div style={{padding:"8px 14px",background:"rgba(74,222,128,.06)",borderBottom:"1px solid rgba(74,222,128,.2)",flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,color:"var(--green)",fontWeight:700}}>🖥 Ollama local</span>
+                  <input value={ollamaUrl} onChange={e=>setOllamaUrl(e.target.value)}
+                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 8px",fontFamily:"'IBM Plex Mono',monospace",flex:1,minWidth:160,outline:"none"}} placeholder="http://localhost:11434"/>
+                  <button onClick={()=>checkOllama(ollamaUrl)}
+                    style={{background:"rgba(74,222,128,.15)",border:"1px solid rgba(74,222,128,.4)",borderRadius:4,color:"var(--green)",fontSize:9,padding:"3px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                    {ollamaConnected?"↺ Refresh":"🔌 Connecter"}
+                  </button>
+                  {ollamaConnected && ollamaModels.length>0 && (
+                    <select value={ollamaModel} onChange={e=>setOllamaModel(e.target.value)}
+                      style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 6px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}>
+                      {ollamaModels.map(m=><option key={m} value={m}>{m}</option>)}
+                    </select>
+                  )}
+                  {ollamaConnected && (
+                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:9,color:"var(--green)",cursor:"pointer"}}>
+                      <input type="checkbox" checked={ollamaActive} onChange={e=>setOllamaActive(e.target.checked)} style={{accentColor:"var(--green)"}}/>
+                      Activer pour le chat
+                    </label>
+                  )}
+                  {!ollamaConnected && <span style={{fontSize:9,color:"var(--mu)"}}>Installe Ollama + lance <code style={{color:"var(--ac)"}}>ollama serve</code></span>}
+                </div>
+              </div>
+            )}
             <div className="ir">
               <div className="ta-wrap">
                 <textarea rows={1} value={chatInput} style={isMobile?{fontSize:"16px"}:{}}
-                  placeholder={availableIds.length?`Envoyer à : ${availableIds.map(id=>MODEL_DEFS[id].short).join(", ")}…`:"Toutes les IAs sont bloquées…"}
+                  placeholder={availableIds.length?`Envoyer à : ${availableIds.map(id=>MODEL_DEFS[id].short).join(", ")}… (Ctrl+Enter)`:"Toutes les IAs sont bloquées…"}
                   onChange={e => { setChatInput(e.target.value); setShowGrammarPopup(false); setGrammarResult(null); }}
                   onKeyDown={e => { if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();} }}
                   onInput={e => { e.target.style.height="auto"; e.target.style.height=Math.min(e.target.scrollHeight,100)+"px"; }}
@@ -3886,11 +4239,98 @@ function App() {
                 <button className="sbtn" onClick={sendChat} disabled={isLoadingAny||!chatInput.trim()}>↑</button>
               </div>
             </div>
-            <div className="fhint">Entrée = envoyer · Shift+Entrée = saut · {availableIds.length}/{enabledIds.length} IA(s) dispo{enabledIds.length>availableIds.length&&<span style={{color:"var(--red)",marginLeft:6}}>· {enabledIds.length-availableIds.length} bloquée(s)</span>}</div>
+            <div className="fhint">Entrée = envoyer · Shift+Entrée = saut · Ctrl+1/2… = toggle IA · Ctrl+K = chercher · {availableIds.length}/{enabledIds.length} IA(s) dispo{enabledIds.length>availableIds.length&&<span style={{color:"var(--red)",marginLeft:6}}>· {enabledIds.length-availableIds.length} bloquée(s)</span>}</div>
           </div>
             </div>{/* fin chat-area */}
           </div>{/* fin layout hist+chat */}
         </>}
+
+        {/* ── WORKFLOW TAB ── */}
+        {tab === "workflow" && (
+          <div className="scroll-tab pad">
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,color:"var(--tx)"}}>🔀 Workflow visuel</div>
+              <div style={{fontSize:10,color:"var(--mu)"}}>Chaîne de prompts séquentielle — la sortie de chaque étape alimente la suivante</div>
+              <button onClick={addWorkflowNode} style={{marginLeft:"auto",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:10,padding:"5px 12px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>＋ Ajouter étape</button>
+              <button onClick={()=>saveWorkflow([])} style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",fontSize:10,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>🗑 Vider</button>
+            </div>
+            {workflowNodes.length === 0 && (
+              <div style={{textAlign:"center",padding:"40px 20px",color:"var(--mu)",fontSize:11}}>
+                <div style={{fontSize:36,marginBottom:12}}>🔀</div>
+                <div style={{marginBottom:8}}>Aucune étape. Ajoute des étapes pour construire ton workflow.</div>
+                <div style={{fontSize:10,opacity:.7}}>Exemple : Étape 1 = Résumer un texte → Étape 2 = Traduire en anglais → Étape 3 = Générer un email</div>
+              </div>
+            )}
+            {workflowNodes.map((node, idx) => (
+              <div key={node.id} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:14,marginBottom:10,display:"flex",flexDirection:"column",gap:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{background:"var(--ac)",color:"#09090B",borderRadius:4,fontWeight:700,fontSize:10,padding:"2px 8px",fontFamily:"'Syne',sans-serif"}}>{idx+1}</span>
+                  <input value={node.label} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],label:e.target.value};saveWorkflow(n);}}
+                    style={{flex:1,background:"transparent",border:"none",color:"var(--tx)",fontSize:11,fontFamily:"'IBM Plex Mono',monospace",outline:"none",fontWeight:600}} placeholder="Nom de l'étape"/>
+                  <select value={node.ia} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],ia:e.target.value};saveWorkflow(n);}}
+                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 6px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}>
+                    {IDS.map(id=><option key={id} value={id}>{MODEL_DEFS[id].icon} {MODEL_DEFS[id].short}</option>)}
+                  </select>
+                  <label style={{display:"flex",alignItems:"center",gap:4,fontSize:9,color:"var(--mu)",cursor:"pointer",whiteSpace:"nowrap"}}>
+                    <input type="checkbox" checked={node.usePrevOutput} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],usePrevOutput:e.target.checked};saveWorkflow(n);}} style={{accentColor:"var(--ac)"}}/>
+                    Utiliser sortie précédente
+                  </label>
+                  <button onClick={()=>saveWorkflow(workflowNodes.filter((_,i)=>i!==idx))}
+                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>✕</button>
+                </div>
+                <textarea value={node.prompt} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],prompt:e.target.value};saveWorkflow(n);}}
+                  placeholder="Prompt pour cette étape… (laisser vide pour passer la sortie précédente telle quelle)"
+                  rows={2}
+                  style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,fontFamily:"'IBM Plex Mono',monospace",padding:"6px 10px",resize:"vertical",outline:"none",width:"100%"}}/>
+                {/* Résultat de l'étape */}
+                {workflowResults[idx] && (
+                  <div style={{background:workflowResults[idx].ok?"rgba(74,222,128,.06)":"rgba(248,113,113,.06)",border:"1px solid "+(workflowResults[idx].ok?"rgba(74,222,128,.2)":"rgba(248,113,113,.2)"),borderRadius:5,padding:"8px 10px",fontSize:9,color:"var(--tx)",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"pre-wrap",maxHeight:120,overflowY:"auto"}}>
+                    {workflowResults[idx].ok?"✓ ":"❌ "}{workflowResults[idx].output.slice(0,600)}{workflowResults[idx].output.length>600?"…":""}
+                  </div>
+                )}
+                {idx < workflowNodes.length-1 && (
+                  <div style={{textAlign:"center",fontSize:14,color:"var(--mu)"}}>↓</div>
+                )}
+              </div>
+            ))}
+            {workflowNodes.length > 0 && (
+              <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
+                <input id="wf-input" placeholder="Entrée initiale (optionnel)…"
+                  style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"8px 12px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}/>
+                <button onClick={()=>runWorkflow(document.getElementById("wf-input")?.value||"")}
+                  disabled={workflowRunning}
+                  style={{background:"rgba(212,168,83,.2)",border:"1px solid rgba(212,168,83,.5)",borderRadius:5,color:"var(--ac)",fontSize:11,fontWeight:700,padding:"8px 18px",cursor:"pointer",fontFamily:"'Syne',sans-serif",opacity:workflowRunning?.6:1}}>
+                  {workflowRunning?"⟳ Exécution…":"▶ Lancer le workflow"}
+                </button>
+              </div>
+            )}
+            {/* Panel Plugins */}
+            <div style={{marginTop:24,borderTop:"1px solid var(--bd)",paddingTop:16}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,color:"var(--tx)"}}>🔌 Plugins JS</span>
+                <span style={{fontSize:9,color:"var(--mu)"}}>Charger des modules JavaScript externes pour étendre l'app</span>
+              </div>
+              <div style={{display:"flex",gap:6,marginBottom:10}}>
+                <input value={pluginUrlInput} onChange={e=>setPluginUrlInput(e.target.value)}
+                  placeholder="https://example.com/plugin.js"
+                  style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 10px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}/>
+                <button onClick={()=>{if(pluginUrlInput.trim()){loadPlugin(pluginUrlInput.trim());setPluginUrlInput("");}}}
+                  style={{background:"rgba(96,165,250,.15)",border:"1px solid rgba(96,165,250,.4)",borderRadius:5,color:"var(--blue)",fontSize:10,padding:"6px 12px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                  Charger
+                </button>
+              </div>
+              {plugins.map(p=>(
+                <div key={p.url} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:5,marginBottom:5,fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>
+                  <span style={{color:p.loaded?"var(--green)":"var(--mu)"}}>{p.loaded?"●":"○"}</span>
+                  <span style={{flex:1,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                  <button onClick={()=>{const np=plugins.filter(x=>x.url!==p.url);setPlugins(np);localStorage.setItem("multiia_plugins",JSON.stringify(np));}}
+                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:3,color:"var(--red)",fontSize:9,padding:"1px 6px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>✕</button>
+                </div>
+              ))}
+              {plugins.length===0&&<div style={{fontSize:9,color:"var(--mu)",textAlign:"center",padding:"12px 0"}}>Aucun plugin chargé. Exemple : scripts Tampermonkey compatibles, widgets, intégrations.</div>}
+            </div>
+          </div>
+        )}
 
         {/* ── WEB TAB ── */}
         {tab === "web" && (
@@ -4387,6 +4827,24 @@ function App() {
 
         {tab === "config" && (
           <div className="cfg-wrap">
+            <div className="sec">
+              <div className="sec-title">⌨️ Raccourcis clavier</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:6,fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>
+                {[
+                  ["Ctrl+Enter","Envoyer le message"],
+                  ["Ctrl+1..9","Activer/désactiver l'IA n°X"],
+                  ["Ctrl+K","Rechercher dans l'historique"],
+                  ["Ctrl+L","Effacer toutes les conversations"],
+                  ["Ctrl+M","Exporter en Markdown"],
+                  ["Escape","Quitter focus / solo / RAG"],
+                ].map(([k,d])=>(
+                  <div key={k} style={{display:"flex",alignItems:"center",gap:8,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,padding:"5px 10px"}}>
+                    <code style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:3,padding:"2px 6px",color:"var(--ac)",fontSize:9,whiteSpace:"nowrap"}}>{k}</code>
+                    <span style={{color:"var(--mu)"}}>{d}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="sec">
               
               <div className="sec-title">🤖 Modèles & Clés API</div>
