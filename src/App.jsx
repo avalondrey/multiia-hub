@@ -4999,6 +4999,24 @@ ${allMsgs.map(m=>`
             <div className="sec">
               
               <div className="sec-title">🤖 Modèles & Clés API</div>
+              {/* ── Pollen key banner ── */}
+              <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.3)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:"0 0 auto"}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"var(--ac)",marginBottom:2}}>🌸 Clé Pollen — ✦ Claude · ⬡ DeepSeek · ◇ Gemini</div>
+                  <div style={{fontSize:8,color:"var(--mu)"}}>Gratuit · <a href="https://enter.pollinations.ai" target="_blank" rel="noreferrer" style={{color:"var(--ac)"}}>enter.pollinations.ai</a> → inscription → copie ton Bearer token</div>
+                </div>
+                <div style={{display:"flex",gap:6,flex:1,minWidth:220,alignItems:"center"}}>
+                  <input className="key-inp" type="password"
+                    placeholder={apiKeys.pollen ? "••••••••" : "Coller ta clé Pollen ici…"}
+                    value={cfgDrafts.pollen||""}
+                    onChange={e=>setCfgDrafts(p=>({...p,pollen:e.target.value}))}
+                    onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts.pollen)saveCfgKey("pollen");}}
+                    style={{flex:1}}
+                  />
+                  <button className="save-btn" disabled={!cfgDrafts.pollen} onClick={()=>saveCfgKey("pollen")}>✓ Sauvegarder</button>
+                  {apiKeys.pollen && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ Clé OK</span>}
+                </div>
+              </div>
               <div className="tbl-wrap">
                 <table className="tbl">
                   <thead><tr><th>IA</th><th>Provider</th><th>Contexte</th><th>Prix</th><th>Statut</th><th>Clé API</th></tr></thead>
