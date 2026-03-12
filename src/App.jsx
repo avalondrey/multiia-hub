@@ -15,10 +15,10 @@ const MODEL_DEFS = {
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
   mixtral:    { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
   // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
-  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s anonyme · text.pollinations.ai", model:"openai" },
-  poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s anonyme · text.pollinations.ai", model:"claude-airforce" },
-  poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s anonyme · text.pollinations.ai", model:"deepseek" },
-  poll_gemini:   { name:"Gemini (Pollinations)",     short:"Gemini✦",  provider:"Google via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s anonyme · text.pollinations.ai", model:"gemini" },
+  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations",      maxTokens:128000, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — modèle openai uniquement · legacy endpoint", model:"openai" },
+  poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"claude-airforce" },
+  poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"deepseek" },
+  poll_gemini:   { name:"Gemini (Pollinations)",     short:"Gemini✦",  provider:"Google via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"gemini" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -347,31 +347,37 @@ async function callGemini(messages, apiKey, system="Tu es un assistant IA utile 
   if(!d.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("Gemini: réponse vide. Détail: " + JSON.stringify(d).slice(0,200));
   return d.candidates[0].content.parts[0].text;
 }
-// Queue Pollinations : 1 req/16s en anonyme, sérialisées
+// ── Pollinations.AI — deux endpoints ──────────────────────────────
+// text.pollinations.ai/openai  = GRATUIT ANONYME, modèle "openai" uniquement (legacy)
+// gen.pollinations.ai/v1/...   = TOUS les modèles (claude, deepseek, gemini…) — clé Pollen gratuite sur enter.pollinations.ai
 let _pollQueue = Promise.resolve();
+
 async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  // Sérialiser : 16s entre chaque requête (limite anonyme text.pollinations.ai)
+  // Endpoint legacy anonyme — uniquement modèle "openai"
   _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 16000)));
   await _pollQueue;
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  // text.pollinations.ai/openai = SEUL endpoint vraiment GRATUIT et ANONYME (sans clé)
-  // gen.pollinations.ai = payant (Bearer token obligatoire) — NE PAS UTILISER
-  // Modèles dispo anonymement : openai, claude-airforce, deepseek, gemini, mistral
   const r = await fetch("https://text.pollinations.ai/openai", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      model,
-      messages: msgs,
-      max_tokens: 1500,
-      private: true,
-      referrer: "multiia-hub.vercel.app"
-    })
+    body:JSON.stringify({ model:"openai", messages:msgs, max_tokens:1500, private:true, referrer:"multiia-hub.vercel.app" })
   });
-  if(!r.ok) {
-    const txt = await r.text().catch(()=>"");
-    throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150));
-  }
+  if(!r.ok) { const txt = await r.text().catch(()=>""); throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150)); }
+  const d = await r.json();
+  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.choices?.[0]?.message?.content || "";
+}
+
+async function callPollinationsPaid(messages, apiKey, model, system="Tu es un assistant IA utile et concis.") {
+  // Endpoint gen.pollinations.ai — clé Pollen gratuite sur enter.pollinations.ai
+  if(!apiKey) throw new Error("Clé Pollen manquante. Va sur enter.pollinations.ai → inscription gratuite → copie ta clé dans Config.");
+  const msgs = system ? [{role:"system",content:system},...messages] : messages;
+  const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+    body:JSON.stringify({ model, messages:msgs, max_tokens:1500 })
+  });
+  if(!r.ok) { const txt = await r.text().catch(()=>""); throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150)); }
   const d = await r.json();
   if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
   return d.choices?.[0]?.message?.content || "";
@@ -418,7 +424,8 @@ async function callModel(id, messages, keys, system, attachedFile=null) {
     : messages;
   if(m.apiType==="gemini") return callGemini(msgWithFile,keys.gemini,system);
   if(m.apiType==="cohere") return callCohere(messages,keys.cohere,system);
-  if(m.apiType==="pollinations") return callPollinations(msgWithFile,m.model,system);
+  if(m.apiType==="pollinations")      return callPollinations(msgWithFile,m.model,system);
+  if(m.apiType==="pollinations_paid") return callPollinationsPaid(msgWithFile,keys.pollen||"",m.model,system);
   if(m.apiType==="compat") {
     const key = keys[m.keyName];
     if(!key) throw new Error(`Clé API manquante pour ${m.name}. Va dans ⚙ Config pour l'ajouter gratuitement.`);
@@ -3125,8 +3132,8 @@ function App() {
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
-    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"" }; }
-    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"" }; }
+    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",pollen:"" }; }
+    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",pollen:"" }; }
   });
 
   useEffect(() => { try { localStorage.setItem("multiia_keys", JSON.stringify(apiKeys)); } catch {} }, [apiKeys]);
@@ -4961,23 +4968,32 @@ ${allMsgs.map(m=>`
             <div className="sec" style={{background:"rgba(116,201,140,.04)",border:"1px solid rgba(116,201,140,.2)"}}>
               <div className="sec-title" style={{color:"var(--green)"}}>🌸 IAs Pollinations — Sans clé API</div>
               <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.7,fontFamily:"'IBM Plex Mono',monospace"}}>
-                <div style={{marginBottom:8}}>Ces 4 IAs utilisent <strong style={{color:"var(--tx)"}}>text.pollinations.ai/openai</strong> (endpoint anonyme gratuit, sans inscription).</div>
+                {/* Tier 1 : GPT-4o legacy */}
+                <div style={{marginBottom:8,padding:"6px 10px",background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.2)",borderRadius:5}}>
+                  <strong style={{color:"var(--green)"}}>◈ GPT-4o</strong> — <code>text.pollinations.ai/openai</code> · <span style={{color:"var(--green)"}}>100% gratuit, sans clé</span>, 1 req/16s
+                </div>
+                {/* Tier 2 : gen.pollinations.ai avec clé Pollen */}
+                <div style={{marginBottom:8,padding:"6px 10px",background:"rgba(212,168,83,.06)",border:"1px solid rgba(212,168,83,.25)",borderRadius:5}}>
+                  <strong style={{color:"var(--ac)"}}>✦ Claude &nbsp;⬡ DeepSeek &nbsp;◇ Gemini</strong> — <code>gen.pollinations.ai/v1</code><br/>
+                  <span style={{color:"var(--ac)"}}>→ Clé Pollen requise (gratuite Seed tier)</span> :<br/>
+                  <span style={{color:"var(--mu)"}}>1. Va sur <strong style={{color:"var(--tx)"}}>enter.pollinations.ai</strong> → crée un compte (gratuit)<br/>
+                  2. Récupère ta clé API (Bearer token)<br/>
+                  3. Colle-la dans le champ <strong style={{color:"var(--tx)"}}>Pollen API Key</strong> ci-dessous (tableau des clés)</span>
+                </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
                   {[
-                    {id:"poll_gpt",ok:true,note:"✅ Stable — modèle de base"},
-                    {id:"poll_claude",ok:true,note:"✅ Claude Sonnet via airforce"},
-                    {id:"poll_deepseek",ok:true,note:"✅ DeepSeek V3"},
-                    {id:"poll_gemini",ok:true,note:"✅ Gemini Flash"},
+                    {id:"poll_gpt",    note:"✅ Sans clé — legacy endpoint", tier:"free"},
+                    {id:"poll_claude", note:"🔑 Clé Pollen gratuite requise",  tier:"paid"},
+                    {id:"poll_deepseek",note:"🔑 Clé Pollen gratuite requise", tier:"paid"},
+                    {id:"poll_gemini", note:"🔑 Clé Pollen gratuite requise",  tier:"paid"},
                   ].map(p=>(
-                    <div key={p.id} style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,padding:"6px 10px"}}>
+                    <div key={p.id} style={{background:"var(--s2)",border:"1px solid "+(p.tier==="free"?"rgba(74,222,128,.3)":"rgba(212,168,83,.3)"),borderRadius:5,padding:"6px 10px"}}>
                       <div style={{color:"var(--tx)",fontWeight:600,marginBottom:2}}>{MODEL_DEFS[p.id]?.icon} {MODEL_DEFS[p.id]?.name}</div>
-                      <div style={{color:p.ok?"var(--green)":"var(--red)",fontSize:8}}>{p.note}</div>
+                      <div style={{color:p.tier==="free"?"var(--green)":"var(--ac)",fontSize:8}}>{p.note}</div>
                       <div style={{color:"var(--mu)",fontSize:8,marginTop:2}}>Modèle : <code style={{color:"var(--ac)"}}>{MODEL_DEFS[p.id]?.model}</code></div>
                     </div>
                   ))}
                 </div>
-                <div style={{marginTop:8,color:"var(--mu)"}}>⚠️ <strong style={{color:"var(--orange)"}}>Important :</strong> 1 requête / 16s (limite anonyme). Les 4 IAs sont sérialisées → active-en 1 ou 2 à la fois pour éviter l'attente.</div>
-                <div style={{marginTop:4,color:"var(--mu)"}}>ℹ️ <code style={{color:"var(--orange)"}}>gen.pollinations.ai</code> = endpoint PAYANT (clé Bearer obligatoire). <code style={{color:"var(--green)"}}>text.pollinations.ai</code> = endpoint GRATUIT utilisé ici.</div>
               </div>
             </div>
             <div className="sec">
