@@ -18,7 +18,7 @@ const MODEL_DEFS = {
   poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations",      maxTokens:128000, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — modèle openai uniquement · legacy endpoint", model:"openai" },
   poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"claude-airforce" },
   poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"deepseek" },
-  poll_gemini:   { name:"Gemini (Pollinations)",     short:"Gemini✦",  provider:"Google via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"gemini" },
+  poll_gemini:   { name:"GPT-4o Large (Pollinations)", short:"GPT-4o L", provider:"OpenAI via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations",      maxTokens:128000, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai",   desc:"SANS CLÉ — openai-large (GPT-4o Large)", model:"openai-large" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -4974,7 +4974,7 @@ ${allMsgs.map(m=>`
                 </div>
                 {/* Tier 2 : gen.pollinations.ai avec clé Pollen */}
                 <div style={{marginBottom:8,padding:"6px 10px",background:"rgba(212,168,83,.06)",border:"1px solid rgba(212,168,83,.25)",borderRadius:5}}>
-                  <strong style={{color:"var(--ac)"}}>✦ Claude &nbsp;⬡ DeepSeek &nbsp;◇ Gemini</strong> — <code>gen.pollinations.ai/v1</code><br/>
+                  <strong style={{color:"var(--ac)"}}>✦ Claude &nbsp;⬡ DeepSeek</strong> — <code>gen.pollinations.ai/v1</code><br/>
                   <span style={{color:"var(--ac)"}}>→ Clé Pollen requise (gratuite Seed tier)</span> :<br/>
                   <span style={{color:"var(--mu)"}}>1. Va sur <strong style={{color:"var(--tx)"}}>enter.pollinations.ai</strong> → crée un compte (gratuit)<br/>
                   2. Récupère ta clé API (Bearer token)<br/>
@@ -4982,10 +4982,10 @@ ${allMsgs.map(m=>`
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
                   {[
-                    {id:"poll_gpt",    note:"✅ Sans clé — legacy endpoint", tier:"free"},
-                    {id:"poll_claude", note:"🔑 Clé Pollen gratuite requise",  tier:"paid"},
-                    {id:"poll_deepseek",note:"🔑 Clé Pollen gratuite requise", tier:"paid"},
-                    {id:"poll_gemini", note:"🔑 Clé Pollen gratuite requise",  tier:"paid"},
+                    {id:"poll_gpt",     note:"✅ Sans clé — anonymous",            tier:"free"},
+                    {id:"poll_gemini",  note:"✅ Sans clé — openai-large anonymous",tier:"free"},
+                    {id:"poll_claude",  note:"🔑 Clé Pollen Seed gratuite requise", tier:"paid"},
+                    {id:"poll_deepseek",note:"🔑 Clé Pollen Seed gratuite requise", tier:"paid"},
                   ].map(p=>(
                     <div key={p.id} style={{background:"var(--s2)",border:"1px solid "+(p.tier==="free"?"rgba(74,222,128,.3)":"rgba(212,168,83,.3)"),borderRadius:5,padding:"6px 10px"}}>
                       <div style={{color:"var(--tx)",fontWeight:600,marginBottom:2}}>{MODEL_DEFS[p.id]?.icon} {MODEL_DEFS[p.id]?.name}</div>
