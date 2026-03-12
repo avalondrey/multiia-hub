@@ -15,9 +15,10 @@ const MODEL_DEFS = {
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
   mixtral:    { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
   // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
-  poll_gpt:   { name:"GPT-4o (Pollinations)",  short:"GPT-4o",  provider:"OpenAI via Pollinations", color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"openai" },
-  poll_claude:{ name:"Claude (Pollinations)",  short:"Claude",  provider:"Anthropic via Pollinations",color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"claude-airforce" },
-  poll_deepseek:{ name:"DeepSeek (Pollinations)", short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"deepseek" },
+  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s (gen.pollinations.ai)", model:"openai" },
+  poll_claude:   { name:"Claude 4.6 (Pollinations)", short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — claude-airforce (gen.pollinations.ai)", model:"claude-airforce" },
+  poll_deepseek: { name:"DeepSeek V3 (Pollinations)", short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — deepseek (gen.pollinations.ai)", model:"deepseek" },
+  poll_gemini:   { name:"Gemini (Pollinations)",      short:"Gemini",   provider:"Google via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — gemini (gen.pollinations.ai)", model:"gemini" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -258,6 +259,7 @@ const PRICING = {
   poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — SANS CLÉ" },
   poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — SANS CLÉ" },
   poll_deepseek:{ in:0.00, out:0.00, label:"DeepSeek (Pollinations) — SANS CLÉ" },
+  poll_gemini:  { in:0.00, out:0.00, label:"Gemini (Pollinations) — SANS CLÉ" },
 };
 
 // ── Prompts par défaut ────────────────────────────────────────────
@@ -348,18 +350,28 @@ async function callGemini(messages, apiKey, system="Tu es un assistant IA utile 
 // Queue Pollinations : 1 req/15s en anonyme, sérialisées
 let _pollQueue = Promise.resolve();
 async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 16000)));
+  // Sérialiser les requêtes avec délai 8s (gen endpoint : ~1 req/8s en anonyme)
+  _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 8000)));
   await _pollQueue;
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  // text.pollinations.ai/openai = endpoint gratuit sans clé (Anonymous tier)
-  const r = await fetch("https://text.pollinations.ai/openai", {
+  // NOUVEAU endpoint gen.pollinations.ai/v1/chat/completions (OpenAI-compatible)
+  // Modèles dispo : openai, claude-airforce, deepseek, gemini, qwen-coder
+  const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
     method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ model, messages:msgs, max_tokens:1500, private:true })
+    headers:{"Content-Type":"application/json", "Accept":"application/json"},
+    body:JSON.stringify({ model, messages:msgs, max_tokens:1500, private:true, seed: Math.floor(Math.random()*99999) })
   });
   if(!r.ok) {
-    const txt = await r.text();
-    throw new Error("Pollinations " + r.status + ": " + txt.slice(0,120));
+    const txt = await r.text().catch(()=>"");
+    // Si le modèle n'existe pas, essayer le fallback openai
+    if(r.status===404 && model!=="openai") {
+      const r2 = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+        method:"POST", headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({ model:"openai", messages:msgs, max_tokens:1500, private:true })
+      });
+      if(r2.ok) { const d2=await r2.json(); return (d2.choices?.[0]?.message?.content||"")+" *(fallback openai)*"; }
+    }
+    throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150));
   }
   const d = await r.json();
   if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
@@ -436,6 +448,20 @@ const DEFAULT_PERSONAS = [
   { id:"socratic", name:"Maïeuticien / Socrate",    icon:"🏛️", color:"#C084FC", system:"Tu es Socrate. Au lieu de donner des réponses directes, tu poses des questions puissantes pour aider l'utilisateur à trouver lui-même la vérité. Tu utilises la méthode maïeutique : tu ne juges pas, tu questionnes, tu fais réfléchir." },
   { id:"optimist", name:"Optimiste radical",     icon:"🌟", color:"#FCD34D", system:"Tu es un optimiste radical. Pour chaque sujet, tu identifies le potentiel positif maximal, les opportunités cachées, et les raisons d'espérer. Tu es enthousiaste et énergisant, sans être naïf." },
   { id:"stoic",    name:"Philosophe stoïcien",   icon:"⚖️", color:"#94A3B8", system:"Tu réfléchis en philosophe stoïcien. Tu analyses les situations avec calme et détachement, en séparant ce qui dépend de nous de ce qui n'en dépend pas. Tu cites Marcus Aurèle, Épictète ou Sénèque si pertinent." },
+  { id:"beginner", name:"👴 Guide Débutant", icon:"👴", color:"#FCA5A5", system:`Tu es un professeur ultra-patient qui guide une personne âgée utilisant la technologie pour la première fois. Tes règles ABSOLUES :
+
+📌 VOCABULAIRE : Zéro jargon. Tout mot technique est expliqué entre parenthèses avec une analogie de la vie réelle. Exemple : "le navigateur (c'est comme une voiture qui te conduit sur internet — Chrome, Firefox ou Edge sont des navigateurs)".
+
+📌 ÉTAPES ULTRA-DÉTAILLÉES : Chaque action est numérotée. UNE SEULE action par étape. Dis EXACTEMENT où regarder (en haut/bas/gauche/droite de l'écran), quelle couleur a le bouton, ce qu'il dit. Exemple : "Étape 1 : Regarde tout en bas de ton écran. Tu vois une barre avec des petits symboles. Cherche un cercle avec 4 petits carrés de couleurs. Clique dessus UNE FOIS avec le bouton gauche."
+
+📌 CONFIRMATION après chaque étape : "➡️ Si tu as réussi, tu verras [description précise de ce qui doit apparaître]."
+
+📌 RASSURANCE constante : Commence par "Ne t'inquiète pas !" ou "C'est tout à fait normal". Rappelle que les erreurs ne cassent rien.
+
+📌 JAMAIS PLUS DE 3 ÉTAPES D'UN COUP. Termine toujours par : "Est-ce que tu as réussi cette étape ? Dis-moi ce que tu vois à l'écran si tu es bloqué(e) !"
+
+📌 LONGUEUR : Préfère une réponse longue et détaillée plutôt que courte et rapide.` },
+  { id:"tutor",    name:"Tuteur IA (apprendre l'IA)", icon:"🧑‍🏫", color:"#FCA5A5", system:"Tu es un tuteur spécialisé dans l'enseignement de l'intelligence artificielle aux débutants. Tu expliques ce qu'est une IA, comment fonctionnent les LLMs, comment écrire de bons prompts, et comment tirer le meilleur parti des outils IA comme ChatGPT, Claude, Groq, etc. Tu donnes des exemples pratiques, des exercices simples, et tu encourages la curiosité. Tu expliques les concepts avec des métaphores accessibles." },
 ];
 
 // ── Actions de rédaction ──────────────────────────────────────────
@@ -2027,6 +2053,10 @@ Réalise cette étape de façon concrète et utile. Sois précis et actionnable.
 function YouTubeTab() {
   const [chCatFilter, setChCatFilter] = useState("Tout");
   const [vidTheme, setVidTheme] = useState("trending");
+  const [watchedVids, setWatchedVids] = useState(() => { try { return JSON.parse(localStorage.getItem("multiia_watched_vids")||"[]"); } catch { return []; } });
+  const markWatched = (url) => { const nw = [...new Set([...watchedVids, url])]; setWatchedVids(nw); localStorage.setItem("multiia_watched_vids", JSON.stringify(nw)); };
+  const unmarkWatched = (url) => { const nw = watchedVids.filter(u=>u!==url); setWatchedVids(nw); localStorage.setItem("multiia_watched_vids", JSON.stringify(nw)); };
+  const [hideWatched, setHideWatched] = useState(false);
   const [vidItems, setVidItems] = useState([]);
   const [vidLoading, setVidLoading] = useState(false);
   const [vidError, setVidError] = useState(null);
@@ -2129,7 +2159,7 @@ function YouTubeTab() {
     if (langFilter === "🇫🇷 Français") return v.lang === "FR";
     if (langFilter === "🇺🇸 Anglais") return v.lang === "EN";
     return true;
-  });
+  }).filter(v => hideWatched ? !watchedVids.includes(v.url) : true);
 
   const fmtTime = (d) => {
     if (!d) return ""; const m = Math.floor((Date.now() - d.getTime()) / 60000);
@@ -2193,6 +2223,13 @@ function YouTubeTab() {
           {["Tout","🇫🇷 Français","🇺🇸 Anglais"].map(l => (
             <button key={l} className={`filter-btn ${langFilter===l?"on":""}`} style={{fontSize:9}} onClick={() => setLangFilter(l)}>{l}</button>
           ))}
+          <button className={`filter-btn ${hideWatched?"on":""}`}
+            style={{fontSize:9, borderColor:hideWatched?"var(--green)":"var(--bd)",color:hideWatched?"var(--green)":"var(--mu)",background:hideWatched?"rgba(74,222,128,.1)":"transparent"}}
+            onClick={()=>setHideWatched(h=>!h)}
+            title={hideWatched?"Afficher toutes les vidéos":"Masquer les vidéos déjà vues"}>
+            {hideWatched?"✓ Masquer vues":"👁 Masquer vues"}
+          </button>
+          {watchedVids.length>0&&<button className="filter-btn" style={{fontSize:9,borderColor:"var(--red)",color:"var(--red)"}} onClick={()=>{setWatchedVids([]);localStorage.removeItem("multiia_watched_vids");}} title="Réinitialiser les vues">🗑 Reset ({watchedVids.length})</button>}
         </div>
       </div>
 
@@ -2219,34 +2256,47 @@ function YouTubeTab() {
             const vidId = extractVideoId(v.url);
             const openUrl = v.url || "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.title + " " + v.channel);
             const thumbUrl = vidId ? `https://img.youtube.com/vi/${vidId}/mqdefault.jpg` : null;
+            const isWatched = watchedVids.includes(v.url);
             return (
-            <a key={i} className={`yt-vcard ${v.important?"important":""}`}
-              href={openUrl} target="_blank" rel="noreferrer"
-              style={{display:"flex",flexDirection:"row",gap:10,alignItems:"center",borderRadius:6,textDecoration:"none",transition:"background .15s,border-color .15s"}}
-              onMouseEnter={e=>e.currentTarget.style.borderColor="#FF6B6B44"}
-              onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}>
-              {/* Thumbnail compact */}
-              <div style={{position:"relative",width:120,height:68,flexShrink:0,background:"#111",borderRadius:4,overflow:"hidden"}}>
-                {thumbUrl
-                  ? <img src={thumbUrl} alt={v.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                  : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:20,opacity:.3}}>▶</span></div>
-                }
-                {v.duration && <span style={{position:"absolute",bottom:2,right:2,fontSize:7,background:"rgba(0,0,0,.85)",color:"#fff",padding:"1px 3px",borderRadius:2}}>{v.duration}</span>}
-              </div>
-              {/* Infos */}
-              <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:2}}>
-                <div className="yt-vtitle" style={{fontSize:11}}>{v.important && <span className="yt-vstar">★ </span>}{v.title}</div>
-                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-                  <span className="yt-vch">{v.channel}</span>
-                  {v.lang && <span style={{fontSize:9}}>{v.lang==="FR"?"🇫🇷":"🇺🇸"}</span>}
-                  {v.duration && <span style={{fontSize:8,color:"var(--mu)"}}>{v.duration}</span>}
-                  {v.views && <span style={{fontSize:8,color:"var(--mu)"}}>· {v.views}</span>}
-                  {v.category && <span className="yt-vcat" style={{background:vcatColor(v.category)+"18",color:vcatColor(v.category)}}>{v.category}</span>}
+            <div key={i} style={{position:"relative"}}>
+              <a className={`yt-vcard ${v.important?"important":""}`}
+                href={openUrl} target="_blank" rel="noreferrer"
+                style={{display:"flex",flexDirection:"row",gap:10,alignItems:"center",borderRadius:6,textDecoration:"none",transition:"background .15s,border-color .15s",opacity:isWatched?.55:1}}
+                onClick={()=>markWatched(v.url)}
+                onMouseEnter={e=>e.currentTarget.style.borderColor="#FF6B6B44"}
+                onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}>
+                {/* Thumbnail compact */}
+                <div style={{position:"relative",width:120,height:68,flexShrink:0,background:"#111",borderRadius:4,overflow:"hidden"}}>
+                  {thumbUrl
+                    ? <img src={thumbUrl} alt={v.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                    : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:20,opacity:.3}}>▶</span></div>
+                  }
+                  {v.duration && <span style={{position:"absolute",bottom:2,right:2,fontSize:7,background:"rgba(0,0,0,.85)",color:"#fff",padding:"1px 3px",borderRadius:2}}>{v.duration}</span>}
+                  {isWatched && <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:20,color:"var(--green)"}}>✓</span></div>}
                 </div>
-                {v.summary && <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical"}}>{v.summary}</div>}
-              </div>
-              <span style={{fontSize:11,color:"var(--mu)",flexShrink:0}}>↗</span>
-            </a>
+                {/* Infos */}
+                <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:2}}>
+                  <div className="yt-vtitle" style={{fontSize:11}}>{v.important && <span className="yt-vstar">★ </span>}{v.title}</div>
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                    <span className="yt-vch">{v.channel}</span>
+                    {v.lang && <span style={{fontSize:9}}>{v.lang==="FR"?"🇫🇷":"🇺🇸"}</span>}
+                    {v.duration && <span style={{fontSize:8,color:"var(--mu)"}}>{v.duration}</span>}
+                    {v.views && <span style={{fontSize:8,color:"var(--mu)"}}>· {v.views}</span>}
+                    {v.category && <span className="yt-vcat" style={{background:vcatColor(v.category)+"18",color:vcatColor(v.category)}}>{v.category}</span>}
+                    {isWatched && <span style={{fontSize:8,color:"var(--green)",fontWeight:700}}>✓ Vu</span>}
+                  </div>
+                  {v.summary && <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical"}}>{v.summary}</div>}
+                </div>
+                <span style={{fontSize:11,color:"var(--mu)",flexShrink:0}}>↗</span>
+              </a>
+              {/* Bouton marquer vu / démarquer */}
+              <button
+                onClick={e=>{e.preventDefault();e.stopPropagation();isWatched?unmarkWatched(v.url):markWatched(v.url);}}
+                title={isWatched?"Marquer comme non vu (remplacer)":"Marquer comme vu"}
+                style={{position:"absolute",top:4,right:4,background:isWatched?"rgba(74,222,128,.15)":"rgba(255,255,255,.06)",border:"1px solid "+(isWatched?"rgba(74,222,128,.4)":"var(--bd)"),borderRadius:3,color:isWatched?"var(--green)":"var(--mu)",fontSize:8,padding:"2px 5px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",zIndex:2}}>
+                {isWatched?"✓ Vu":"+ Vu"}
+              </button>
+            </div>
             );
           })}
         </div>
@@ -3049,8 +3099,8 @@ function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_deepseek:false }; }
-    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_deepseek:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false,poll_gemini:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false,poll_gemini:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
@@ -4306,28 +4356,69 @@ ${allMsgs.map(m=>`
             )}
             {/* Panel Plugins */}
             <div style={{marginTop:24,borderTop:"1px solid var(--bd)",paddingTop:16}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                 <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,color:"var(--tx)"}}>🔌 Plugins JS</span>
-                <span style={{fontSize:9,color:"var(--mu)"}}>Charger des modules JavaScript externes pour étendre l'app</span>
+                <span style={{fontSize:9,color:"var(--mu)"}}>Charger des modules JavaScript depuis un CDN — prêts à l'emploi</span>
               </div>
+              {/* Tableau des top plugins */}
+              <div style={{marginBottom:14,overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>
+                  <thead>
+                    <tr style={{borderBottom:"1px solid var(--bd)"}}>
+                      {["Plugin","Utilité","CDN URL","Action"].map(h=><th key={h} style={{padding:"5px 8px",color:"var(--mu)",textAlign:"left",fontWeight:600}}>{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { name:"📊 Chart.js", usage:"Graphiques & stats interactifs", url:"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" },
+                      { name:"📝 Marked.js", usage:"Rendu Markdown → HTML", url:"https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js" },
+                      { name:"🎨 Highlight.js", usage:"Coloration syntaxique du code", url:"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" },
+                      { name:"📋 Clipboard.js", usage:"Copier dans le presse-papier", url:"https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js" },
+                      { name:"🔣 Fuse.js", usage:"Recherche floue ultra-rapide", url:"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js" },
+                      { name:"📐 Math.js", usage:"Calcul mathématique avancé", url:"https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js" },
+                      { name:"📅 Day.js", usage:"Manipulation de dates", url:"https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js" },
+                      { name:"🔒 DOMPurify", usage:"Sécuriser le HTML (anti-XSS)", url:"https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" },
+                      { name:"📦 JSZip", usage:"Créer/lire des fichiers ZIP", url:"https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" },
+                      { name:"🔁 Lodash", usage:"Utilitaires JS (tri, filtre, deep clone)", url:"https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js" },
+                      { name:"🌍 i18next", usage:"Internationalisation / traductions", url:"https://cdnjs.cloudflare.com/ajax/libs/i18next/23.7.6/i18next.min.js" },
+                      { name:"🎙 RecordRTC", usage:"Enregistrement audio/vidéo navigateur", url:"https://cdnjs.cloudflare.com/ajax/libs/RecordRTC/5.6.2/RecordRTC.min.js" },
+                    ].map(p => (
+                      <tr key={p.url} style={{borderBottom:"1px solid rgba(255,255,255,.03)"}}>
+                        <td style={{padding:"5px 8px",color:"var(--tx)",fontWeight:600}}>{p.name}</td>
+                        <td style={{padding:"5px 8px",color:"var(--mu)"}}>{p.usage}</td>
+                        <td style={{padding:"5px 8px",color:"var(--blue)",fontSize:8,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={p.url}>{p.url.split("/").pop()}</td>
+                        <td style={{padding:"5px 8px"}}>
+                          <button onClick={()=>loadPlugin(p.url)}
+                            style={{background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:3,color:"var(--green)",fontSize:8,padding:"2px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap"}}>
+                            {plugins.find(x=>x.url===p.url)?"✓ Chargé":"+ Charger"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* URL manuelle */}
               <div style={{display:"flex",gap:6,marginBottom:10}}>
                 <input value={pluginUrlInput} onChange={e=>setPluginUrlInput(e.target.value)}
-                  placeholder="https://example.com/plugin.js"
+                  placeholder="URL personnalisée — https://example.com/mon-plugin.js"
                   style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 10px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}/>
                 <button onClick={()=>{if(pluginUrlInput.trim()){loadPlugin(pluginUrlInput.trim());setPluginUrlInput("");}}}
                   style={{background:"rgba(96,165,250,.15)",border:"1px solid rgba(96,165,250,.4)",borderRadius:5,color:"var(--blue)",fontSize:10,padding:"6px 12px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
-                  Charger
+                  Charger URL
                 </button>
               </div>
+              {/* Plugins chargés */}
+              {plugins.length>0&&<div style={{fontSize:9,color:"var(--mu)",marginBottom:6}}>Plugins actifs :</div>}
               {plugins.map(p=>(
                 <div key={p.url} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:5,marginBottom:5,fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>
                   <span style={{color:p.loaded?"var(--green)":"var(--mu)"}}>{p.loaded?"●":"○"}</span>
                   <span style={{flex:1,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                  <span style={{color:"var(--mu)",fontSize:8,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.url}</span>
                   <button onClick={()=>{const np=plugins.filter(x=>x.url!==p.url);setPlugins(np);localStorage.setItem("multiia_plugins",JSON.stringify(np));}}
                     style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:3,color:"var(--red)",fontSize:9,padding:"1px 6px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>✕</button>
                 </div>
               ))}
-              {plugins.length===0&&<div style={{fontSize:9,color:"var(--mu)",textAlign:"center",padding:"12px 0"}}>Aucun plugin chargé. Exemple : scripts Tampermonkey compatibles, widgets, intégrations.</div>}
             </div>
           </div>
         )}
