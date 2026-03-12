@@ -345,13 +345,17 @@ async function callGemini(messages, apiKey, system="Tu es un assistant IA utile 
   if(!d.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("Gemini: réponse vide. Détail: " + JSON.stringify(d).slice(0,200));
   return d.candidates[0].content.parts[0].text;
 }
+// Queue Pollinations pour éviter 429 (1 req à la fois par IP)
+let _pollQueue = Promise.resolve();
 async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
+  // Chaîner les requêtes Pollinations en série avec délai
+  _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 1500)));
+  await _pollQueue;
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  const r = await fetch("https://text.pollinations.ai/openai", {
+  const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ model, messages:msgs, max_tokens:1500,
-      referrer:"multiia-hub" })
+    body:JSON.stringify({ model, messages:msgs, max_tokens:1500 })
   });
   if(!r.ok) {
     const txt = await r.text();
