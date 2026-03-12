@@ -13,7 +13,7 @@ const MODEL_DEFS = {
   cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  mixtral:    { name:"Gemma 2 9B (Groq)",    short:"Gemma2",   provider:"Groq / Google", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"✶", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"gemma2-9b-it" },
+  mixtral:    { name:"QwQ 32B (Groq)",    short:"QwQ",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen-qwq-32b" },
 };
 
 const WEB_AIS = [
@@ -720,7 +720,7 @@ input[type=file]{display:none}
 .yt-ch-btn{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px;border-radius:5px;border:1px solid;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:600;background:transparent;text-decoration:none;transition:all .2s}
 .yt-ch-btn:hover{opacity:.8}
 .yt-cat-filter{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
-.yt-vgrid{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
+.yt-vgrid{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
 .yt-vcard{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:clamp(9px,1.6vw,12px);display:flex;gap:10px;text-decoration:none;transition:background .15s,border-color .15s}
 .yt-vcard:hover{background:var(--s2);border-color:#FF6B6B44}
 .yt-vcard.important{border-left:3px solid #FF6B6B}
@@ -2138,33 +2138,30 @@ function YouTubeTab() {
             return (
             <a key={i} className={`yt-vcard ${v.important?"important":""}`}
               href={openUrl} target="_blank" rel="noreferrer"
-              style={{display:"flex",flexDirection:"column",borderRadius:8,background:"var(--s1)",border:"1px solid var(--bd)",overflow:"hidden",textDecoration:"none",transition:"transform .15s,border-color .15s"}}
-              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.borderColor="#FF0000"}}
-              onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.borderColor="var(--bd)"}}>
-              {/* Thumbnail */}
-              <div style={{position:"relative",width:"100%",paddingTop:"56.25%",background:"#111",flexShrink:0}}>
+              style={{display:"flex",flexDirection:"row",gap:10,alignItems:"center",borderRadius:6,textDecoration:"none",transition:"background .15s,border-color .15s"}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor="#FF6B6B44"}
+              onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}>
+              {/* Thumbnail compact */}
+              <div style={{position:"relative",width:120,height:68,flexShrink:0,background:"#111",borderRadius:4,overflow:"hidden"}}>
                 {thumbUrl
-                  ? <img src={thumbUrl} alt={v.title} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
-                  : <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:28,opacity:.3}}>▶</span></div>
+                  ? <img src={thumbUrl} alt={v.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:20,opacity:.3}}>▶</span></div>
                 }
-                <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0)",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .2s"}}
-                  className="yt-play-overlay">
-                  <span style={{fontSize:36,filter:"drop-shadow(0 2px 10px rgba(0,0,0,1))"}}>▶️</span>
-                </div>
-                {v.duration && <span style={{position:"absolute",bottom:4,right:4,fontSize:8,background:"rgba(0,0,0,.85)",color:"#fff",padding:"1px 4px",borderRadius:3}}>{v.duration}</span>}
-                {v.lang && <span style={{position:"absolute",top:4,right:4,fontSize:11}}>{v.lang==="FR"?"🇫🇷":"🇺🇸"}</span>}
+                {v.duration && <span style={{position:"absolute",bottom:2,right:2,fontSize:7,background:"rgba(0,0,0,.85)",color:"#fff",padding:"1px 3px",borderRadius:2}}>{v.duration}</span>}
               </div>
               {/* Infos */}
-              <div className="yt-vbody" style={{padding:"8px 10px",flex:1,display:"flex",flexDirection:"column",gap:3}}>
-                <div className="yt-vtitle" style={{fontSize:11,fontWeight:600,color:"var(--tx)",lineHeight:1.4}}>{v.important && <span className="yt-vstar">★ </span>}{v.title}</div>
-                <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center",marginTop:2}}>
-                  <span className="yt-vch" style={{fontSize:9,color:"var(--ac)"}}>{v.channel}</span>
+              <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:2}}>
+                <div className="yt-vtitle" style={{fontSize:11}}>{v.important && <span className="yt-vstar">★ </span>}{v.title}</div>
+                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                  <span className="yt-vch">{v.channel}</span>
+                  {v.lang && <span style={{fontSize:9}}>{v.lang==="FR"?"🇫🇷":"🇺🇸"}</span>}
+                  {v.duration && <span style={{fontSize:8,color:"var(--mu)"}}>{v.duration}</span>}
                   {v.views && <span style={{fontSize:8,color:"var(--mu)"}}>· {v.views}</span>}
-                  {v.date && <span style={{fontSize:8,color:"var(--mu)"}}>· {v.date}</span>}
-                  {v.category && <span className="yt-vcat" style={{fontSize:7,background:vcatColor(v.category)+"18",color:vcatColor(v.category),padding:"1px 5px",borderRadius:3}}>{v.category}</span>}
+                  {v.category && <span className="yt-vcat" style={{background:vcatColor(v.category)+"18",color:vcatColor(v.category)}}>{v.category}</span>}
                 </div>
-                {v.summary && <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5,marginTop:2}}>{v.summary}</div>}
+                {v.summary && <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical"}}>{v.summary}</div>}
               </div>
+              <span style={{fontSize:11,color:"var(--mu)",flexShrink:0}}>↗</span>
             </a>
             );
           })}
