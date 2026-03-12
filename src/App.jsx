@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "11.0";
+const APP_VERSION = "11.1";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
@@ -15,10 +15,10 @@ const MODEL_DEFS = {
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
   mixtral:    { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
   // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
-  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s (gen.pollinations.ai)", model:"openai" },
-  poll_claude:   { name:"Claude 4.6 (Pollinations)", short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — claude-airforce (gen.pollinations.ai)", model:"claude-airforce" },
-  poll_deepseek: { name:"DeepSeek V3 (Pollinations)", short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — deepseek (gen.pollinations.ai)", model:"deepseek" },
-  poll_gemini:   { name:"Gemini (Pollinations)",      short:"Gemini",   provider:"Google via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — gemini (gen.pollinations.ai)", model:"gemini" },
+  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s anonyme · text.pollinations.ai", model:"openai" },
+  poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s anonyme · text.pollinations.ai", model:"claude-airforce" },
+  poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s anonyme · text.pollinations.ai", model:"deepseek" },
+  poll_gemini:   { name:"Gemini (Pollinations)",     short:"Gemini✦",  provider:"Google via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s anonyme · text.pollinations.ai", model:"gemini" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -347,30 +347,29 @@ async function callGemini(messages, apiKey, system="Tu es un assistant IA utile 
   if(!d.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("Gemini: réponse vide. Détail: " + JSON.stringify(d).slice(0,200));
   return d.candidates[0].content.parts[0].text;
 }
-// Queue Pollinations : 1 req/15s en anonyme, sérialisées
+// Queue Pollinations : 1 req/16s en anonyme, sérialisées
 let _pollQueue = Promise.resolve();
 async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  // Sérialiser les requêtes avec délai 8s (gen endpoint : ~1 req/8s en anonyme)
-  _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 8000)));
+  // Sérialiser : 16s entre chaque requête (limite anonyme text.pollinations.ai)
+  _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 16000)));
   await _pollQueue;
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  // NOUVEAU endpoint gen.pollinations.ai/v1/chat/completions (OpenAI-compatible)
-  // Modèles dispo : openai, claude-airforce, deepseek, gemini, qwen-coder
-  const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+  // text.pollinations.ai/openai = SEUL endpoint vraiment GRATUIT et ANONYME (sans clé)
+  // gen.pollinations.ai = payant (Bearer token obligatoire) — NE PAS UTILISER
+  // Modèles dispo anonymement : openai, claude-airforce, deepseek, gemini, mistral
+  const r = await fetch("https://text.pollinations.ai/openai", {
     method:"POST",
-    headers:{"Content-Type":"application/json", "Accept":"application/json"},
-    body:JSON.stringify({ model, messages:msgs, max_tokens:1500, private:true, seed: Math.floor(Math.random()*99999) })
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      model,
+      messages: msgs,
+      max_tokens: 1500,
+      private: true,
+      referrer: "multiia-hub.vercel.app"
+    })
   });
   if(!r.ok) {
     const txt = await r.text().catch(()=>"");
-    // Si le modèle n'existe pas, essayer le fallback openai
-    if(r.status===404 && model!=="openai") {
-      const r2 = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
-        method:"POST", headers:{"Content-Type":"application/json","Accept":"application/json"},
-        body:JSON.stringify({ model:"openai", messages:msgs, max_tokens:1500, private:true })
-      });
-      if(r2.ok) { const d2=await r2.json(); return (d2.choices?.[0]?.message?.content||"")+" *(fallback openai)*"; }
-    }
     throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150));
   }
   const d = await r.json();
@@ -2056,6 +2055,27 @@ function YouTubeTab() {
   const [watchedVids, setWatchedVids] = useState(() => { try { return JSON.parse(localStorage.getItem("multiia_watched_vids")||"[]"); } catch { return []; } });
   const markWatched = (url) => { const nw = [...new Set([...watchedVids, url])]; setWatchedVids(nw); localStorage.setItem("multiia_watched_vids", JSON.stringify(nw)); };
   const unmarkWatched = (url) => { const nw = watchedVids.filter(u=>u!==url); setWatchedVids(nw); localStorage.setItem("multiia_watched_vids", JSON.stringify(nw)); };
+  const [replaceLoading, setReplaceLoading] = useState(false);
+  const replaceWatchedVideos = async () => {
+    // Supprimer les vidéos déjà vues de la liste et en charger de nouvelles
+    const currentWatched = watchedVids;
+    if (!currentWatched.length) { return; }
+    const theme = YT_VIDEO_THEMES.find(t => t.id === vidTheme) || YT_VIDEO_THEMES[0];
+    setReplaceLoading(true);
+    try {
+      const watchedTitles = vidItems.filter(v => currentWatched.includes(v.url)).map(v => v.title).slice(0,5);
+      const avoidStr = watchedTitles.length ? `\n\nÉvite ces vidéos déjà recommandées : ${watchedTitles.join(" | ")}` : "";
+      const result = await fetchYTVideos(theme.query + avoidStr, getKeys());
+      // Remplacer seulement les vidéos déjà vues par les nouvelles
+      const kept = vidItems.filter(v => !currentWatched.includes(v.url));
+      const fresh = result.items.filter(v => !currentWatched.includes(v.url) && !kept.find(k=>k.url===v.url));
+      const merged = [...kept, ...fresh].slice(0, 20);
+      setVidItems(merged);
+      // Effacer les vues puisqu'on a remplacé
+      setWatchedVids([]); localStorage.removeItem("multiia_watched_vids");
+    } catch(e) { console.warn("Replace failed:", e.message); }
+    setReplaceLoading(false);
+  };
   const [hideWatched, setHideWatched] = useState(false);
   const [vidItems, setVidItems] = useState([]);
   const [vidLoading, setVidLoading] = useState(false);
@@ -2230,6 +2250,7 @@ function YouTubeTab() {
             {hideWatched?"✓ Masquer vues":"👁 Masquer vues"}
           </button>
           {watchedVids.length>0&&<button className="filter-btn" style={{fontSize:9,borderColor:"var(--red)",color:"var(--red)"}} onClick={()=>{setWatchedVids([]);localStorage.removeItem("multiia_watched_vids");}} title="Réinitialiser les vues">🗑 Reset ({watchedVids.length})</button>}
+          {watchedVids.length>0&&<button className="filter-btn" disabled={replaceLoading} style={{fontSize:9,borderColor:"var(--blue)",color:replaceLoading?"var(--mu)":"var(--blue)",background:replaceLoading?"transparent":"rgba(96,165,250,.08)"}} onClick={replaceWatchedVideos} title="Remplacer les vidéos déjà vues par de nouvelles recommandations">{replaceLoading?"⟳ Chargement…":"🔄 Remplacer les vues"}</button>}
         </div>
       </div>
 
@@ -4936,6 +4957,29 @@ ${allMsgs.map(m=>`
                 ))}
               </div>
             </div>
+            {/* ── INFO POLLINATIONS ── */}
+            <div className="sec" style={{background:"rgba(116,201,140,.04)",border:"1px solid rgba(116,201,140,.2)"}}>
+              <div className="sec-title" style={{color:"var(--green)"}}>🌸 IAs Pollinations — Sans clé API</div>
+              <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.7,fontFamily:"'IBM Plex Mono',monospace"}}>
+                <div style={{marginBottom:8}}>Ces 4 IAs utilisent <strong style={{color:"var(--tx)"}}>text.pollinations.ai/openai</strong> (endpoint anonyme gratuit, sans inscription).</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
+                  {[
+                    {id:"poll_gpt",ok:true,note:"✅ Stable — modèle de base"},
+                    {id:"poll_claude",ok:true,note:"✅ Claude Sonnet via airforce"},
+                    {id:"poll_deepseek",ok:true,note:"✅ DeepSeek V3"},
+                    {id:"poll_gemini",ok:true,note:"✅ Gemini Flash"},
+                  ].map(p=>(
+                    <div key={p.id} style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,padding:"6px 10px"}}>
+                      <div style={{color:"var(--tx)",fontWeight:600,marginBottom:2}}>{MODEL_DEFS[p.id]?.icon} {MODEL_DEFS[p.id]?.name}</div>
+                      <div style={{color:p.ok?"var(--green)":"var(--red)",fontSize:8}}>{p.note}</div>
+                      <div style={{color:"var(--mu)",fontSize:8,marginTop:2}}>Modèle : <code style={{color:"var(--ac)"}}>{MODEL_DEFS[p.id]?.model}</code></div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:8,color:"var(--mu)"}}>⚠️ <strong style={{color:"var(--orange)"}}>Important :</strong> 1 requête / 16s (limite anonyme). Les 4 IAs sont sérialisées → active-en 1 ou 2 à la fois pour éviter l'attente.</div>
+                <div style={{marginTop:4,color:"var(--mu)"}}>ℹ️ <code style={{color:"var(--orange)"}}>gen.pollinations.ai</code> = endpoint PAYANT (clé Bearer obligatoire). <code style={{color:"var(--green)"}}>text.pollinations.ai</code> = endpoint GRATUIT utilisé ici.</div>
+              </div>
+            </div>
             <div className="sec">
               
               <div className="sec-title">🤖 Modèles & Clés API</div>
@@ -5035,6 +5079,112 @@ ${allMsgs.map(m=>`
                 </label>
               </div>
               <div className="cfg-note" style={{marginTop:8}}>☁️ Ce fichier backup contient TOUT : clés API, prompts perso, notes et chaînes YouTube. Parfait pour sync entre appareils ou après mise à jour.</div>
+            </div>
+
+            {/* ── HISTORIQUE DES VERSIONS ── */}
+            <div className="sec">
+              <div className="sec-title">📋 Historique des versions</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:420,overflowY:"auto",paddingRight:4}}>
+                {[
+                  { v:"v15 — actuelle", date:"Mar 2026", color:"#D4A853", items:[
+                    "🔴 Fix Pollinations 401 : retour sur text.pollinations.ai/openai (endpoint anonyme gratuit)",
+                    "🌸 4ème IA Pollinations : Gemini via Pollinations (sans clé)",
+                    "🌱 Persona Débutant : explications comme à une personne âgée, étapes numérotées, max 3 étapes",
+                    "🧑‍🏫 Persona Tuteur IA : apprend à utiliser les IAs, prompts, LLMs",
+                    "🔌 Plugins JS : tableau de 12 plugins prêts à charger (Chart.js, Marked, Highlight, Math.js…)",
+                    "🎬 Vidéos vues : badge ✓, masquer les vues, reset, bouton +Vu sur chaque carte",
+                    "📋 Config : section Pollinations explicative + historique des versions",
+                  ]},
+                  { v:"v14", date:"Mar 2026", color:"#A78BFA", items:[
+                    "🏆 Jury IA automatique : note les réponses après chaque échange, affiche la meilleure",
+                    "⌨️ Raccourcis clavier : Ctrl+Enter, Ctrl+1..9, Ctrl+K, Ctrl+L, Ctrl+M, Escape",
+                    "🔍 Recherche plein-texte dans l'historique (titres + contenu messages)",
+                    "📝 Export Markdown + 🖨 Export PDF pour chaque colonne IA",
+                    "😈 5 nouveaux Personas : Avocat du diable, Expert, Socrate, Optimiste radical, Philosophe stoïcien",
+                    "📄 RAG : coller un document long, découpage auto en chunks, injection contextuelle",
+                    "⛶ Mode Focus plein écran par colonne IA",
+                    "🖥 Ollama local : auto-détection modèles, sélecteur, toggle chat",
+                    "🔀 Onglet Workflow : éditeur chaîne de prompts séquentiels",
+                    "🔌 Plugins JS : charger scripts JS par URL",
+                  ]},
+                  { v:"v13", date:"Fév 2026", color:"#60A5FA", items:[
+                    "🌐 IAs Web : 37 IAs en 8 catégories (Chatbots, Recherche, Multi-modèles, Image, Code, Audio, Premium)",
+                    "🔭 Bouton Découvrir : appel IA pour trouver 5 nouvelles IAs, sauvegardées en localStorage",
+                  ]},
+                  { v:"v12", date:"Fév 2026", color:"#4ADE80", items:[
+                    "🗂 Nouvelle barre de navigation réorganisée (10 onglets)",
+                    "🌙/☀ Thème clair/sombre",
+                    "🔊 Lecture vocale TTS par réponse IA",
+                    "🎙 Dictée vocale dans la zone de saisie Chat",
+                    "🎭 Personas : 6 modes prêts + créer ses propres system prompts",
+                    "⎘ Bouton Copier sur chaque réponse IA",
+                  ]},
+                  { v:"v11", date:"Jan 2026", color:"#FB923C", items:[
+                    "📺 Médias : ajout chaînes YouTube personnalisées (formulaire + couleurs + localStorage)",
+                    "⭐ Filtre Mes chaînes + badge PERSO + bouton ✕ pour supprimer",
+                  ]},
+                  { v:"v10", date:"Jan 2026", color:"#F97316", items:[
+                    "◀▶ Sidebar historique rétractable",
+                    "💾 Sauvegarde automatique des conversations (max 50, localStorage)",
+                    "📂 Chargement/suppression de conversations depuis l'historique",
+                    "◎ Mode Solo : focalise l'affichage sur une seule IA",
+                    "⬇ Export conversation en .txt (collable dans d'autres IAs)",
+                  ]},
+                  { v:"v9", date:"Déc 2025", color:"#E07FA0", items:[
+                    "▶ Onglet YouTube : 18 chaînes recommandées (FR + EN) avec filtres",
+                    "🎬 Vidéos dynamiques (6 thèmes : Tendances, Tutoriels, Modèles, Local, Images, Agents)",
+                    "🔗 8 raccourcis de recherche YouTube prêts à l'emploi",
+                  ]},
+                  { v:"v8", date:"Nov 2025", color:"#34D399", items:[
+                    "📡 Actualités IA : fallback automatique Gemini → Groq → Mistral → cache statique",
+                    "💬 Descriptif complet des news + accordéon Analyse/Impact",
+                    "✓ Affichage du nom de l'IA source utilisée",
+                  ]},
+                  { v:"v7", date:"Oct 2025", color:"#FCD34D", items:[
+                    "⚔ Onglet Arène : tableau comparatif 18 modèles, filtres, scores, actualités, tops/flops",
+                    "🎨 Onglet Images : 13 générateurs avec jauges qualité/vitesse/facilité",
+                    "⚙ Config : procédure MAJ PowerShell complète avec blocs copier-coller",
+                  ]},
+                  { v:"v6", date:"Sep 2025", color:"#94A3B8", items:[
+                    "📱 Responsive & mobile : colonnes → onglets swipables",
+                    "🌐 Onglet Web IAs : 12 IAs (ChatGPT, Claude.ai, Gemini, DeepSeek, Mistral, Copilot…)",
+                    "⏳ Détection rate-limit : blocage + countdown automatique + bouton Débloquer",
+                    "🔄 Débat : fallback synthèse sur l'IA disponible si Claude KO",
+                  ]},
+                  { v:"v5", date:"Août 2025", color:"#FF8C69", items:[
+                    "🆕 3 nouvelles IAs : DeepSeek V3, Mistral Small, Groq/Llama 3.3 (gratuit 14 400/jour)",
+                    "✎ Correcteur orthographique : popup diff original/corrigé avec Appliquer/Ignorer",
+                  ]},
+                  { v:"v4", date:"Juil 2025", color:"#F87171", items:[
+                    "⚙ Onglet Config complet : tableau modèles, champs clés, liens obtenir",
+                    "💾 Export/Import fichier multiia-keys.json",
+                    "⚡ Mode Débat 3 phases : Tour 1, Tour 2 (réfutation), Synthèse finale",
+                    "IAs ajoutées : DeepSeek, Mistral, Groq (FREE)",
+                  ]},
+                  { v:"v2–v3", date:"Juin 2025", color:"#A78BFA", items:[
+                    "Nouvelles IAs : Kimi (Moonshot), Qwen (Alibaba), Grok (xAI)",
+                    "Clés API multi-providers configurables",
+                  ]},
+                  { v:"v1", date:"Mai 2025", color:"#4ADE80", items:[
+                    "🚀 Lancement Multi-IA Hub",
+                    "Compteur de tokens avec barre de progression par IA",
+                    "Onglet IAs Web : Z.ai, Kimi, Qwen, Grok",
+                    "Chat parallèle multi-IA (Claude, Gemini, GPT)",
+                  ]},
+                ].map(entry=>(
+                  <div key={entry.v} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,padding:"8px 12px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                      <span style={{background:entry.color+"22",border:"1px solid "+entry.color+"44",borderRadius:4,padding:"2px 8px",fontSize:9,fontWeight:700,color:entry.color,fontFamily:"'Syne',sans-serif"}}>{entry.v}</span>
+                      <span style={{fontSize:9,color:"var(--mu)"}}>{entry.date}</span>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                      {entry.items.map((item,i)=>(
+                        <div key={i} style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",paddingLeft:8,borderLeft:"2px solid "+entry.color+"33"}}>{item}</div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="sec">
