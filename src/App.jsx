@@ -13,32 +13,78 @@ const MODEL_DEFS = {
   cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  mixtral:    { name:"QwQ 32B (Groq)",    short:"QwQ",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen-qwq-32b" },
+  mixtral:    { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
 };
 
-const WEB_AIS = [
-  // ── Gratuites ─────────────────────────────────────────────────────
-  { id:"chatgpt",      name:"ChatGPT",        subtitle:"OpenAI • Gratuit", cat:"gratuit",  url:"https://chatgpt.com/",                  color:"#74C98C", icon:"◈", desc:"GPT-4o gratuit via interface web" },
-  { id:"claude_web",   name:"Claude.ai",      subtitle:"Anthropic • Gratuit", cat:"gratuit", url:"https://claude.ai/",                 color:"#D4A853", icon:"✦", desc:"Claude Sonnet gratuit — abonnement optionnel" },
-  { id:"gemini_web",   name:"Gemini",         subtitle:"Google • Gratuit",   cat:"gratuit", url:"https://gemini.google.com/",           color:"#6BA5E0", icon:"◇", desc:"Gemini 2.0 Flash gratuit" },
-  { id:"copilot",      name:"Copilot",        subtitle:"Microsoft • Gratuit",cat:"gratuit", url:"https://copilot.microsoft.com/",       color:"#4FC3F7", icon:"⊞", desc:"GPT-4o via Microsoft, totalement gratuit" },
-  { id:"mistral_web",  name:"Le Chat",        subtitle:"Mistral • Gratuit",  cat:"gratuit", url:"https://chat.mistral.ai/",             color:"#FF8C69", icon:"▲", desc:"Mistral Large gratuit via interface web" },
-  { id:"perplexity",   name:"Perplexity",     subtitle:"Perplexity • Gratuit",cat:"gratuit",url:"https://www.perplexity.ai/",          color:"#20B2AA", icon:"◎", desc:"Recherche web IA — réponses sourcées" },
-  { id:"hf",           name:"HuggingFace",    subtitle:"Open Source • Gratuit",cat:"gratuit",url:"https://huggingface.co/chat/",       color:"#FFD21E", icon:"🤗",desc:"50+ modèles open-source, 100% gratuit" },
-  { id:"deepseek_web", name:"DeepSeek Chat",  subtitle:"DeepSeek • Gratuit", cat:"gratuit", url:"https://chat.deepseek.com/",           color:"#A0C8FF", icon:"⬡", desc:"DeepSeek V3/R1, gratuit et très puissant" },
-  { id:"groq_web",     name:"Groq Console",   subtitle:"Groq • Gratuit",     cat:"gratuit", url:"https://console.groq.com/playground", color:"#F97316", icon:"⚡", desc:"Playground Groq — Llama ultra rapide" },
-  { id:"kimi_web",     name:"Kimi",           subtitle:"Moonshot • Gratuit", cat:"gratuit", url:"https://www.kimi.com/",                color:"#E07FA0", icon:"月",desc:"Long contexte gratuit via interface" },
-  { id:"qwen_web",     name:"Qwen Chat",      subtitle:"Alibaba • Gratuit",  cat:"gratuit", url:"https://chat.qwen.ai/",                color:"#E0A850", icon:"千",desc:"Qwen 2.5 Max gratuit, fort en code" },
-  { id:"zai",          name:"Z.ai",           subtitle:"z.ai • Gratuit",     cat:"gratuit", url:"https://chat.z.ai/",                   color:"#B07FE0", icon:"Ζ", desc:"Nouvelle plateforme multi-modèles" },
-  { id:"poe",          name:"Poe",            subtitle:"Quora • Gratuit",    cat:"gratuit", url:"https://poe.com/",                     color:"#9CA3AF", icon:"P", desc:"Accès à Claude, GPT-4, Llama en un seul endroit" },
-  { id:"you",          name:"You.com",        subtitle:"You.com • Gratuit",  cat:"gratuit", url:"https://you.com/",                     color:"#6366F1", icon:"Y", desc:"IA + recherche web intégrée, gratuit" },
-  // ── Payantes (premium) ───────────────────────────────────────────
-  { id:"gpt4_pay",     name:"ChatGPT Plus",   subtitle:"OpenAI • $20/mois",  cat:"payant",  url:"https://chatgpt.com/",                  color:"#74C98C", icon:"◈", desc:"GPT-4o + o1 + génération images DALL-E 3" },
-  { id:"claude_pro",   name:"Claude Pro",     subtitle:"Anthropic • $20/mois",cat:"payant", url:"https://claude.ai/",                    color:"#D4A853", icon:"✦", desc:"Claude Opus, projets, 5× plus de messages" },
-  { id:"grok_web",     name:"Grok 3",         subtitle:"xAI • Premium",      cat:"payant",  url:"https://grok.com/",                     color:"#60C8E0", icon:"X", desc:"Grok 3 avec accès temps réel Twitter/X" },
-  { id:"midjourney_w", name:"Midjourney",     subtitle:"MJ • $10/mois",      cat:"payant",  url:"https://www.midjourney.com/",            color:"#A78BFA", icon:"🎭",desc:"Meilleure génération images IA artistique" },
-  { id:"perp_pro",     name:"Perplexity Pro", subtitle:"Perplexity • $20/mois",cat:"payant",url:"https://www.perplexity.ai/",           color:"#20B2AA", icon:"◎", desc:"Claude + GPT-4 + recherche illimitée" },
+// ── Liste de base des IAs Web ───────────────────────────────────
+const BASE_WEB_AIS = [
+  // ── Chatbots généraux gratuits ──────────────────────────────────
+  { id:"chatgpt",      name:"ChatGPT",         subtitle:"OpenAI • Gratuit",      cat:"gratuit", url:"https://chatgpt.com/",                    color:"#74C98C", icon:"◈", desc:"GPT-4o gratuit via interface web" },
+  { id:"claude_web",   name:"Claude.ai",       subtitle:"Anthropic • Gratuit",   cat:"gratuit", url:"https://claude.ai/",                      color:"#D4A853", icon:"✦", desc:"Claude Sonnet 4 gratuit" },
+  { id:"gemini_web",   name:"Gemini",          subtitle:"Google • Gratuit",      cat:"gratuit", url:"https://gemini.google.com/",              color:"#6BA5E0", icon:"◇", desc:"Gemini 2.5 Flash gratuit, multimodal" },
+  { id:"copilot",      name:"Copilot",         subtitle:"Microsoft • Gratuit",   cat:"gratuit", url:"https://copilot.microsoft.com/",          color:"#4FC3F7", icon:"⊞", desc:"GPT-4o via Microsoft, 100% gratuit" },
+  { id:"mistral_web",  name:"Le Chat",         subtitle:"Mistral • Gratuit",     cat:"gratuit", url:"https://chat.mistral.ai/",                color:"#FF8C69", icon:"▲", desc:"Mistral Large gratuit" },
+  { id:"deepseek_web", name:"DeepSeek",        subtitle:"DeepSeek • Gratuit",    cat:"gratuit", url:"https://chat.deepseek.com/",              color:"#A0C8FF", icon:"⬡", desc:"DeepSeek V3/R1 — très puissant en raisonnement" },
+  { id:"grok_web",     name:"Grok",            subtitle:"xAI • Gratuit limité",  cat:"gratuit", url:"https://grok.com/",                       color:"#60C8E0", icon:"𝕏", desc:"Grok 3 avec accès temps réel X" },
+  { id:"kimi_web",     name:"Kimi",            subtitle:"Moonshot • Gratuit",    cat:"gratuit", url:"https://www.kimi.com/",                   color:"#E07FA0", icon:"月", desc:"Contexte 1M tokens gratuit" },
+  { id:"qwen_web",     name:"Qwen Chat",       subtitle:"Alibaba • Gratuit",     cat:"gratuit", url:"https://chat.qwen.ai/",                   color:"#E0A850", icon:"千", desc:"Qwen3 gratuit, fort en code et raisonnement" },
+  { id:"llama_meta",   name:"Meta AI",         subtitle:"Meta • Gratuit",        cat:"gratuit", url:"https://www.meta.ai/",                    color:"#1877F2", icon:"⬟", desc:"Llama 4 Maverick gratuit via Meta" },
+  // ── Recherche & spécialisés gratuits ────────────────────────────
+  { id:"perplexity",   name:"Perplexity",      subtitle:"Perplexity • Gratuit",  cat:"recherche",url:"https://www.perplexity.ai/",            color:"#20B2AA", icon:"◎", desc:"Recherche IA avec sources en temps réel" },
+  { id:"you",          name:"You.com",         subtitle:"You.com • Gratuit",     cat:"recherche",url:"https://you.com/",                      color:"#6366F1", icon:"Y", desc:"IA + recherche web intégrée" },
+  { id:"phind",        name:"Phind",           subtitle:"Phind • Gratuit",       cat:"recherche",url:"https://www.phind.com/",                color:"#8B5CF6", icon:"φ", desc:"Moteur IA spécialisé code & dev" },
+  { id:"andi",         name:"Andi Search",     subtitle:"Andi • Gratuit",        cat:"recherche",url:"https://andisearch.com/",               color:"#10B981", icon:"∂", desc:"Recherche IA conversationnelle sans pub" },
+  // ── Multi-modèles / Playground ──────────────────────────────────
+  { id:"hf",           name:"HuggingFace Chat",subtitle:"HuggingFace • Gratuit", cat:"multimodele",url:"https://huggingface.co/chat/",       color:"#FFD21E", icon:"🤗", desc:"50+ modèles open-source: Llama, Mistral, Gemma..." },
+  { id:"poe",          name:"Poe",             subtitle:"Quora • Gratuit",       cat:"multimodele",url:"https://poe.com/",                   color:"#9CA3AF", icon:"P",  desc:"Claude, GPT-4, Llama, tous en un" },
+  { id:"groq_web",     name:"Groq Playground", subtitle:"Groq • Gratuit",        cat:"multimodele",url:"https://console.groq.com/playground",color:"#F97316", icon:"⚡", desc:"Llama ultra rapide — test de modèles" },
+  { id:"openrouter_w", name:"OpenRouter Chat",  subtitle:"OpenRouter • Gratuit", cat:"multimodele",url:"https://openrouter.ai/chat",         color:"#E07FA0", icon:"⊕", desc:"100+ modèles dont gratuits: Gemma, Llama..." },
+  { id:"lmsys",        name:"LMArena",         subtitle:"LMSys • Gratuit",       cat:"multimodele",url:"https://lmarena.ai/",                color:"#F59E0B", icon:"⚔", desc:"Comparaison de modèles en arène anonyme" },
+  { id:"nat_dev",      name:"Nat.dev",         subtitle:"Nat.dev • Gratuit",     cat:"multimodele",url:"https://nat.dev/",                   color:"#A78BFA", icon:"⋄", desc:"Playground multi-modèles, compare GPT/Claude/Llama" },
+  { id:"together_w",   name:"Together AI",     subtitle:"Together • Gratuit",    cat:"multimodele",url:"https://api.together.ai/playground", color:"#F59E0B", icon:"∿", desc:"Playground Llama, Mixtral & modèles open source" },
+  // ── Image IA ────────────────────────────────────────────────────
+  { id:"ideogram",     name:"Ideogram",        subtitle:"Ideogram • Gratuit",    cat:"image",   url:"https://ideogram.ai/",                    color:"#EC4899", icon:"🎨", desc:"Génération images IA — excellent pour texte" },
+  { id:"adobe_ff",     name:"Adobe Firefly",   subtitle:"Adobe • Gratuit",       cat:"image",   url:"https://firefly.adobe.com/",              color:"#FF6B35", icon:"🔥", desc:"Génération images IA légale, sans copyright" },
+  { id:"leonardo",     name:"Leonardo.ai",     subtitle:"Leonardo • Gratuit",    cat:"image",   url:"https://app.leonardo.ai/",                color:"#7C3AED", icon:"🖼", desc:"150 crédits/jour gratuits — style artistique" },
+  { id:"kling",        name:"Kling AI",        subtitle:"Kuaishou • Gratuit",    cat:"image",   url:"https://klingai.com/",                    color:"#0EA5E9", icon:"▶", desc:"Génération vidéo & image IA, gratuit" },
+  { id:"playground_ai",name:"Playground AI",  subtitle:"Playground • Gratuit",  cat:"image",   url:"https://playground.com/",                 color:"#F472B6", icon:"🎭", desc:"500 images/jour gratuites" },
+  // ── Code & Développement ────────────────────────────────────────
+  { id:"github_cop",   name:"GitHub Copilot",  subtitle:"GitHub • $10/mois",     cat:"code",    url:"https://github.com/features/copilot",     color:"#6E40C9", icon:"⌥", desc:"IA de code intégrée dans VS Code, JetBrains..." },
+  { id:"cursor",       name:"Cursor",          subtitle:"Cursor • Gratuit/payant",cat:"code",   url:"https://cursor.com/",                     color:"#7B8CDE", icon:"⌨", desc:"IDE IA basé sur VS Code, très populaire" },
+  { id:"replit",       name:"Replit AI",       subtitle:"Replit • Gratuit",      cat:"code",    url:"https://replit.com/",                     color:"#F26207", icon:"∈", desc:"Environnement de code IA en ligne" },
+  { id:"bolt",         name:"Bolt.new",        subtitle:"StackBlitz • Gratuit",  cat:"code",    url:"https://bolt.new/",                       color:"#7C3AED", icon:"⚡", desc:"Génère des apps web complètes en quelques secondes" },
+  { id:"v0_dev",       name:"v0 by Vercel",    subtitle:"Vercel • Gratuit",      cat:"code",    url:"https://v0.dev/",                         color:"#000000", icon:"▲", desc:"Génère du code React/UI avec Shadcn" },
+  { id:"lovable",      name:"Lovable",         subtitle:"Lovable • Gratuit",     cat:"code",    url:"https://lovable.dev/",                    color:"#FF6B6B", icon:"♥", desc:"Génère des apps fullstack depuis une description" },
+  // ── Audio / Voix ────────────────────────────────────────────────
+  { id:"elevenlabs",   name:"ElevenLabs",      subtitle:"ElevenLabs • Gratuit",  cat:"audio",   url:"https://elevenlabs.io/",                  color:"#6366F1", icon:"🔊", desc:"Clonage et synthèse vocale ultra-réaliste" },
+  { id:"suno",         name:"Suno AI",         subtitle:"Suno • Gratuit",        cat:"audio",   url:"https://suno.com/",                       color:"#10B981", icon:"🎵", desc:"Génère de la musique complète avec paroles" },
+  { id:"udio",         name:"Udio",            subtitle:"Udio • Gratuit",        cat:"audio",   url:"https://www.udio.com/",                   color:"#8B5CF6", icon:"🎶", desc:"Génération musicale IA de haute qualité" },
+  // ── Premium / Payant ────────────────────────────────────────────
+  { id:"gpt4_pay",     name:"ChatGPT Plus",    subtitle:"OpenAI • $20/mois",     cat:"payant",  url:"https://chatgpt.com/",                    color:"#74C98C", icon:"◈", desc:"GPT-4o + o3 + DALL-E 3 + plugins" },
+  { id:"claude_pro",   name:"Claude Pro",      subtitle:"Anthropic • $20/mois",  cat:"payant",  url:"https://claude.ai/",                      color:"#D4A853", icon:"✦", desc:"Claude Opus 4, projets, priorité" },
+  { id:"gemini_adv",   name:"Gemini Advanced", subtitle:"Google • $20/mois",     cat:"payant",  url:"https://gemini.google.com/",              color:"#4A90E0", icon:"◆", desc:"Gemini 2.5 Pro, 2M contexte, DeepResearch" },
+  { id:"perp_pro",     name:"Perplexity Pro",  subtitle:"Perplexity • $20/mois", cat:"payant",  url:"https://www.perplexity.ai/",              color:"#20B2AA", icon:"◉", desc:"Modèles premium + recherche illimitée" },
+  { id:"midjourney_w", name:"Midjourney",      subtitle:"MJ • $10/mois",         cat:"payant",  url:"https://www.midjourney.com/",             color:"#A78BFA", icon:"🎭", desc:"Meilleure génération images artistique" },
+  { id:"runway",       name:"Runway",          subtitle:"Runway • $12/mois",     cat:"payant",  url:"https://runwayml.com/",                   color:"#22D3EE", icon:"🎬", desc:"Génération vidéo IA professionnelle" },
 ];
+
+// ── IAs découvertes dynamiquement (ajout via algorithme) ────────
+const DISCOVERED_KEY = "multiia_discovered_ais";
+function getDiscoveredAIs() {
+  try { return JSON.parse(localStorage.getItem(DISCOVERED_KEY)||"[]"); } catch { return []; }
+}
+function saveDiscoveredAIs(list) {
+  localStorage.setItem(DISCOVERED_KEY, JSON.stringify(list));
+}
+
+// Sources de découverte automatique (flux RSS / JSON publics)
+const DISCOVERY_SOURCES = [
+  { name:"There's An AI For That", url:"https://theresanaiforthat.com/", hint:"Répertoire d'outils IA" },
+  { name:"Futurepedia", url:"https://www.futurepedia.io/", hint:"Directory IA mis à jour quotidiennement" },
+  { name:"AI Valley", url:"https://aivalley.ai/", hint:"Nouvelles IAs chaque jour" },
+];
+
+const WEB_AIS = [...BASE_WEB_AIS, ...getDiscoveredAIs()];
 
 // ── YouTube : chaînes recommandées ───────────────────────────────
 const YT_CHANNELS = [
@@ -2810,7 +2856,149 @@ function StatsTab({ stats, onReset }) {
 }
 
 // ── MAIN APP ──────────────────────────────────────────────────────
-export default function App() {
+// ── COMPOSANT WebIAsTab ─────────────────────────────────────────
+function WebIAsTab() {
+  const [discovered, setDiscovered] = React.useState(getDiscoveredAIs());
+  const [discovering, setDiscovering] = React.useState(false);
+  const [discMsg, setDiscMsg] = React.useState("");
+  const [filterCat, setFilterCat] = React.useState("all");
+  const [search, setSearch] = React.useState("");
+
+  const allAIs = [...BASE_WEB_AIS, ...discovered];
+  const cats = [
+    {id:"all",      label:"Tout",          icon:"🌐"},
+    {id:"gratuit",  label:"Chatbots",      icon:"💬"},
+    {id:"recherche",label:"Recherche",     icon:"🔍"},
+    {id:"multimodele",label:"Multi-modèles",icon:"🔀"},
+    {id:"image",    label:"Image",         icon:"🎨"},
+    {id:"code",     label:"Code",          icon:"💻"},
+    {id:"audio",    label:"Audio/Musique", icon:"🎵"},
+    {id:"payant",   label:"Premium",       icon:"💳"},
+  ];
+
+  const filtered = allAIs.filter(ia => {
+    const matchCat = filterCat === "all" || ia.cat === filterCat;
+    const matchSearch = !search || ia.name.toLowerCase().includes(search.toLowerCase()) || ia.desc.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  async function discoverNewAIs() {
+    setDiscovering(true);
+    setDiscMsg("🔍 Recherche de nouvelles IAs avec Claude...");
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          messages:[{role:"user",content:`Tu es un expert en outils IA. Liste 5 nouvelles IAs web accessibles gratuitement en 2025-2026 qui ne font PAS partie de cette liste: ${allAIs.map(a=>a.name).join(", ")}. 
+Réponds UNIQUEMENT en JSON valide, tableau d'objets avec ces champs exactement:
+[{"id":"unique_id","name":"Nom","subtitle":"Fournisseur • Gratuit/Prix","cat":"gratuit|recherche|multimodele|image|code|audio|payant","url":"https://...","color":"#hexcolor","icon":"emoji ou symbole 1-2 chars","desc":"Description courte en français"}]
+Pas de texte avant ou après le JSON.`}]
+        })
+      });
+      const data = await resp.json();
+      const text = data.content?.[0]?.text || "[]";
+      const clean = text.replace(/```json|```/g,"").trim();
+      const newAIs = JSON.parse(clean);
+      const existing = new Set(allAIs.map(a=>a.id));
+      const toAdd = newAIs.filter(a=>a.id && a.name && a.url && !existing.has(a.id));
+      if(toAdd.length > 0) {
+        const updated = [...discovered, ...toAdd];
+        setDiscovered(updated);
+        saveDiscoveredAIs(updated);
+        setDiscMsg(`✅ ${toAdd.length} nouvelle(s) IA(s) ajoutée(s) !`);
+      } else {
+        setDiscMsg("ℹ️ Aucune nouvelle IA trouvée pour l'instant.");
+      }
+    } catch(e) {
+      setDiscMsg("❌ Erreur: " + e.message);
+    }
+    setDiscovering(false);
+    setTimeout(()=>setDiscMsg(""), 4000);
+  }
+
+  function removeDiscovered(id) {
+    const updated = discovered.filter(a=>a.id!==id);
+    setDiscovered(updated);
+    saveDiscoveredAIs(updated);
+  }
+
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🌐 IAs Web</div>
+        <div style={{flex:1,fontSize:9,color:"var(--mu)"}}>{allAIs.length} IAs — s'ouvrent dans un nouvel onglet</div>
+        <button onClick={discoverNewAIs} disabled={discovering}
+          style={{padding:"4px 10px",fontSize:9,fontWeight:700,borderRadius:5,border:"1px solid var(--ac)",background:"transparent",color:"var(--ac)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",opacity:discovering?.6:1}}>
+          {discovering?"⏳ Recherche...":"🔭 Découvrir de nouvelles IAs"}
+        </button>
+        {discMsg && <div style={{fontSize:9,color:"var(--green)"}}>{discMsg}</div>}
+      </div>
+      {/* Filtres */}
+      <div style={{display:"flex",gap:6,padding:"8px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,flexWrap:"wrap",alignItems:"center"}}>
+        {cats.map(c=>(
+          <button key={c.id} onClick={()=>setFilterCat(c.id)}
+            style={{padding:"3px 9px",fontSize:9,fontWeight:600,borderRadius:12,border:"1px solid "+(filterCat===c.id?"var(--ac)":"var(--bd)"),background:filterCat===c.id?"var(--ac)":"transparent",color:filterCat===c.id?"var(--bg)":"var(--mu)",cursor:"pointer",transition:"all .15s"}}>
+            {c.icon} {c.label} {filterCat===c.id&&<span style={{opacity:.7}}>({allAIs.filter(a=>c.id==="all"||a.cat===c.id).length})</span>}
+          </button>
+        ))}
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
+          style={{marginLeft:"auto",padding:"3px 9px",fontSize:9,borderRadius:12,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--tx)",outline:"none",width:140}}/>
+      </div>
+      {/* Grille */}
+      <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
+          {filtered.map(ia=>(
+            <div key={ia.id} style={{position:"relative"}}>
+              <a href={ia.url} target="_blank" rel="noreferrer"
+                style={{display:"flex",flexDirection:"column",gap:6,padding:"10px 12px",background:"var(--s1)",border:`1px solid ${ia.color}33`,borderRadius:7,textDecoration:"none",transition:"all .15s",height:"100%",boxSizing:"border-box"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=ia.color;e.currentTarget.style.transform="translateY(-2px)"}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=ia.color+"33";e.currentTarget.style.transform=""}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:16,width:24,textAlign:"center"}}>{ia.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ia.name}</div>
+                    <div style={{fontSize:8,color:ia.color}}>{ia.subtitle}</div>
+                  </div>
+                  <span style={{fontSize:9,color:"var(--mu)"}}>↗</span>
+                </div>
+                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4}}>{ia.desc}</div>
+                <div style={{marginTop:"auto"}}>
+                  <span style={{fontSize:7,padding:"1px 5px",borderRadius:3,background:ia.color+"18",color:ia.color,fontWeight:700}}>
+                    {ia.cat==="gratuit"?"GRATUIT":ia.cat==="recherche"?"RECHERCHE":ia.cat==="multimodele"?"MULTI-MODÈLES":ia.cat==="image"?"IMAGE":ia.cat==="code"?"CODE":ia.cat==="audio"?"AUDIO":"PREMIUM"}
+                  </span>
+                </div>
+              </a>
+              {discovered.find(d=>d.id===ia.id) && (
+                <button onClick={()=>removeDiscovered(ia.id)}
+                  title="Retirer cette IA"
+                  style={{position:"absolute",top:4,right:4,fontSize:8,background:"rgba(0,0,0,.5)",border:"none",color:"var(--mu)",cursor:"pointer",borderRadius:3,padding:"1px 4px",zIndex:2}}>✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+        {filtered.length===0 && <div style={{textAlign:"center",color:"var(--mu)",fontSize:11,padding:40}}>Aucune IA trouvée pour "{search}"</div>}
+        {/* Sources discovery */}
+        <div style={{marginTop:20,padding:"10px 14px",background:"var(--s1)",borderRadius:8,border:"1px solid var(--bd)"}}>
+          <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>🔭 Sources pour découvrir de nouvelles IAs</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {DISCOVERY_SOURCES.map(s=>(
+              <a key={s.name} href={s.url} target="_blank" rel="noreferrer"
+                style={{fontSize:9,color:"var(--ac)",textDecoration:"none",padding:"3px 8px",border:"1px solid var(--bd)",borderRadius:4}}>
+                ↗ {s.name}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
   const [tab, setTab] = useState(() => {
     // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
     const params = new URLSearchParams(window.location.search);
@@ -3984,6 +4172,9 @@ export default function App() {
 
         {/* ── WEB IAs TAB ── */}
         {tab === "webia" && (
+          <WebIAsTab />
+        )}
+        {false && (
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
               <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🌐 IAs Web</div>
@@ -4425,3 +4616,5 @@ export default function App() {
     </>
   );
 }
+
+export default App;
