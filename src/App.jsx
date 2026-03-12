@@ -15,9 +15,9 @@ const MODEL_DEFS = {
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
   mixtral:    { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
   // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
-  poll_gpt:   { name:"GPT-4o (Pollinations)",  short:"GPT-4o",  provider:"OpenAI via Pollinations", color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/15s", model:"openai" },
-  poll_claude:{ name:"Claude (Pollinations)",  short:"Claude",  provider:"Anthropic via Pollinations",color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/15s", model:"claude-airforce" },
-  poll_gemini:{ name:"Gemini (Pollinations)",  short:"Gemini",  provider:"Google via Pollinations",  color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/15s", model:"gemini" },
+  poll_gpt:   { name:"GPT-4o (Pollinations)",  short:"GPT-4o",  provider:"OpenAI via Pollinations", color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"openai" },
+  poll_claude:{ name:"Claude (Pollinations)",  short:"Claude",  provider:"Anthropic via Pollinations",color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"claude-airforce" },
+  poll_gemini:{ name:"Gemini (Pollinations)",  short:"Gemini",  provider:"Google via Pollinations",  color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/16s (anonyme)", model:"gemini" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -345,17 +345,17 @@ async function callGemini(messages, apiKey, system="Tu es un assistant IA utile 
   if(!d.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("Gemini: réponse vide. Détail: " + JSON.stringify(d).slice(0,200));
   return d.candidates[0].content.parts[0].text;
 }
-// Queue Pollinations pour éviter 429 (1 req à la fois par IP)
+// Queue Pollinations : 1 req/15s en anonyme, sérialisées
 let _pollQueue = Promise.resolve();
 async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  // Chaîner les requêtes Pollinations en série avec délai
-  _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 1500)));
+  _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 16000)));
   await _pollQueue;
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+  // text.pollinations.ai/openai = endpoint gratuit sans clé (Anonymous tier)
+  const r = await fetch("https://text.pollinations.ai/openai", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ model, messages:msgs, max_tokens:1500 })
+    body:JSON.stringify({ model, messages:msgs, max_tokens:1500, private:true })
   });
   if(!r.ok) {
     const txt = await r.text();
