@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "10.0";
+const APP_VERSION = "10.1";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
@@ -14,6 +14,10 @@ const MODEL_DEFS = {
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
   mixtral:    { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
+  // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
+  poll_gpt:   { name:"GPT-4o (Pollinations)",  short:"GPT-4o",  provider:"OpenAI via Pollinations", color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/15s", model:"openai" },
+  poll_claude:{ name:"Claude (Pollinations)",  short:"Claude",  provider:"Anthropic via Pollinations",color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/15s", model:"claude-airforce" },
+  poll_gemini:{ name:"Gemini (Pollinations)",  short:"Gemini",  provider:"Google via Pollinations",  color:"#6BA5E0", bg:"#080E1A", border:"#0A1E3D", icon:"◇", apiType:"pollinations", maxTokens:128000, free:true, keyName:null, keyLink:"https://pollinations.ai", desc:"SANS CLÉ — 1 req/15s", model:"gemini" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -251,6 +255,9 @@ const PRICING = {
   cerebras:   { in:0.00, out:0.00, label:"Llama 3.1 (Cerebras) — GRATUIT" },
   sambanova:  { in:0.00, out:0.00, label:"Llama 4 (SambaNova) — GRATUIT" },
   mixtral:    { in:0.00, out:0.00, label:"Qwen3 32B (Groq) — GRATUIT" },
+  poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — SANS CLÉ" },
+  poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — SANS CLÉ" },
+  poll_gemini:{ in:0.00, out:0.00, label:"Gemini (Pollinations) — SANS CLÉ" },
 };
 
 // ── Prompts par défaut ────────────────────────────────────────────
@@ -338,6 +345,23 @@ async function callGemini(messages, apiKey, system="Tu es un assistant IA utile 
   if(!d.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("Gemini: réponse vide. Détail: " + JSON.stringify(d).slice(0,200));
   return d.candidates[0].content.parts[0].text;
 }
+async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
+  const msgs = system ? [{role:"system",content:system},...messages] : messages;
+  const r = await fetch("https://text.pollinations.ai/openai", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ model, messages:msgs, max_tokens:1500,
+      referrer:"multiia-hub" })
+  });
+  if(!r.ok) {
+    const txt = await r.text();
+    throw new Error("Pollinations " + r.status + ": " + txt.slice(0,120));
+  }
+  const d = await r.json();
+  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.choices?.[0]?.message?.content || "";
+}
+
 async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un assistant IA utile et concis.") {
   const headers = {"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`};
   // OpenRouter needs HTTP-Referer
@@ -379,6 +403,7 @@ async function callModel(id, messages, keys, system, attachedFile=null) {
     : messages;
   if(m.apiType==="gemini") return callGemini(msgWithFile,keys.gemini,system);
   if(m.apiType==="cohere") return callCohere(messages,keys.cohere,system);
+  if(m.apiType==="pollinations") return callPollinations(msgWithFile,m.model,system);
   if(m.apiType==="compat") {
     const key = keys[m.keyName];
     if(!key) throw new Error(`Clé API manquante pour ${m.name}. Va dans ⚙ Config pour l'ajouter gratuitement.`);
@@ -2888,22 +2913,20 @@ function WebIAsTab() {
 
   async function discoverNewAIs() {
     setDiscovering(true);
-    setDiscMsg("🔍 Recherche de nouvelles IAs avec Claude...");
+    setDiscMsg("🔍 Recherche de nouvelles IAs via Groq...");
     try {
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      let groqKey = "";
+      try { groqKey = JSON.parse(localStorage.getItem("multiia_keys")||"{}").groq_inf||""; } catch{}
+      if (!groqKey) throw new Error("Clé Groq manquante — configure-la dans ⚙ Config d'abord");
+      const prompt = "Tu es un expert en outils IA. Liste 5 nouvelles IAs web accessibles gratuitement en 2025-2026 qui ne font PAS partie de cette liste: " + allAIs.map(a=>a.name).join(", ") + ". Reponds UNIQUEMENT en JSON valide, tableau d objets avec ces champs: [{id,name,subtitle,cat,url,color,icon,desc}] ou cat est parmi: gratuit|recherche|multimodele|image|code|audio|payant. Pas de texte avant ou apres le JSON.";
+      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:1000,
-          messages:[{role:"user",content:`Tu es un expert en outils IA. Liste 5 nouvelles IAs web accessibles gratuitement en 2025-2026 qui ne font PAS partie de cette liste: ${allAIs.map(a=>a.name).join(", ")}. 
-Réponds UNIQUEMENT en JSON valide, tableau d'objets avec ces champs exactement:
-[{"id":"unique_id","name":"Nom","subtitle":"Fournisseur • Gratuit/Prix","cat":"gratuit|recherche|multimodele|image|code|audio|payant","url":"https://...","color":"#hexcolor","icon":"emoji ou symbole 1-2 chars","desc":"Description courte en français"}]
-Pas de texte avant ou après le JSON.`}]
-        })
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+groqKey},
+        body:JSON.stringify({ model:"llama-3.3-70b-versatile", max_tokens:1000,
+          messages:[{role:"user",content:prompt}] })
       });
       const data = await resp.json();
-      const text = data.content?.[0]?.text || "[]";
+      const text = data.choices?.[0]?.message?.content || "[]";
       const clean = text.replace(/```json|```/g,"").trim();
       const newAIs = JSON.parse(clean);
       const existing = new Set(allAIs.map(a=>a.id));
@@ -3017,8 +3040,8 @@ function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false }; }
-    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_gemini:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_gemini:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
