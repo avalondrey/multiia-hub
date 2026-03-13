@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "11.1";
+const APP_VERSION = "16.3";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
@@ -13,8 +13,10 @@ const MODEL_DEFS = {
   cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  mixtral:    { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
+  qwen3:      { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
   // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
+  llama4s:    { name:"Llama 4 Scout (Groq)",   short:"L4 Scout", provider:"Groq / Meta",    color:"#FF6B35", bg:"#180A04", border:"#3D1500", icon:"🦙", apiType:"compat", maxTokens:128000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — Llama 4 Scout 17B multimodal", baseUrl:"https://api.groq.com/openai/v1", model:"meta-llama/llama-4-scout-17b-16e-instruct" },
+  gemma2:     { name:"Gemma 2 9B (Groq)",      short:"Gemma2",   provider:"Groq / Google",  color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"◎", apiType:"compat", maxTokens:8192,   free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — même clé Groq",               baseUrl:"https://api.groq.com/openai/v1", model:"gemma2-9b-it" },
   poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations",      maxTokens:128000, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — modèle openai uniquement · legacy endpoint", model:"openai" },
   poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"claude-airforce" },
   poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"deepseek" },
@@ -147,16 +149,7 @@ async function fetchYTVideos(themeQuery, savedKeys) {
   };
   const makeYTUrl = (q) => "https://www.youtube.com/results?search_query=" + encodeURIComponent(q);
 
-  if (keys.gemini) {
-    try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keys.gemini}`,
-        { method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ contents:[{role:"user",parts:[{text:YT_VIDEO_PROMPT(themeQuery)}]}], generationConfig:{maxOutputTokens:2000} }) });
-      const d = await r.json();
-      if (d.error) throw new Error(d.error.message);
-      return { items: parse(d.candidates[0].content.parts[0].text), provider:"Gemini ◇", fallback:false };
-    } catch(e) { errors.push(e.message); }
-  }
+  // Gemini retired from app — using Groq/Mistral only
   if (keys.groq_inf) {
     try {
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions",
@@ -256,6 +249,8 @@ const PRICING = {
   cerebras:   { in:0.00, out:0.00, label:"Llama 3.1 (Cerebras) — GRATUIT" },
   sambanova:  { in:0.00, out:0.00, label:"Llama 4 (SambaNova) — GRATUIT" },
   mixtral:    { in:0.00, out:0.00, label:"Qwen3 32B (Groq) — GRATUIT" },
+  llama4s:      { in:0.00, out:0.00, label:"Llama 4 Scout (Groq) — GRATUIT" },
+  gemma2:       { in:0.00, out:0.00, label:"Gemma 2 9B (Groq) — GRATUIT" },
   poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — SANS CLÉ" },
   poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — SANS CLÉ" },
   poll_deepseek:{ in:0.00, out:0.00, label:"DeepSeek (Pollinations) — SANS CLÉ" },
@@ -281,6 +276,212 @@ const DEFAULT_PROMPTS = [
   { id:"p15", cat:"Traduction", icon:"🌍", title:"Traduire et adapter", text:"Traduis ce texte en [LANGUE CIBLE] en adaptant les expressions culturellement (pas mot à mot) :\n\n[TON TEXTE]" },
   { id:"p16", cat:"Traduction", icon:"🔄", title:"Localiser pour la France", text:"Adapte ce contenu pour le marché français (expressions, exemples, références culturelles, RGPD si besoin) :\n\n[TON CONTENU]" },
 ];
+
+
+// ══════════════════════════════════════════════════════════════════
+// MARKDOWN RENDERER — Syntax Highlighting + Inline Formatting
+// ══════════════════════════════════════════════════════════════════
+
+function tokenizeCode(code, lang) {
+  const l = (lang || "").toLowerCase();
+  const KW = {
+    js:   new Set(["const","let","var","function","return","if","else","for","while","do","class","import","export","default","from","async","await","try","catch","throw","new","this","typeof","instanceof","of","in","null","undefined","true","false","switch","case","break","continue","void","delete","yield","extends","super","static"]),
+    ts:   new Set(["const","let","var","function","return","if","else","for","while","class","import","export","default","from","async","await","try","catch","throw","new","this","typeof","interface","type","enum","string","number","boolean","any","void","never","null","undefined","true","false","extends","implements","public","private","protected","readonly","abstract"]),
+    py:   new Set(["def","return","if","elif","else","for","while","class","import","from","as","with","try","except","finally","raise","pass","break","continue","True","False","None","and","or","not","in","is","lambda","yield","global","nonlocal","del","assert","async","await","print","len","range","str","int","float","list","dict","set","tuple","type"]),
+    bash: new Set(["echo","if","then","else","fi","for","do","done","while","function","return","exit","export","source","cd","ls","mkdir","rm","cp","mv","cat","grep","sed","chmod","chown","curl","wget","git","npm","pip","python","node"]),
+    css:  new Set(["display","flex","grid","position","color","background","margin","padding","border","font","width","height","overflow","transition","animation","transform","opacity","cursor","top","left","right","bottom","none","block","inline","absolute","relative","fixed","sticky","center","bold","normal","auto"]),
+    java: new Set(["class","public","private","protected","static","void","return","if","else","for","while","new","import","package","this","super","extends","implements","interface","abstract","final","try","catch","throw","true","false","null","int","long","double","float","boolean","String"]),
+    rust: new Set(["fn","let","mut","if","else","for","while","loop","match","return","use","mod","pub","struct","enum","impl","trait","type","where","self","Self","true","false","None","Some","Ok","Err","async","await","move","Box","Vec","String","Option","Result"]),
+    sql:  new Set(["SELECT","FROM","WHERE","JOIN","INNER","LEFT","RIGHT","ON","GROUP","BY","ORDER","HAVING","INSERT","INTO","VALUES","UPDATE","SET","DELETE","CREATE","TABLE","DROP","ALTER","INDEX","UNIQUE","PRIMARY","KEY","FOREIGN","REFERENCES","AS","AND","OR","NOT","NULL","IS","IN","LIKE","BETWEEN","DISTINCT","COUNT","SUM","AVG","MAX","MIN"]),
+  };
+  const jsLike = new Set(["js","jsx","ts","tsx","java","c","cpp","cs","go","rust","swift","kotlin","dart"]);
+  const pyLike = new Set(["py","python","rb","ruby"]);
+  const kws = KW[l==="tsx"?"ts":l==="jsx"?"js":l==="sh"?"bash":l] || KW.js;
+  const tokens = [];
+  let i = 0; const n = code.length;
+  while (i < n) {
+    const ch = code[i];
+    // Line comment //
+    if (jsLike.has(l) && ch==="/" && code[i+1]==="/") {
+      let j=i; while(j<n&&code[j]!=="\n")j++;
+      tokens.push({t:"cm",v:code.slice(i,j)}); i=j; continue;
+    }
+    // Block comment /* */
+    if ((jsLike.has(l)||l==="css") && ch==="/" && code[i+1]==="*") {
+      let j=i+2; while(j<n&&!(code[j-1]==="*"&&code[j]==="/"))j++;
+      tokens.push({t:"cm",v:code.slice(i,j+1)}); i=j+1; continue;
+    }
+    // Python/bash comment #
+    if ((pyLike.has(l)||l==="bash"||l==="sh"||l==="yaml"||l==="yml") && ch==="#") {
+      let j=i; while(j<n&&code[j]!=="\n")j++;
+      tokens.push({t:"cm",v:code.slice(i,j)}); i=j; continue;
+    }
+    // HTML comment
+    if ((l==="html"||l==="xml") && code.slice(i,i+4)==="<!--") {
+      let j=i+4; while(j<n&&code.slice(j,j+3)!=="-->")j++;
+      tokens.push({t:"cm",v:code.slice(i,j+3)}); i=j+3; continue;
+    }
+    // SQL comment --
+    if (l==="sql" && ch==="-" && code[i+1]==="-") {
+      let j=i; while(j<n&&code[j]!=="\n")j++;
+      tokens.push({t:"cm",v:code.slice(i,j)}); i=j; continue;
+    }
+    // String "
+    if (ch==="\"") {
+      let j=i+1; while(j<n){if(code[j]==="\"")break;if(code[j]==="\\")j++;j++;}
+      tokens.push({t:"st",v:code.slice(i,j+1)}); i=j+1; continue;
+    }
+    // String '
+    if (ch==="'") {
+      let j=i+1; while(j<n){if(code[j]==="'")break;if(code[j]==="\\")j++;j++;}
+      tokens.push({t:"st",v:code.slice(i,j+1)}); i=j+1; continue;
+    }
+    // Template literal backtick
+    if (ch==="`") {
+      let j=i+1; while(j<n){if(code[j]==="`")break;if(code[j]==="\\")j++;j++;}
+      tokens.push({t:"st",v:code.slice(i,j+1)}); i=j+1; continue;
+    }
+    // Number
+    if (/[0-9]/.test(ch)) {
+      let j=i; while(j<n&&/[0-9._xXa-fA-FbBoOeE]/.test(code[j]))j++;
+      tokens.push({t:"nm",v:code.slice(i,j)}); i=j; continue;
+    }
+    // Identifier / keyword
+    if (/[a-zA-Z_$]/.test(ch)) {
+      let j=i; while(j<n&&/[a-zA-Z0-9_$]/.test(code[j]))j++;
+      const w=code.slice(i,j);
+      tokens.push({t:kws.has(w)?"kw":"id",v:w}); i=j; continue;
+    }
+    // Whitespace
+    if (/\s/.test(ch)) {
+      let j=i; while(j<n&&/\s/.test(code[j]))j++;
+      tokens.push({t:"ws",v:code.slice(i,j)}); i=j; continue;
+    }
+    // Operator / punct
+    tokens.push({t:"op",v:ch}); i++;
+  }
+  return tokens;
+}
+
+function CodeBlock({ code, lang }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    try { navigator.clipboard.writeText((code||"").trimEnd()); } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  const tokens = tokenizeCode((code||"").trimEnd(), lang);
+  const CLR = { kw:"#C084FC", st:"#FB923C", cm:"#6B6B85", nm:"#60A5FA", op:"#94A3B8" };
+  return (
+    <div className="md-code-block">
+      <div className="md-code-hdr">
+        <span className="md-code-lang">{lang||"code"}</span>
+        <button className={"md-code-copy"+(copied?" copied":"")} onClick={copy}>
+          {copied ? "✓ Copié" : "⎘ Copier"}
+        </button>
+      </div>
+      <div className="md-code-body">
+        {tokens.map((tok,idx) => {
+          if (tok.t==="ws"||tok.t==="id") return tok.v;
+          if (CLR[tok.t]) return <span key={idx} style={{color:CLR[tok.t],fontStyle:tok.t==="cm"?"italic":"normal"}}>{tok.v}</span>;
+          return tok.v;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function parseInline(text) {
+  if (!text) return [];
+  const re = /\*\*(.+?)\*\*|\*(.+?)\*|__(.+?)__|~~(.+?)~~|`([^`\n]+)`|\[([^\]]+)\]\(([^)]+)\)/g;
+  const parts=[]; let last=0, m, k=0;
+  while ((m=re.exec(text))!==null) {
+    if (m.index>last) parts.push(text.slice(last,m.index));
+    if      (m[1]!==undefined) parts.push(<strong key={k++}>{m[1]}</strong>);
+    else if (m[2]!==undefined) parts.push(<em key={k++}>{m[2]}</em>);
+    else if (m[3]!==undefined) parts.push(<u key={k++} style={{textDecorationColor:"var(--ac)",textUnderlineOffset:"3px"}}>{m[3]}</u>);
+    else if (m[4]!==undefined) parts.push(<del key={k++} style={{color:"var(--mu)"}}>{m[4]}</del>);
+    else if (m[5]!==undefined) parts.push(<code key={k++} className="md-ic">{m[5]}</code>);
+    else if (m[6]!==undefined) parts.push(<a key={k++} href={m[7]} target="_blank" rel="noopener noreferrer" className="md-link">{m[6]}</a>);
+    last=m.index+m[0].length;
+  }
+  if (last<text.length) parts.push(text.slice(last));
+  return parts;
+}
+
+function MarkdownRenderer({ text }) {
+  if (!text) return null;
+  // Split code blocks from text
+  const segs=[];
+  const codeRe = /```(\w*)\n?([\s\S]*?)```/g;
+  let last=0, m;
+  while ((m=codeRe.exec(text))!==null) {
+    if (m.index>last) segs.push({type:"text",content:text.slice(last,m.index)});
+    segs.push({type:"code",lang:m[1]||"",content:m[2]||""});
+    last=m.index+m[0].length;
+  }
+  if (last<text.length) segs.push({type:"text",content:text.slice(last)});
+
+  const renderText = (content, si) => {
+    const lines=content.split("\n");
+    const els=[]; let listBuf=[], listType=null, k=0;
+    const flushList=()=>{
+      if(!listBuf.length) return;
+      const El=listType==="ol"?"ol":"ul";
+      els.push(<El key={"l"+k++} className="md-list">{listBuf.map((li,j)=><li key={j}>{parseInline(li)}</li>)}</El>);
+      listBuf=[]; listType=null;
+    };
+    for(let i=0;i<lines.length;i++){
+      const line=lines[i];
+      // Headers
+      const hm=line.match(/^(#{1,3})\s+(.+)$/);
+      if(hm){flushList();const lv=hm[1].length;const Tag="h"+lv;els.push(React.createElement(Tag,{key:k++,className:"md-h"+lv},parseInline(hm[2])));continue;}
+      // HR
+      if(/^-{3,}$/.test(line.trim())){flushList();els.push(<hr key={k++} className="md-hr"/>);continue;}
+      // Blockquote
+      if(line.startsWith("> ")){flushList();els.push(<blockquote key={k++} className="md-bq">{parseInline(line.slice(2))}</blockquote>);continue;}
+      // Unordered list
+      const ulm=line.match(/^[\-\*\+]\s+(.+)$/);
+      if(ulm){if(listType!=="ul"){flushList();listType="ul";}listBuf.push(ulm[1]);continue;}
+      // Ordered list
+      const olm=line.match(/^\d+\.\s+(.+)$/);
+      if(olm){if(listType!=="ol"){flushList();listType="ol";}listBuf.push(olm[1]);continue;}
+      // Empty line → spacer
+      if(!line.trim()){flushList();if(i>0&&i<lines.length-1)els.push(<br key={k++}/>);continue;}
+      // Regular paragraph
+      flushList();
+      els.push(<p key={k++} className="md-p">{parseInline(line)}</p>);
+    }
+    flushList();
+    return <div key={si}>{els}</div>;
+  };
+
+  return (
+    <div className="md">
+      {segs.map((seg,si)=>
+        seg.type==="code"
+          ? <CodeBlock key={si} code={seg.content} lang={seg.lang}/>
+          : renderText(seg.content,si)
+      )}
+    </div>
+  );
+}
+
+// ── Prompt variables {{date}}, {{heure}}, etc. ────────────────────
+function applyPromptVars(text) {
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,"0");
+  const vars={
+    date: now.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"}),
+    heure: pad(now.getHours())+":"+pad(now.getMinutes()),
+    jour:  now.toLocaleDateString("fr-FR",{weekday:"long"}),
+    mois:  now.toLocaleDateString("fr-FR",{month:"long"}),
+    annee: String(now.getFullYear()),
+    ts:    now.toISOString(),
+    today: now.toLocaleDateString("fr-FR"),
+  };
+  return text.replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]!==undefined?vars[k]:"{{"+k+"}}");
+}
 
 const fmt = (n) => n>=1e6?(n/1e6).toFixed(1)+"M":n>=1000?(n/1000).toFixed(1)+"k":String(n);
 
@@ -510,12 +711,12 @@ body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;
 .tr{width:clamp(24px,4vw,44px);height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
 .tf{height:100%;border-radius:2px;transition:width .4s}
 .tbar-total{margin-left:auto;white-space:nowrap}
-.cols{display:flex;flex:1;overflow:hidden}
-.col{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--bd);overflow:hidden;min-width:0;transition:opacity .3s,filter .3s}
-.col:last-child{border-right:none}
+.cols{display:flex;flex:1;overflow-y:auto;overflow-x:hidden;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
+.col{flex:none;display:flex;flex-direction:column;border-bottom:1px solid var(--bd);overflow:hidden;width:100%;min-height:clamp(300px,42vh,520px);transition:opacity .3s,filter .3s}
+.col:last-child{border-bottom:none}
 .col.off{opacity:.10;filter:grayscale(1);pointer-events:none}
 .col.solo-dim{opacity:.10;filter:grayscale(1);pointer-events:none}
-.col.solo-focus{flex:2.5}
+.col.solo-focus{min-height:clamp(480px,70vh,800px)}
 /* ── HISTORY SIDEBAR ── */
 .hist-sidebar{width:220px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;background:var(--bg);overflow:hidden;transition:width .2s}
 .hist-sidebar.closed{width:0;border-right:none}
@@ -560,7 +761,7 @@ body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;
 .msg{padding:clamp(5px,1vw,8px) clamp(7px,1.5vw,10px);border-radius:5px;font-size:clamp(9px,1.6vw,12px);line-height:1.68;border:1px solid var(--bd)}
 .msg.u{background:#15151B;color:var(--mu);font-style:italic}
 .msg.u::before{content:'> ';color:var(--ac)}
-.msg.a{background:var(--s1);color:var(--tx);white-space:pre-wrap}
+.msg.a{background:var(--s1);color:var(--tx)}
 .msg.e{color:var(--red);background:#180808;border-color:#350A0A}
 .msg.ld{color:var(--mu);background:var(--s1)}
 .msg.blocked{color:var(--orange);background:rgba(251,146,60,.08);border-color:rgba(251,146,60,.3);font-size:10px}
@@ -594,8 +795,7 @@ textarea::placeholder{color:var(--mu)}
 @media(max-width:768px){
   body{overflow:auto}.app{height:100dvh;overflow:hidden}
   .tbar{display:none}.pills{display:none}
-  .cols{flex-direction:column;overflow:hidden}
-  .col{flex:none;height:100%}.col.mobile-hidden{display:none}
+  .col{flex:none;height:100dvh}.col.mobile-hidden{display:none}
   .mobile-col-tabs{display:flex !important;padding:4px 8px;gap:4px;overflow-x:auto;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--s1);scrollbar-width:none}
   .mobile-col-tabs::-webkit-scrollbar{display:none}
   .mct-btn{padding:4px 10px;border-radius:4px;border:1px solid var(--bd);font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;background:transparent;color:var(--mu);white-space:nowrap;flex-shrink:0}
@@ -628,13 +828,13 @@ textarea::placeholder{color:var(--mu)}
 .phase-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(170px,26vw,250px),1fr));border-top:1px solid var(--bd)}
 .pg-cell{padding:clamp(7px,1.5vw,11px);border-right:1px solid var(--bd);border-bottom:1px solid var(--bd)}
 .pgc-hdr{display:flex;align-items:center;gap:5px;margin-bottom:5px}
-.pgc-body{font-size:clamp(9px,1.6vw,11px);line-height:1.68;color:var(--tx);white-space:pre-wrap}
+.pgc-body{font-size:clamp(9px,1.6vw,11px);line-height:1.68;color:var(--tx)}
 .pgc-body.mu{color:var(--mu);font-style:italic}
 .syn-block{margin:clamp(7px,1.5vw,12px);border:1px solid var(--ac);border-radius:9px;overflow:hidden;flex-shrink:0}
 .syn-hdr{padding:9px clamp(10px,2vw,14px);background:linear-gradient(90deg,#1A1208,#0F0F13);display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--ac)}
 .syn-title{font-family:'Syne',sans-serif;font-size:clamp(10px,1.8vw,13px);font-weight:800;color:var(--ac)}
 .syn-by{font-size:9px;color:var(--mu);margin-left:auto}
-.syn-body{padding:clamp(9px,1.8vw,13px);font-size:clamp(10px,1.7vw,12px);line-height:1.72;white-space:pre-wrap;color:var(--tx);background:var(--s1)}
+.syn-body{padding:clamp(9px,1.8vw,13px);font-size:clamp(10px,1.7vw,12px);line-height:1.72;color:var(--tx);background:var(--s1)}
 .syn-body.mu{color:var(--mu);font-style:italic}
 .debate-foot{padding:clamp(7px,1.5vw,11px) clamp(8px,2vw,14px);border-top:1px solid var(--bd);background:var(--bg);flex-shrink:0}
 .launch-btn{background:var(--ac);color:#09090B;border:none;border-radius:6px;padding:0 clamp(11px,2.2vw,17px);height:clamp(30px,4.5vw,38px);font-family:'IBM Plex Mono',monospace;font-size:clamp(9px,1.6vw,11px);font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
@@ -905,7 +1105,7 @@ input[type=file]{display:none}
 .red-results{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
 .red-result-card{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden}
 .red-result-hdr{padding:8px 12px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:7px;flex-shrink:0}
-.red-result-body{padding:12px;font-size:clamp(10px,1.6vw,12px);line-height:1.7;color:var(--tx);white-space:pre-wrap;word-break:break-word}
+.red-result-body{padding:12px;font-size:clamp(10px,1.6vw,12px);line-height:1.7;color:var(--tx);word-break:break-word}
 .red-copy-btn{margin-left:auto;background:none;border:1px solid var(--bd);border-radius:3px;color:var(--mu);cursor:pointer;font-size:8px;padding:2px 6px;font-family:'IBM Plex Mono',monospace;transition:all .15s}
 .red-copy-btn:hover{border-color:var(--ac);color:var(--ac)}
 .red-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--mu);font-size:11px;text-align:center;padding:20px}
@@ -922,7 +1122,7 @@ input[type=file]{display:none}
 .srch-results{flex:1;overflow-y:auto;padding:clamp(10px,2vw,16px);display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
 .srch-card{background:var(--s1);border:1px solid var(--bd);border-radius:9px;overflow:hidden}
 .srch-card-hdr{padding:8px 12px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:7px}
-.srch-card-body{padding:12px;font-size:clamp(10px,1.6vw,12px);line-height:1.75;color:var(--tx);white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto}
+.srch-card-body{padding:12px;font-size:clamp(10px,1.6vw,12px);line-height:1.75;color:var(--tx);word-break:break-word;max-height:300px;overflow-y:auto}
 .srch-suggestions{display:flex;gap:5px;flex-wrap:wrap}
 
 /* ── PROMPTS TAB ── */
@@ -962,7 +1162,7 @@ input[type=file]{display:none}
 .wf-output{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
 .wf-out-card{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden}
 .wf-out-hdr{padding:7px 12px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:7px;background:var(--s2)}
-.wf-out-body{padding:12px;font-size:clamp(10px,1.6vw,12px);line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:250px;overflow-y:auto}
+.wf-out-body{padding:12px;font-size:clamp(10px,1.6vw,12px);line-height:1.7;word-break:break-word;max-height:250px;overflow-y:auto}
 .wf-run-btn{margin:10px;padding:10px;background:var(--ac);border:none;border-radius:7px;color:#09090B;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;cursor:pointer;transition:opacity .15s}
 .wf-run-btn:hover{opacity:.85}
 .wf-run-btn:disabled{opacity:.4;cursor:not-allowed}
@@ -1047,7 +1247,7 @@ html, body{
 @keyframes pulse-border{0%,100%{border-color:var(--ac)}50%{border-color:rgba(212,168,83,.2)}}
 .agent-step-output{font-size:11px;color:var(--mu);line-height:1.65;white-space:pre-wrap;max-height:180px;overflow-y:auto;margin-top:6px}
 .agent-final{background:linear-gradient(135deg,rgba(212,168,83,.08),rgba(74,222,128,.04));border:1px solid rgba(212,168,83,.3);border-radius:8px;padding:14px;margin-top:10px}
-.agent-final-content{font-size:12px;color:var(--tx);line-height:1.7;white-space:pre-wrap}
+.agent-final-content{font-size:12px;color:var(--tx);line-height:1.7}
 /* ══ TRADUCTEUR ══ */
 .trad-wrap{flex:1;display:flex;overflow:hidden}
 .trad-left{width:48%;border-right:1px solid var(--bd);display:flex;flex-direction:column}
@@ -1343,6 +1543,39 @@ html, body{
   font-size:10px; padding:6px 10px; cursor:pointer; flex-shrink:0;
   font-family:'IBM Plex Mono',monospace;
 }
+/* ══════════════════════════════════════════════════════
+   MARKDOWN RENDERER
+   ══════════════════════════════════════════════════════ */
+.md{line-height:1.72;font-size:inherit}
+.md-h1{font-family:'Syne',sans-serif;font-size:clamp(13px,2.1vw,16px);font-weight:800;color:var(--ac);margin:10px 0 5px;border-bottom:1px solid var(--bd);padding-bottom:4px}
+.md-h2{font-family:'Syne',sans-serif;font-size:clamp(11px,1.8vw,14px);font-weight:700;color:var(--tx);margin:8px 0 4px}
+.md-h3{font-family:'Syne',sans-serif;font-size:clamp(10px,1.6vw,12px);font-weight:700;color:var(--blue);margin:6px 0 3px}
+.md-p{margin:2px 0;line-height:1.72}
+.md-p:empty{display:none}
+.md-list{margin:4px 0 4px 18px;padding:0;display:flex;flex-direction:column;gap:2px}
+.md-list li{font-size:inherit;color:var(--tx);line-height:1.65}
+.md ul.md-list{list-style:disc}
+.md ol.md-list{list-style:decimal}
+.md-hr{border:none;border-top:1px solid var(--bd);margin:8px 0}
+.md-bq{border-left:3px solid var(--ac);padding:4px 10px;margin:5px 0;background:rgba(212,168,83,.07);border-radius:0 4px 4px 0;color:var(--mu);font-style:italic;font-size:.95em}
+.md-ic{background:var(--bg);border:1px solid rgba(255,255,255,.1);border-radius:3px;padding:1px 5px;font-family:'IBM Plex Mono',monospace;font-size:.88em;color:#FB923C}
+.md-link{color:var(--ac);text-decoration:none}
+.md-link:hover{text-decoration:underline}
+.md strong{font-weight:700;color:var(--tx)}
+.md em{font-style:italic;color:#BDB9D0}
+.md del{text-decoration:line-through;color:var(--mu)}
+/* ── Code blocks ── */
+.md-code-block{background:#080810;border:1px solid var(--bd);border-radius:7px;overflow:hidden;margin:7px 0;font-size:11px}
+.md-code-hdr{display:flex;align-items:center;padding:4px 10px;background:var(--s2);border-bottom:1px solid var(--bd)}
+.md-code-lang{font-size:8px;color:var(--ac);font-weight:700;letter-spacing:.8px;text-transform:uppercase;flex:1}
+.md-code-copy{font-size:8px;color:var(--mu);cursor:pointer;padding:2px 7px;border:1px solid var(--bd);border-radius:3px;background:transparent;font-family:'IBM Plex Mono',monospace;transition:all .15s}
+.md-code-copy:hover{color:var(--green);border-color:var(--green)}
+.md-code-copy.copied{color:var(--green);border-color:rgba(74,222,128,.5);background:rgba(74,222,128,.08)}
+.md-code-body{padding:10px 13px;overflow-x:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.75;color:#C8C8E0;white-space:pre}
+/* ── Prompt vars hint ── */
+.pvar-hint{display:flex;gap:5px;flex-wrap:wrap;padding:3px 8px;font-size:8px;color:var(--mu);border-top:1px solid var(--bd);background:rgba(212,168,83,.04)}
+.pvar-chip{padding:1px 5px;border-radius:3px;background:rgba(212,168,83,.12);color:var(--ac);border:1px solid rgba(212,168,83,.25);cursor:pointer;font-family:'IBM Plex Mono',monospace}
+.pvar-chip:hover{background:rgba(212,168,83,.22)}
 `;
 
 // ── COMPONENTS ────────────────────────────────────────────────────
@@ -2048,7 +2281,7 @@ Réalise cette étape de façon concrète et utile. Sois précis et actionnable.
               ✨ SYNTHÈSE FINALE
               <button onClick={()=>navigator.clipboard.writeText(finalResult)} style={{marginLeft:"auto",background:"none",border:"1px solid rgba(212,168,83,.3)",borderRadius:3,color:"var(--ac)",fontSize:9,padding:"2px 8px",cursor:"pointer"}}>⎘ Copier</button>
             </div>
-            <div className="agent-final-content">{finalResult}</div>
+            <div className="agent-final-content"><MarkdownRenderer text={finalResult}/></div>
           </div>
         )}
       </div>
@@ -2676,7 +2909,7 @@ function RedactionTab({ enabled, apiKeys }) {
                     {res && !isLoad && <button className="red-copy-btn" onClick={()=>{try{navigator.clipboard.writeText(res);}catch{}}}>⎘ Copier</button>}
                   </div>
                   <div className="red-result-body">
-                    {isLoad ? <span className="dots"><span>·</span><span>·</span><span>·</span></span> : (res || <span style={{color:"var(--mu)"}}>En attente…</span>)}
+                    {isLoad ? <span className="dots"><span>·</span><span>·</span><span>·</span></span> : (res ? <MarkdownRenderer text={res}/> : <span style={{color:"var(--mu)"}}>En attente…</span>)}
                   </div>
                 </div>
               );
@@ -2764,7 +2997,7 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
                 )}
               </div>
               <div className="srch-card-body">
-                {loading[id] ? <span className="dots"><span>·</span><span>·</span><span>·</span></span> : (results[id] || <span style={{color:"var(--mu)"}}>En attente…</span>)}
+                {loading[id] ? <span className="dots"><span>·</span><span>·</span><span>·</span></span> : (results[id] ? <MarkdownRenderer text={results[id]}/> : <span style={{color:"var(--mu)"}}>En attente…</span>)}
               </div>
             </div>
           );
@@ -2897,7 +3130,7 @@ function WorkflowsTab({ enabled, apiKeys }) {
                     <button style={{marginLeft:"auto",background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontSize:8,padding:"2px 5px",fontFamily:"'IBM Plex Mono',monospace"}}
                       onClick={()=>{try{navigator.clipboard.writeText(out.text);}catch{}}}>⎘</button>
                   </div>
-                  <div className="wf-out-body" style={{color:out.text.startsWith("❌")?"var(--red)":"var(--tx)"}}>{out.text}</div>
+                  <div className="wf-out-body" style={{color:out.text.startsWith("❌")?"var(--red)":"var(--tx)"}}><MarkdownRenderer text={out.text}/></div>
                 </div>
               );
             })}
@@ -3117,7 +3350,7 @@ function App() {
     // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    const VALID_TABS = ["chat","prompts","redaction","recherche","workflows","medias","arena","debate","stats","config"];
+    const VALID_TABS = ["chat","prompts","redaction","recherche","workflows","workflow","web","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
     return VALID_TABS.includes(t) ? t : "chat";
   });
   const [mobileCol, setMobileCol] = useState("groq");
@@ -3794,7 +4027,7 @@ ${allMsgs.map(m=>`
   const isLoadingAny = Object.values(loading).some(Boolean);
 
   const sendChat = async () => {
-    const text = chatInput.trim(); if (!text) return;
+    const text = applyPromptVars(chatInput.trim()); if (!text) return;
     setShowGrammarPopup(false); setGrammarResult(null); setChatInput(""); setBestVote(null);
     const file = attachedFile; setAttachedFile(null);
     requestNotifPerm();
@@ -3986,8 +4219,7 @@ ${allMsgs.map(m=>`
               ["prompts","📋 Prompts"],
               ["redaction","✍️ Rédaction"],
               ["recherche","🔎 Recherche"],
-              ["workflows","🤖 Workflows"],
-              ["workflow","🔀 Workflow"],
+              ["workflows","🔀 Workflows"],
               ["medias","🎬 Médias"],
               ["arena","⚔ Arène"],
               ["debate","⚡ Débat"],
@@ -4296,7 +4528,7 @@ ${allMsgs.map(m=>`
                     {conversations[id].length === 0 && !loading[id] && <div className="empty">{enabled[id]?lim?`⏳ Bloqué — ${fmtCd(id)}`:"En attente…":"Désactivé"}</div>}
                     {conversations[id].map((msg, i) => (
                       <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative"}:{}}>
-                        {msg.displayContent || msg.content}
+                        <MarkdownRenderer text={msg.displayContent || msg.content} />
                         {msg.displayContent && <span style={{fontSize:8,color:"var(--mu)",marginLeft:6,verticalAlign:"middle"}}>📄 RAG</span>}
                         {msg.role==="blocked" && (
                           <button onClick={()=>setLimited(prev=>{const n={...prev};delete n[id];return n;})}
@@ -4305,9 +4537,13 @@ ${allMsgs.map(m=>`
                           </button>
                         )}
                         {msg.role==="assistant" && (
-                          <div style={{display:"flex",gap:4,marginTop:5,justifyContent:"flex-end"}}>
+                          <div style={{display:"flex",gap:4,marginTop:5,justifyContent:"flex-end",flexWrap:"wrap"}}>
                             <button className="voice-btn" title="Lire à voix haute" onClick={()=>speakText(msg.content)}>🔊</button>
                             <button className="voice-btn" title="Copier" onClick={()=>{try{navigator.clipboard.writeText(msg.content);}catch{}}}>⎘</button>
+                            <button className="voice-btn" title="Réutiliser dans le chat" onClick={()=>{
+                              const prev=conversations[id].slice(0,i).reverse().find(x=>x.role==="user");
+                              if(prev){setChatInput(prev.content);setTab("chat");}
+                            }} style={{fontSize:8}}>↩ Renvoyer</button>
                           </div>
                         )}
                       </div>
@@ -4344,6 +4580,15 @@ ${allMsgs.map(m=>`
           </div>
         )}
         <div className="foot">
+            {/* Prompt variables hint */}
+            {chatInput.includes("{{") && (
+              <div className="pvar-hint">
+                <span style={{color:"var(--ac)",fontWeight:700,marginRight:4}}>📋 Vars :</span>
+                {[["{{date}}","📅"],["{{heure}}","🕐"],["{{jour}}","📆"],["{{mois}}","🗓"],["{{annee}}","🔢"]].map(([v,ic])=>(
+                  <button key={v} className="pvar-chip" onClick={()=>setChatInput(p=>p.replace(v,applyPromptVars(v)))} title={"Remplacer "+v}>{ic} {v}</button>
+                ))}
+              </div>
+            )}
             {/* Barre d'outils supérieure */}
             <div style={{display:"flex",gap:4,padding:"3px 8px",borderBottom:"1px solid var(--bd)",flexWrap:"wrap",alignItems:"center"}}>
               <button onClick={()=>setShowRagPanel(r=>!r)} title="RAG — coller un document long"
@@ -4430,7 +4675,7 @@ ${allMsgs.map(m=>`
         </>}
 
         {/* ── WORKFLOW TAB ── */}
-        {tab === "workflow" && (
+        {(tab === "workflow" || tab === "workflows") && (
           <div className="scroll-tab pad">
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
               <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,color:"var(--tx)"}}>🔀 Workflow visuel</div>
@@ -4867,11 +5112,7 @@ ${allMsgs.map(m=>`
         )}
 
         {/* ── WORKFLOWS TAB ── */}
-        {tab === "workflows" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <WorkflowsTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
-        )}
+
 
         {/* ── WEB IAs TAB ── */}
         {tab === "webia" && (
@@ -4982,7 +5223,7 @@ ${allMsgs.map(m=>`
                   {IDS.filter(id=>enabled[id]).map(id => { const m=MODEL_DEFS[id]; return (
                     <div key={id} className="pg-cell">
                       <div className="pgc-hdr"><span style={{color:m.color,fontSize:12}}>{m.icon}</span><span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:m.color}}>{m.short}</span></div>
-                      <div className={`pgc-body ${debRound1[id]?"":"mu"}`}>{debRound1[id]||"En attente…"}</div>
+                      <div className={`pgc-body ${debRound1[id]?"":"mu"}`}>{debRound1[id]?<MarkdownRenderer text={debRound1[id]}/>:"En attente…"}</div>
                     </div>
                   );})}
                 </div>}
@@ -4999,7 +5240,7 @@ ${allMsgs.map(m=>`
                   {IDS.filter(id=>enabled[id]).map(id => { const m=MODEL_DEFS[id]; return (
                     <div key={id} className="pg-cell">
                       <div className="pgc-hdr"><span style={{color:m.color,fontSize:12}}>{m.icon}</span><span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:m.color}}>{m.short}</span></div>
-                      <div className={`pgc-body ${debRound2[id]?"":"mu"}`}>{debRound2[id]||"En attente…"}</div>
+                      <div className={`pgc-body ${debRound2[id]?"":"mu"}`}>{debRound2[id]?<MarkdownRenderer text={debRound2[id]}/>:"En attente…"}</div>
                     </div>
                   );})}
                 </div>}
@@ -5012,7 +5253,7 @@ ${allMsgs.map(m=>`
                   <div className="syn-title">Synthèse Finale</div>
                   <span className="syn-by">par {debSynthBy}</span>
                 </div>
-                <div className={`syn-body ${debSynthesis?"":"mu"}`}>{debSynthesis||"En cours…"}</div>
+                <div className={`syn-body ${debSynthesis?"":"mu"}`}>{debSynthesis?<MarkdownRenderer text={debSynthesis}/>:"En cours…"}</div>
               </div>
             )}
           </div>
