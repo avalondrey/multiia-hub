@@ -16,7 +16,7 @@ const MODEL_DEFS = {
   qwen3:      { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
   // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
   llama4s:    { name:"Llama 4 Scout (Groq)",   short:"L4 Scout", provider:"Groq / Meta",    color:"#FF6B35", bg:"#180A04", border:"#3D1500", icon:"🦙", apiType:"compat", maxTokens:128000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — Llama 4 Scout 17B multimodal", baseUrl:"https://api.groq.com/openai/v1", model:"meta-llama/llama-4-scout-17b-16e-instruct" },
-  gemma2:     { name:"Gemma 2 9B (Groq)",      short:"Gemma2",   provider:"Groq / Google",  color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"◎", apiType:"compat", maxTokens:8192,   free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — même clé Groq",               baseUrl:"https://api.groq.com/openai/v1", model:"gemma2-9b-it" },
+  gemma2:     { name:"Llama 3.1 8B (Groq)",     short:"L3.1-8B",  provider:"Groq / Meta",    color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"◎", apiType:"compat", maxTokens:131072, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — même clé Groq, très rapide", baseUrl:"https://api.groq.com/openai/v1", model:"llama-3.1-8b-instant" },
   poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations",      maxTokens:128000, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — modèle openai uniquement · legacy endpoint", model:"openai" },
   poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"claude-airforce" },
   poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"deepseek" },
@@ -133,10 +133,14 @@ const YT_VIDEO_THEMES = [
 ];
 
 const YT_VIDEO_PROMPT = (q) =>
-  `Tu es un expert YouTube spécialisé en IA et technologie. Liste 8 vidéos YouTube récentes et populaires sur : "${q}".
-IMPORTANT : génère des URLs YouTube de RECHERCHE (format https://www.youtube.com/results?search_query=...) ou des vraies URLs de chaînes connues. Ne génère PAS de faux IDs de vidéos.
+  `Tu es un expert YouTube spécialisé en IA et technologie. Liste 8 vidéos YouTube réelles et populaires sur : "${q}".
+RÈGLES ABSOLUES : 
+- "title" = VRAI titre exact de la vidéo (pas une description générique)
+- "channel" = NOM EXACT de la chaîne YouTube (ex: "Underscore_", "3Blue1Brown", "Fireship")
+- Ne génère PAS d'URLs (elles seront construites automatiquement)
+- Varie les chaînes : max 2 vidéos par chaîne
 Retourne UNIQUEMENT un tableau JSON valide sans markdown :
-[{"title":"...","channel":"...","duration":"X:XX ou XhXX","date":"Il y a Xj / Cette semaine / Ce mois","views":"XXXk vues","category":"Tutoriel|Actualité|Analyse|Review|Interview","summary":"...1 phrase...","url":"https://www.youtube.com/results?search_query=...","lang":"FR ou EN","important":true/false}]`;
+[{"title":"VRAI titre de la vidéo","channel":"Nom exact chaîne","duration":"X:XX ou XhXX","date":"Il y a Xj / Cette semaine / Ce mois","views":"XXXk vues","category":"Tutoriel|Actualité|Analyse|Review|Interview","summary":"1 phrase description","url":"","lang":"FR ou EN","important":true/false}]`;
 
 async function fetchYTVideos(themeQuery, savedKeys) {
   const keys = savedKeys || {};
@@ -173,14 +177,14 @@ async function fetchYTVideos(themeQuery, savedKeys) {
   // Fallback statique - liens de recherche YouTube réels
   return {
     items: [
-      { title:"Andrej Karpathy — Let's build GPT from scratch", channel:"Andrej Karpathy", duration:"1h56", date:"2023", views:"4.2M vues", category:"Tutoriel", summary:"Le meilleur cours pour comprendre les transformers et GPT en codant from scratch.", url:makeYTUrl("Andrej Karpathy let's build GPT from scratch"), lang:"EN", important:true },
-      { title:"Comment fonctionne vraiment ChatGPT ?", channel:"Underscore_", duration:"28:14", date:"2023", views:"890k vues", category:"Analyse", summary:"Explication claire du fonctionnement des LLMs et de l'entraînement de ChatGPT en français.", url:makeYTUrl("Underscore_ ChatGPT comment fonctionne"), lang:"FR", important:true },
-      { title:"3Blue1Brown — But what is a neural network?", channel:"3Blue1Brown", duration:"19:13", date:"2017", views:"14M vues", category:"Tutoriel", summary:"La meilleure introduction visuelle aux réseaux de neurones. Intemporel.", url:makeYTUrl("3blue1brown neural network introduction"), lang:"EN", important:true },
-      { title:"Installer et tester Llama 3 localement avec Ollama", channel:"Matthew Berman", duration:"15:32", date:"2024", views:"420k vues", category:"Tutoriel", summary:"Guide complet pour faire tourner des LLMs open source sur son propre PC.", url:makeYTUrl("ollama llama 3 local install tutorial"), lang:"EN", important:false },
-      { title:"DeepSeek R1 — l'IA qui a choqué le monde", channel:"AI Explained", duration:"22:17", date:"Janv 2025", views:"1.8M vues", category:"Analyse", summary:"Analyse complète de DeepSeek R1 et pourquoi il a provoqué une crise en Silicon Valley.", url:makeYTUrl("DeepSeek R1 analysis explained"), lang:"EN", important:true },
-      { title:"FLUX.1 — Génération d'images IA gratuite et open source", channel:"Matthew Berman", duration:"18:45", date:"2024", views:"320k vues", category:"Review", summary:"Test complet de FLUX.1 vs Stable Diffusion vs Midjourney. Résultats surprenants.", url:makeYTUrl("FLUX.1 image generation tutorial vs midjourney"), lang:"EN", important:false },
-      { title:"Lex Fridman × Sam Altman — L'avenir de l'IA", channel:"Lex Fridman", duration:"3h12", date:"2024", views:"5.1M vues", category:"Interview", summary:"Interview fleuve avec le CEO d'OpenAI sur GPT-5, AGI et l'avenir de l'humanité.", url:makeYTUrl("Lex Fridman Sam Altman interview 2024"), lang:"EN", important:true },
-      { title:"Les agents IA : la révolution qui arrive", channel:"Underscore_", duration:"35:22", date:"2024", views:"650k vues", category:"Actualité", summary:"Les agents IA autonomes vont transformer le travail. Analyse des risques et opportunités.", url:makeYTUrl("Underscore_ agents IA autonomes 2024"), lang:"FR", important:true },
+      { title:"Let's build GPT: from scratch, in code, spelled out", channel:"Andrej Karpathy", duration:"1h56", date:"2023", views:"4.2M vues", category:"Tutoriel", summary:"Le meilleur cours pour comprendre les transformers et GPT en codant from scratch.", url:"", lang:"EN", important:true },
+      { title:"ChatGPT : comment ça marche vraiment ?", channel:"Underscore_", duration:"28:14", date:"2023", views:"890k vues", category:"Analyse", summary:"Explication claire du fonctionnement des LLMs et de l'entraînement de ChatGPT en français.", url:"", lang:"FR", important:true },
+      { title:"But what is a neural network?", channel:"3Blue1Brown", duration:"19:13", date:"2017", views:"14M vues", category:"Tutoriel", summary:"La meilleure introduction visuelle aux réseaux de neurones. Intemporel.", url:"", lang:"EN", important:true },
+      { title:"How To Install and Use Ollama - Run LLMs Locally", channel:"Matthew Berman", duration:"15:32", date:"2024", views:"420k vues", category:"Tutoriel", summary:"Guide complet pour faire tourner des LLMs open source sur son propre PC.", url:"", lang:"EN", important:false },
+      { title:"DeepSeek R1 - The Model That Shocked The World", channel:"AI Explained", duration:"22:17", date:"Janv 2025", views:"1.8M vues", category:"Analyse", summary:"Analyse complète de DeepSeek R1 et pourquoi il a provoqué une crise en Silicon Valley.", url:"", lang:"EN", important:true },
+      { title:"FLUX Is Here And It Changes EVERYTHING", channel:"Matthew Berman", duration:"18:45", date:"2024", views:"320k vues", category:"Review", summary:"Test complet de FLUX.1 vs Stable Diffusion vs Midjourney. Résultats surprenants.", url:"", lang:"EN", important:false },
+      { title:"Sam Altman: OpenAI, GPT-5, Sora, Board Saga, Elon Musk, Ilya, Power & AGI", channel:"Lex Fridman", duration:"3h12", date:"2024", views:"5.1M vues", category:"Interview", summary:"Interview fleuve avec le CEO d'OpenAI sur GPT-5, AGI et l'avenir de l'humanité.", url:"", lang:"EN", important:true },
+      { title:"Les agents IA vont tout changer", channel:"Underscore_", duration:"35:22", date:"2024", views:"650k vues", category:"Actualité", summary:"Les agents IA autonomes vont transformer le travail. Analyse des risques et opportunités.", url:"", lang:"FR", important:true },
     ],
     provider:"Cache statique", fallback:true, errors
   };
@@ -468,6 +472,12 @@ function MarkdownRenderer({ text }) {
 }
 
 // ── Prompt variables {{date}}, {{heure}}, etc. ────────────────────
+// ── Supprime les blocs <think>…</think> (Qwen3, DeepSeek R1) ──────
+function stripThink(text) {
+  if (!text) return text;
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
 function applyPromptVars(text) {
   const now=new Date();
   const pad=n=>String(n).padStart(2,"0");
@@ -718,7 +728,7 @@ body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;
 .col.solo-dim{opacity:.10;filter:grayscale(1);pointer-events:none}
 .col.solo-focus{min-height:clamp(480px,70vh,800px)}
 /* ── HISTORY SIDEBAR ── */
-.hist-sidebar{width:220px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;background:var(--bg);overflow:hidden;transition:width .2s}
+.hist-sidebar{width:170px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;background:var(--bg);overflow:hidden;transition:width .2s}
 .hist-sidebar.closed{width:0;border-right:none}
 .hist-hdr{padding:8px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px;flex-shrink:0}
 .hist-hdr-title{font-family:'Syne',sans-serif;font-weight:700;font-size:10px;color:var(--tx);flex:1;white-space:nowrap;overflow:hidden}
@@ -2515,7 +2525,8 @@ function YouTubeTab() {
         <div className="yt-vgrid" style={{marginBottom:24}}>
           {filteredVideos.map((v, i) => {
             const vidId = extractVideoId(v.url);
-            const openUrl = v.url || "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.title + " " + v.channel);
+            // Toujours reconstruire l'URL depuis titre+chaîne pour être précis (l'URL générée par IA = thème générique)
+            const openUrl = "https://www.youtube.com/results?search_query=" + encodeURIComponent((v.title||"") + " " + (v.channel||""));
             const thumbUrl = vidId ? `https://img.youtube.com/vi/${vidId}/mqdefault.jpg` : null;
             const isWatched = watchedVids.includes(v.url);
             return (
@@ -2724,6 +2735,54 @@ function PromptsTab({ onInject }) {
   const [genLoading, setGenLoading] = React.useState(false);
   const [genResults, setGenResults] = React.useState([]);
 
+  // ── Trending Prompts ──────────────────────────────────────────
+  const TRENDING_KEY = "multiia_trending_prompts";
+  const DEFAULT_TRENDING = [
+    { rank:1,  cat:"💼 Business",    title:"Analyse concurrentielle", usage:"Très demandé", trend:"▲", prompt:"Fais une analyse concurrentielle complète de [ENTREPRISE/PRODUIT]. Identifie les 5 principaux concurrents, compare les forces/faiblesses, prix, positionnement et propose une stratégie de différenciation." },
+    { rank:2,  cat:"💻 Code",        title:"Refactoring & Clean Code", usage:"Tendance", trend:"▲", prompt:"Analyse ce code et propose un refactoring complet : améliore la lisibilité, applique les principes SOLID, extrait les fonctions trop longues, ajoute des commentaires JSDoc.\n\n[COLLE TON CODE]" },
+    { rank:3,  cat:"✍️ Rédaction",   title:"Thread LinkedIn viral",   usage:"Populaire", trend:"→", prompt:"Crée un thread LinkedIn en 8 posts sur [SUJET]. Format : post d'accroche fort, 6 posts de valeur (insight, chiffre, astuce, erreur courante, exemple, leçon), CTA final. Ton authentique et engageant." },
+    { rank:4,  cat:"🎯 Prompt Eng.", title:"Améliorer un prompt",     usage:"Incontournable", trend:"▲", prompt:"Tu es expert en prompt engineering. Analyse ce prompt et propose une version optimisée 10x plus précise, avec contexte, format de sortie, exemples et contraintes.\n\nPrompt original : [TON PROMPT]" },
+    { rank:5,  cat:"📊 Analyse",     title:"Business Plan rapide",    usage:"Demandé", trend:"→", prompt:"Génère un business plan structuré pour : [IDÉE]. Sections : résumé exécutif, problème résolu, solution, marché cible (TAM/SAM/SOM), modèle économique, roadmap 12 mois, risques et mitigation." },
+    { rank:6,  cat:"🤖 IA Pratique", title:"Prompt système expert",   usage:"Nouveau", trend:"🆕", prompt:"Crée un prompt système complet pour un assistant IA spécialisé en [DOMAINE]. Inclus : rôle, ton, expertise, règles de réponse, exemples de Q&A, limites et comportements par défaut." },
+    { rank:7,  cat:"📧 Comm.",       title:"Cold email personnalisé", usage:"Populaire", trend:"→", prompt:"Rédige un cold email de prospection en [3/5/7] phrases pour [PRODUIT/SERVICE]. Cible : [PROFIL]. Accroche sur le problème spécifique, pas sur notre solution. Appel à l'action : réponse simple oui/non." },
+    { rank:8,  cat:"🔍 Recherche",   title:"Synthèse de sources",     usage:"Tendance", trend:"▲", prompt:"Synthétise ces [N] sources/articles sur [SUJET] en : 1) Points de consensus, 2) Points contradictoires, 3) Ce qui manque dans la littérature, 4) Tes 3 conclusions actionnables.\n\n[SOURCES]" },
+  ];
+  const [trendingPrompts, setTrendingPrompts] = React.useState(() => {
+    try { const s = localStorage.getItem(TRENDING_KEY); return s ? JSON.parse(s) : DEFAULT_TRENDING; } catch { return DEFAULT_TRENDING; }
+  });
+  const [trendingLoading, setTrendingLoading] = React.useState(false);
+  const [trendingDate, setTrendingDate] = React.useState(() => {
+    try { return localStorage.getItem(TRENDING_KEY+"_date") || null; } catch { return null; }
+  });
+  const [showTrending, setShowTrending] = React.useState(true);
+
+  const refreshTrending = async () => {
+    setTrendingLoading(true);
+    try {
+      const sysPrompt = "Tu es un expert en IA et prompt engineering. Tu surveilles les tendances des communautés : Reddit r/ChatGPT, r/ClaudeAI, r/PromptEngineering, PromptBase, FlowGPT, et les discussions Twitter/X IA. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.";
+      const userPrompt = "Génère 8 prompts tendance du moment pour les utilisateurs d'IA (ChatGPT, Claude, Groq). Ce sont les types de prompts les plus utilisés et partagés en ce moment.\nRetourne UNIQUEMENT ce JSON valide :\n[{\"rank\":1,\"cat\":\"emoji Catégorie\",\"title\":\"Titre court\",\"usage\":\"Populaire/Tendance/Nouveau/Viral\",\"trend\":\"▲/→/🆕\",\"prompt\":\"Le prompt complet prêt à l'emploi avec [PLACEHOLDERS]\"}]";
+      let raw;
+      if (apiKeys.groq_inf) {
+        const r = await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKeys.groq_inf},body:JSON.stringify({model:"llama-3.3-70b-versatile",max_tokens:2500,messages:[{role:"system",content:sysPrompt},{role:"user",content:userPrompt}]})});
+        const d = await r.json();
+        raw = d.choices?.[0]?.message?.content;
+      } else if (apiKeys.mistral) {
+        const r = await fetch("https://api.mistral.ai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKeys.mistral},body:JSON.stringify({model:"mistral-small-latest",max_tokens:2500,messages:[{role:"system",content:sysPrompt},{role:"user",content:userPrompt}]})});
+        const d = await r.json();
+        raw = d.choices?.[0]?.message?.content;
+      } else { throw new Error("Active Groq ou Mistral dans Config pour rafraîchir"); }
+      const clean = (raw||"").replace(/```json|```/g,"").trim();
+      const m = clean.match(/\[[\s\S]*\]/);
+      if (!m) throw new Error("Réponse invalide");
+      const data = JSON.parse(m[0]);
+      setTrendingPrompts(data);
+      const now = new Date().toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+      setTrendingDate(now);
+      try { localStorage.setItem(TRENDING_KEY, JSON.stringify(data)); localStorage.setItem(TRENDING_KEY+"_date", now); } catch {}
+    } catch(e) { alert("Erreur : "+e.message); }
+    setTrendingLoading(false);
+  };
+
   const generatePrompts = async () => {
     if (!genDesc.trim()) return;
     setGenLoading(true); setGenResults([]);
@@ -2770,6 +2829,55 @@ function PromptsTab({ onInject }) {
                 <div style={{fontSize:11,color:"var(--tx)",lineHeight:1.65,fontFamily:"'IBM Plex Mono',monospace",wordBreak:"break-word"}}>{p.prompt}</div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* ══ TRENDING PROMPTS ══ */}
+      <div style={{padding:"10px 14px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+          <button onClick={()=>setShowTrending(v=>!v)} style={{display:"flex",alignItems:"center",gap:6,fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:12,color:"var(--orange)",background:"none",border:"none",cursor:"pointer",padding:0}}>
+            🔥 Prompts Tendance {showTrending?"▲":"▼"}
+          </button>
+          {trendingDate && <span style={{fontSize:8,color:"var(--mu)"}}>Mis à jour le {trendingDate}</span>}
+          <button onClick={refreshTrending} disabled={trendingLoading}
+            style={{marginLeft:"auto",fontSize:8,padding:"3px 10px",background:trendingLoading?"var(--s2)":"rgba(251,146,60,.12)",border:"1px solid rgba(251,146,60,.4)",borderRadius:4,color:trendingLoading?"var(--mu)":"var(--orange)",cursor:trendingLoading?"not-allowed":"pointer",fontFamily:"'IBM Plex Mono',monospace",fontWeight:700}}>
+            {trendingLoading ? "⏳ Génération…" : "🔄 Rafraîchir via IA"}
+          </button>
+        </div>
+        {showTrending && (
+          <div style={{overflowX:"auto",paddingBottom:4}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,minWidth:560}}>
+              <thead>
+                <tr style={{background:"var(--s2)"}}>
+                  <th style={{padding:"5px 8px",textAlign:"left",color:"var(--mu)",fontWeight:600,fontSize:8,whiteSpace:"nowrap"}}>#</th>
+                  <th style={{padding:"5px 8px",textAlign:"left",color:"var(--mu)",fontWeight:600,fontSize:8}}>Catégorie</th>
+                  <th style={{padding:"5px 8px",textAlign:"left",color:"var(--mu)",fontWeight:600,fontSize:8}}>Prompt</th>
+                  <th style={{padding:"5px 8px",textAlign:"left",color:"var(--mu)",fontWeight:600,fontSize:8}}>Usage</th>
+                  <th style={{padding:"5px 8px",textAlign:"left",color:"var(--mu)",fontWeight:600,fontSize:8}}>Trend</th>
+                  <th style={{padding:"5px 8px",color:"var(--mu)",fontWeight:600,fontSize:8}}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {trendingPrompts.map((p,i) => (
+                  <tr key={i} style={{borderTop:"1px solid var(--bd)",transition:"background .15s",cursor:"pointer"}}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.03)"}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={{padding:"6px 8px",fontWeight:700,color:"var(--ac)",fontSize:10}}>#{p.rank||i+1}</td>
+                    <td style={{padding:"6px 8px",fontSize:9,color:"var(--orange)",whiteSpace:"nowrap"}}>{p.cat}</td>
+                    <td style={{padding:"6px 8px",fontWeight:700,color:"var(--tx)",fontSize:10}}>{p.title}</td>
+                    <td style={{padding:"6px 8px",fontSize:9,color:"var(--mu)",whiteSpace:"nowrap"}}>{p.usage}</td>
+                    <td style={{padding:"6px 8px",fontSize:12,textAlign:"center"}}>{p.trend}</td>
+                    <td style={{padding:"6px 8px",textAlign:"right",whiteSpace:"nowrap"}}>
+                      <button onClick={()=>onInject&&onInject(p.prompt)}
+                        style={{fontSize:8,padding:"3px 8px",background:"rgba(212,168,83,.12)",border:"1px solid rgba(212,168,83,.35)",borderRadius:4,color:"var(--ac)",cursor:"pointer",marginRight:3,fontFamily:"'IBM Plex Mono',monospace",fontWeight:700}}>↗ Injecter</button>
+                      <button onClick={()=>{try{navigator.clipboard.writeText(p.prompt);}catch{}}}
+                        style={{fontSize:8,padding:"3px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>⎘</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -3360,8 +3468,8 @@ function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false,poll_gemini:false }; }
-    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,mixtral:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false,poll_gemini:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
@@ -3451,7 +3559,7 @@ function App() {
     try { return JSON.parse(localStorage.getItem("multiia_history") || "[]"); } catch { return []; }
   });
   const [activeHistId, setActiveHistId] = useState(null);
-  const [showHist, setShowHist] = useState(true);
+  const [showHist, setShowHist] = useState(false);
   const [toast, setToast] = useState(null);
 
   // ── Stats d'usage ───────────────────────────────────────────────
@@ -3734,6 +3842,23 @@ ${allMsgs.map(m=>`
 
   // ── Voix (TTS) ──
   const [ttsEnabled, setTtsEnabled] = useState(false);
+  // ── Son de notification fin de réponse ──────────────────────────
+  const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.35);
+      setTimeout(() => ctx.close(), 500);
+    } catch {}
+  };
+
   const speakText = (text) => {
     if (!ttsEnabled || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -4057,9 +4182,10 @@ ${allMsgs.map(m=>`
         } else {
           reply = await callModel(id, hist, apiKeys, currentSystem, file);
         }
-        if (ttsEnabled && ids.length===1) speakText(reply);
+        const cleanReply = stripThink(reply);
+        if (ttsEnabled && ids.length===1) speakText(cleanReply);
         setConversations(prev => {
-          const updated = { ...prev, [id]: [...prev[id], { role:"assistant", content:reply }] };
+          const updated = { ...prev, [id]: [...prev[id], { role:"assistant", content:cleanReply }] };
           return updated;
         });
       } catch(e) {
@@ -4068,6 +4194,10 @@ ${allMsgs.map(m=>`
         setConversations(prev => ({ ...prev, [id]: [...prev[id], { role:"error", content:`❌ ${e.message}` }] }));
       } finally { setLoading(prev => ({ ...prev, [id]:false })); }
     }));
+    // ── Son + notification fin de réponse ──────────────────────────
+    const successCount = IDS.filter(id=>enabled[id]).length;
+    playBeep();
+    sendNotif("✅ Réponses reçues", `${successCount} IA${successCount>1?"s":""} ont répondu`);
     // Auto-save après toutes les réponses
     setConversations(prev => {
       autoSave(prev);
@@ -4375,7 +4505,7 @@ ${allMsgs.map(m=>`
               const medals = ["🥇","🥈","🥉"];
               const winM = MODEL_DEFS[bestVote.winner];
               return (
-                <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",zIndex:99,maxWidth:680,width:"calc(100% - 32px)",backdropFilter:"blur(10px)"}}>
+                <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",zIndex:99,width:"min(96vw,1100px)",backdropFilter:"blur(10px)"}}>
                   {/* Header cliquable */}
                   <div onClick={()=>setShowVoteDetail(v=>!v)} style={{cursor:"pointer",background:`linear-gradient(135deg,rgba(212,168,83,.18),rgba(212,168,83,.08))`,border:"1px solid rgba(212,168,83,.5)",borderRadius:showVoteDetail?"8px 8px 0 0":"8px",padding:"6px 12px",display:"flex",alignItems:"center",gap:8}}>
                     <span style={{fontSize:14}}>🏆</span>
@@ -4392,18 +4522,18 @@ ${allMsgs.map(m=>`
                   {showVoteDetail && (
                     <div style={{background:"rgba(18,18,28,.96)",border:"1px solid rgba(212,168,83,.35)",borderTop:"none",borderRadius:"0 0 8px 8px",padding:"10px 12px",display:"flex",flexDirection:"column",gap:8}}>
                       {/* Podium scores */}
-                      <div style={{display:"grid",gridTemplateColumns:`repeat(${ranking.length},1fr)`,gap:6}}>
+                      <div style={{display:"grid",gridTemplateColumns:`repeat(${ranking.length},minmax(115px,1fr))`,gap:5,overflowX:"auto",paddingBottom:2}}>
                         {ranking.map((id,rank) => {
                           const m = MODEL_DEFS[id]; const sc = bestVote.scores?.[id]; const tot = sc?.total||0;
                           const pts = bestVote.points?.[id]||[];
                           return (
-                            <div key={id} style={{background:`${m.color}12`,border:`1px solid ${m.color}40`,borderRadius:6,padding:"6px 8px",position:"relative"}}>
+                            <div key={id} style={{background:`${m.color}12`,border:`1px solid ${m.color}40`,borderRadius:6,padding:"5px 7px",position:"relative",minWidth:0}}>
                               <div style={{position:"absolute",top:4,right:6,fontSize:12}}>{medals[rank]||""}</div>
                               <div style={{fontSize:10,fontWeight:700,color:m.color,marginBottom:4,fontFamily:"'Syne',sans-serif"}}>{m.icon} {m.short}</div>
                               {/* Mini score bars */}
                               {[["précision",sc?.precision],["clarté",sc?.clarte],["complétude",sc?.completude],["utilité",sc?.utilite]].map(([lbl,val])=>(
                                 <div key={lbl} style={{marginBottom:3}}>
-                                  <div style={{display:"flex",justifyContent:"space-between",fontSize:7,color:"var(--mu)",marginBottom:1}}><span>{lbl}</span><span style={{color:m.color}}>{val||0}/10</span></div>
+                                  <div style={{display:"flex",justifyContent:"space-between",fontSize:6.5,color:"var(--mu)",marginBottom:1}}><span>{lbl}</span><span style={{color:m.color,fontWeight:700}}>{val||0}</span></div>
                                   <div style={{height:3,background:"var(--s1)",borderRadius:2,overflow:"hidden"}}>
                                     <div style={{height:"100%",width:`${(val||0)*10}%`,background:m.color,borderRadius:2,transition:"width .4s"}}/>
                                   </div>
@@ -4435,7 +4565,8 @@ ${allMsgs.map(m=>`
                       {/* Tableau récap collapsible */}
                       {showRecap && (
                         <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,overflow:"hidden"}}>
-                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:8}}>
+                          <div style={{overflowX:"auto"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:9,minWidth:580}}>
                             <thead>
                               <tr style={{background:"var(--s2)"}}>
                                 <th style={{padding:"4px 8px",textAlign:"left",color:"var(--mu)",fontWeight:600}}>IA</th>
@@ -4464,6 +4595,7 @@ ${allMsgs.map(m=>`
                               })}
                             </tbody>
                           </table>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -5341,7 +5473,7 @@ ${allMsgs.map(m=>`
                     return (
                       <div key={id} style={{padding:"12px 14px",borderRight:i===0?"1px solid var(--bd)":undefined}}>
                         <div style={{fontSize:10,fontWeight:700,color:m.color,marginBottom:8,fontFamily:"'Syne',sans-serif"}}>{m.icon} {m.name}</div>
-                        <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap",fontFamily:"'IBM Plex Mono',monospace",fontSize:9}}>
+                        <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap",fontFamily:"'IBM Plex Mono',monospace"}}>
                           {text.split(/(\s+)/).map((word,j)=>{
                             const clean = word.toLowerCase().replace(/[^a-zà-ÿ0-9]/g,"");
                             if(clean.length<=3) return <span key={j}>{word}</span>;
