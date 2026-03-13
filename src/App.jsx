@@ -2299,7 +2299,7 @@ Réalise cette étape de façon concrète et utile. Sois précis et actionnable.
   );
 }
 
-function YouTubeTab() {
+function YouTubeTab({ apiKeys = {} }) {
   const [chCatFilter, setChCatFilter] = useState("Tout");
   const [vidTheme, setVidTheme] = useState("trending");
   const [watchedVids, setWatchedVids] = useState(() => { try { return JSON.parse(localStorage.getItem("multiia_watched_vids")||"[]"); } catch { return []; } });
@@ -2330,6 +2330,30 @@ function YouTubeTab() {
   const [vidItems, setVidItems] = useState([]);
   const [vidLoading, setVidLoading] = useState(false);
   const [vidError, setVidError] = useState(null);
+  // ── YouTube Player Modal ────────────────────────────────────────
+  const [ytPlayer, setYtPlayer] = useState(null); // {videoId, title, channel}
+  const [ytSearching, setYtSearching] = useState(null); // index de la carte en cours de recherche
+
+  const searchAndPlay = async (v, idx) => {
+    setYtSearching(idx);
+    const ytKey = (apiKeys || {}).youtube_data;
+    if (ytKey) {
+      // Recherche via YouTube Data API v3
+      try {
+        const q = encodeURIComponent(`${v.title} ${v.channel}`);
+        const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=1&key=${ytKey}`);
+        const d = await r.json();
+        if (d.items?.[0]?.id?.videoId) {
+          setYtPlayer({ videoId: d.items[0].id.videoId, title: v.title, channel: v.channel });
+          setYtSearching(null); return;
+        }
+      } catch {}
+    }
+    // Fallback : ouvre dans un nouvel onglet (recherche précise)
+    const q = encodeURIComponent(`${v.title} ${v.channel}`);
+    window.open(`https://www.youtube.com/results?search_query=${q}`, "_blank");
+    setYtSearching(null);
+  };
   const [vidProvider, setVidProvider] = useState(null);
   const [vidFallback, setVidFallback] = useState(false);
   const [vidCache, setVidCache] = useState({});
@@ -2525,16 +2549,14 @@ function YouTubeTab() {
         <div className="yt-vgrid" style={{marginBottom:24}}>
           {filteredVideos.map((v, i) => {
             const vidId = extractVideoId(v.url);
-            // Toujours reconstruire l'URL depuis titre+chaîne pour être précis (l'URL générée par IA = thème générique)
-            const openUrl = "https://www.youtube.com/results?search_query=" + encodeURIComponent((v.title||"") + " " + (v.channel||""));
             const thumbUrl = vidId ? `https://img.youtube.com/vi/${vidId}/mqdefault.jpg` : null;
             const isWatched = watchedVids.includes(v.url);
+            const isSrch = ytSearching === i;
             return (
             <div key={i} style={{position:"relative"}}>
-              <a className={`yt-vcard ${v.important?"important":""}`}
-                href={openUrl} target="_blank" rel="noreferrer"
-                style={{display:"flex",flexDirection:"row",gap:10,alignItems:"center",borderRadius:6,textDecoration:"none",transition:"background .15s,border-color .15s",opacity:isWatched?.55:1}}
-                onClick={()=>markWatched(v.url)}
+              <div className={`yt-vcard ${v.important?"important":""}`}
+                style={{display:"flex",flexDirection:"row",gap:10,alignItems:"center",borderRadius:6,textDecoration:"none",transition:"background .15s,border-color .15s",opacity:isWatched?.55:1,cursor:isSrch?"wait":"pointer"}}
+                onClick={()=>{ if(!isSrch){ markWatched(v.url); searchAndPlay(v, i); } }}
                 onMouseEnter={e=>e.currentTarget.style.borderColor="#FF6B6B44"}
                 onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}>
                 {/* Thumbnail compact */}
@@ -2559,8 +2581,8 @@ function YouTubeTab() {
                   </div>
                   {v.summary && <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical"}}>{v.summary}</div>}
                 </div>
-                <span style={{fontSize:11,color:"var(--mu)",flexShrink:0}}>↗</span>
-              </a>
+                <span style={{fontSize:11,color:"var(--mu)",flexShrink:0}}>{ytSearching===filteredVideos.indexOf(v)?"⏳":"▶"}</span>
+              </div>
               {/* Bouton marquer vu / démarquer */}
               <button
                 onClick={e=>{e.preventDefault();e.stopPropagation();isWatched?unmarkWatched(v.url):markWatched(v.url);}}
@@ -2698,6 +2720,34 @@ function YouTubeTab() {
           </a>
         ))}
       </div>
+    {/* ── YouTube Player Modal ── */}
+    {ytPlayer && (
+      <div onClick={()=>setYtPlayer(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(6px)"}}>
+        <div onClick={e=>e.stopPropagation()} style={{width:"min(900px,96vw)",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:10,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,.7)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
+            <span style={{fontSize:14}}>▶</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",fontFamily:"'Syne',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ytPlayer.title}</div>
+              <div style={{fontSize:9,color:"var(--mu)"}}>{ytPlayer.channel}</div>
+            </div>
+            <a href={`https://www.youtube.com/watch?v=${ytPlayer.videoId}`} target="_blank" rel="noreferrer"
+              style={{fontSize:8,padding:"4px 10px",background:"rgba(255,107,107,.12)",border:"1px solid rgba(255,107,107,.3)",borderRadius:4,color:"#FF6B6B",textDecoration:"none",whiteSpace:"nowrap",fontFamily:"'IBM Plex Mono',monospace"}}>
+              ↗ Ouvrir dans YouTube
+            </a>
+            <button onClick={()=>setYtPlayer(null)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:12,width:26,height:26,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+          </div>
+          <div style={{position:"relative",paddingBottom:"56.25%",height:0}}>
+            <iframe
+              src={`https://www.youtube.com/embed/${ytPlayer.videoId}?autoplay=1&rel=0`}
+              title={ytPlayer.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}}
+            />
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
@@ -5135,7 +5185,7 @@ ${allMsgs.map(m=>`
               ))}
             </div>
             <div className="media-content">
-              {mediaSubTab==="youtube" && <YouTubeTab />}
+              {mediaSubTab==="youtube" && <YouTubeTab apiKeys={apiKeys} />}
               {mediaSubTab==="webia" && (
                 <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
                   <div style={{padding:"8px 12px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -5628,6 +5678,29 @@ ${allMsgs.map(m=>`
             <div className="sec">
               
               <div className="sec-title">🤖 Modèles & Clés API</div>
+              {/* ── YouTube Data API key ── */}
+              <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(255,0,0,.05)",border:"1px solid rgba(255,80,80,.25)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:"0 0 auto"}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"#FF5555",marginBottom:2}}>▶ YouTube Data API v3 — Player intégré</div>
+                  <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
+                    Gratuit · 10 000 req/jour · <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" style={{color:"#FF5555"}}>console.cloud.google.com</a><br/>
+                    <span style={{opacity:.7}}>1. Nouveau projet → Activer "YouTube Data API v3" → Identifiants → Clé API</span><br/>
+                    <span style={{opacity:.7}}>Sans clé : clic vidéo = ouvre YouTube dans un nouvel onglet</span>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,flex:1,minWidth:220,alignItems:"center"}}>
+                  <input className="key-inp" type="password"
+                    placeholder={apiKeys.youtube_data ? "••••••••" : "Coller la clé YouTube Data API v3…"}
+                    value={cfgDrafts.youtube_data||""}
+                    onChange={e=>setCfgDrafts(p=>({...p,youtube_data:e.target.value}))}
+                    onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts.youtube_data)saveCfgKey("youtube_data");}}
+                    style={{flex:1}}
+                  />
+                  <button className="save-btn" disabled={!cfgDrafts.youtube_data} onClick={()=>saveCfgKey("youtube_data")}>✓ Sauvegarder</button>
+                  {apiKeys.youtube_data && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ Player actif</span>}
+                </div>
+              </div>
+
               {/* ── Pollen key banner ── */}
               <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.3)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                 <div style={{flex:"0 0 auto"}}>
