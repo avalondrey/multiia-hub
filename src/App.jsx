@@ -2303,8 +2303,10 @@ function YouTubeTab({ apiKeys = {} }) {
   const [chCatFilter, setChCatFilter] = useState("Tout");
   const [vidTheme, setVidTheme] = useState("trending");
   const [watchedVids, setWatchedVids] = useState(() => { try { return JSON.parse(localStorage.getItem("multiia_watched_vids")||"[]"); } catch { return []; } });
-  const markWatched = (url) => { const nw = [...new Set([...watchedVids, url])]; setWatchedVids(nw); localStorage.setItem("multiia_watched_vids", JSON.stringify(nw)); };
-  const unmarkWatched = (url) => { const nw = watchedVids.filter(u=>u!==url); setWatchedVids(nw); localStorage.setItem("multiia_watched_vids", JSON.stringify(nw)); };
+  // Clé unique = titre+chaîne (url peut être "" pour tous → collision)
+  const vidKey = (v) => (v.title||"") + "|" + (v.channel||"");
+  const markWatched = (v) => { const k=vidKey(v); const nw = [...new Set([...watchedVids, k])]; setWatchedVids(nw); localStorage.setItem("multiia_watched_vids", JSON.stringify(nw)); };
+  const unmarkWatched = (v) => { const k=vidKey(v); const nw = watchedVids.filter(u=>u!==k); setWatchedVids(nw); localStorage.setItem("multiia_watched_vids", JSON.stringify(nw)); };
   const [replaceLoading, setReplaceLoading] = useState(false);
   const replaceWatchedVideos = async () => {
     // Supprimer les vidéos déjà vues de la liste et en charger de nouvelles
@@ -2313,11 +2315,11 @@ function YouTubeTab({ apiKeys = {} }) {
     const theme = YT_VIDEO_THEMES.find(t => t.id === vidTheme) || YT_VIDEO_THEMES[0];
     setReplaceLoading(true);
     try {
-      const watchedTitles = vidItems.filter(v => currentWatched.includes(v.url)).map(v => v.title).slice(0,5);
+      const watchedTitles = vidItems.filter(v => currentWatched.includes(vidKey(v))).map(v => v.title).slice(0,5);
       const avoidStr = watchedTitles.length ? `\n\nÉvite ces vidéos déjà recommandées : ${watchedTitles.join(" | ")}` : "";
       const result = await fetchYTVideos(theme.query + avoidStr, getKeys());
       // Remplacer seulement les vidéos déjà vues par les nouvelles
-      const kept = vidItems.filter(v => !currentWatched.includes(v.url));
+      const kept = vidItems.filter(v => !currentWatched.includes(vidKey(v)));
       const fresh = result.items.filter(v => !currentWatched.includes(v.url) && !kept.find(k=>k.url===v.url));
       const merged = [...kept, ...fresh].slice(0, 20);
       setVidItems(merged);
@@ -2344,6 +2346,7 @@ function YouTubeTab({ apiKeys = {} }) {
         const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=1&key=${ytKey}`);
         const d = await r.json();
         if (d.items?.[0]?.id?.videoId) {
+          markWatched(v);
           setYtPlayer({ videoId: d.items[0].id.videoId, title: v.title, channel: v.channel });
           setYtSearching(null); return;
         }
@@ -2351,6 +2354,7 @@ function YouTubeTab({ apiKeys = {} }) {
     }
     // Fallback : ouvre dans un nouvel onglet (recherche précise)
     const q = encodeURIComponent(`${v.title} ${v.channel}`);
+    markWatched(v);
     window.open(`https://www.youtube.com/results?search_query=${q}`, "_blank");
     setYtSearching(null);
   };
@@ -2453,7 +2457,7 @@ function YouTubeTab({ apiKeys = {} }) {
     if (langFilter === "🇫🇷 Français") return v.lang === "FR";
     if (langFilter === "🇺🇸 Anglais") return v.lang === "EN";
     return true;
-  }).filter(v => hideWatched ? !watchedVids.includes(v.url) : true);
+  }).filter(v => hideWatched ? !watchedVids.includes(vidKey(v)) : true);
 
   const fmtTime = (d) => {
     if (!d) return ""; const m = Math.floor((Date.now() - d.getTime()) / 60000);
@@ -2550,13 +2554,13 @@ function YouTubeTab({ apiKeys = {} }) {
           {filteredVideos.map((v, i) => {
             const vidId = extractVideoId(v.url);
             const thumbUrl = vidId ? `https://img.youtube.com/vi/${vidId}/mqdefault.jpg` : null;
-            const isWatched = watchedVids.includes(v.url);
+            const isWatched = watchedVids.includes(vidKey(v));
             const isSrch = ytSearching === i;
             return (
             <div key={i} style={{position:"relative"}}>
               <div className={`yt-vcard ${v.important?"important":""}`}
                 style={{display:"flex",flexDirection:"row",gap:10,alignItems:"center",borderRadius:6,textDecoration:"none",transition:"background .15s,border-color .15s",opacity:isWatched?.55:1,cursor:isSrch?"wait":"pointer"}}
-                onClick={()=>{ if(!isSrch){ markWatched(v.url); searchAndPlay(v, i); } }}
+                onClick={()=>{ if(!isSrch){ searchAndPlay(v, i); } }}
                 onMouseEnter={e=>e.currentTarget.style.borderColor="#FF6B6B44"}
                 onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}>
                 {/* Thumbnail compact */}
@@ -2585,7 +2589,7 @@ function YouTubeTab({ apiKeys = {} }) {
               </div>
               {/* Bouton marquer vu / démarquer */}
               <button
-                onClick={e=>{e.preventDefault();e.stopPropagation();isWatched?unmarkWatched(v.url):markWatched(v.url);}}
+                onClick={e=>{e.preventDefault();e.stopPropagation();isWatched?unmarkWatched(v):markWatched(v);}}
                 title={isWatched?"Marquer comme non vu (remplacer)":"Marquer comme vu"}
                 style={{position:"absolute",top:4,right:4,background:isWatched?"rgba(74,222,128,.15)":"rgba(255,255,255,.06)",border:"1px solid "+(isWatched?"rgba(74,222,128,.4)":"var(--bd)"),borderRadius:3,color:isWatched?"var(--green)":"var(--mu)",fontSize:8,padding:"2px 5px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",zIndex:2}}>
                 {isWatched?"✓ Vu":"+ Vu"}
@@ -3920,17 +3924,68 @@ ${allMsgs.map(m=>`
   // ── Dictée vocale ──
   const [isListening, setIsListening] = useState(false);
   const recognizerRef = useRef(null);
-  const startVoice = () => {
+  const shouldListenRef = useRef(false);   // intention de l'utilisateur (survive aux redémarrages)
+
+  const startRecognizer = () => {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRec) { showToast("Dictée non supportée sur ce navigateur"); return; }
-    if (isListening) { recognizerRef.current?.stop(); setIsListening(false); return; }
+    if (!SpeechRec || !shouldListenRef.current) return;
     const rec = new SpeechRec();
-    rec.lang="fr-FR"; rec.continuous=false; rec.interimResults=false;
-    rec.onresult = (e) => { const t=e.results[0][0].transcript; setChatInput(prev=>prev?prev+" "+t:t); };
-    rec.onend = () => setIsListening(false);
-    rec.onerror = () => setIsListening(false);
+    rec.lang = "fr-FR";
+    rec.continuous = false;      // false = plus stable cross-browser, on redémarre dans onend
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    rec.onresult = (e) => {
+      let transcript = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) transcript += e.results[i][0].transcript + " ";
+      }
+      if (transcript.trim()) setChatInput(prev => prev ? prev + " " + transcript.trim() : transcript.trim());
+    };
+    rec.onend = () => {
+      // Redémarre automatiquement tant que l'utilisateur n'a pas cliqué stop
+      if (shouldListenRef.current) {
+        try { startRecognizer(); } catch {}
+      } else {
+        setIsListening(false);
+      }
+    };
+    rec.onerror = (e) => {
+      if (e.error === "not-allowed") {
+        shouldListenRef.current = false;
+        setIsListening(false);
+        showToast("❌ Micro refusé — autorise le micro dans les paramètres du navigateur");
+      } else if (e.error === "aborted") {
+        // silence volontaire, on laisse onend gérer
+      } else if (e.error === "no-speech") {
+        // pas de parole, continue d'écouter
+      } else {
+        shouldListenRef.current = false;
+        setIsListening(false);
+        showToast("Erreur micro : " + e.error);
+      }
+    };
     recognizerRef.current = rec;
-    rec.start(); setIsListening(true);
+    try { rec.start(); } catch {}
+  };
+
+  const startVoice = async () => {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) { showToast("Dictée non supportée — utilise Chrome ou Edge"); return; }
+    if (isListening) {
+      // Arrêt volontaire
+      shouldListenRef.current = false;
+      recognizerRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      showToast("❌ Micro refusé — autorise le micro dans les paramètres du navigateur"); return;
+    }
+    shouldListenRef.current = true;
+    setIsListening(true);
+    startRecognizer();
   };
 
   // ── Statistiques d'usage ──
