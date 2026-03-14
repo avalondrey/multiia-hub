@@ -4353,6 +4353,39 @@ ${allMsgs.map(m=>`
   const [debSynthBy, setDebSynthBy] = useState("Claude");
   const [debQuestion, setDebQuestion] = useState("");
   const [openPhases, setOpenPhases] = useState({ r1:true, r2:true, syn:true });
+  // ── Fichier dans le Débat ────────────────────────────────────
+  const [debFile, setDebFile] = useState(null);   // {name, type, content, base64, mimeType, icon}
+  const [debMode, setDebMode] = useState("debate"); // "debate" | "analyse"
+  const debFileRef = useRef(null);
+  const handleDebFile = async (file) => {
+    if (!file) return;
+    const name = file.name; const ftype = file.type;
+    if (ftype.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => setDebFile({name, type:"image", base64:reader.result.split(",")[1], mimeType:ftype, icon:"🖼"});
+      reader.readAsDataURL(file);
+    } else if (name.endsWith(".txt")||name.endsWith(".md")||name.endsWith(".csv")||name.endsWith(".json")) {
+      const text = await file.text();
+      setDebFile({name, type:"text", content:text.slice(0,12000), icon:"📄"});
+    } else if (name.endsWith(".pdf")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const raw = reader.result;
+        const matches = raw.match(/[ -~À-ÿ]{4,}/g) || [];
+        const extracted = matches.filter(s=>/[a-zA-ZÀ-ÿ]{3,}/.test(s)).join(" ").slice(0,8000);
+        setDebFile({name, type:"pdf", content:extracted||"[PDF chargé — extraction basique]", icon:"📕"});
+      };
+      reader.readAsBinaryString(file);
+    } else if (name.endsWith(".docx")||name.endsWith(".doc")) {
+      const text = await file.text().catch(()=>"[Fichier binaire — contenu non extractible]");
+      setDebFile({name, type:"text", content:text.slice(0,10000), icon:"📝"});
+    } else if (name.endsWith(".js")||name.endsWith(".py")||name.endsWith(".ts")||name.endsWith(".html")||name.endsWith(".css")||name.endsWith(".jsx")||name.endsWith(".tsx")||name.endsWith(".sql")||name.endsWith(".xml")) {
+      const text = await file.text();
+      setDebFile({name, type:"code", content:text.slice(0,12000), icon:"💻"});
+    } else {
+      showToast("Format supporté : PDF, TXT, MD, CSV, JSON, code source, images");
+    }
+  };
 
   useEffect(() => { IDS.forEach(id => { const el = msgRefs.current[id]; if(el) el.scrollTop = el.scrollHeight; }); }, [conversations, loading]);
 
@@ -4576,51 +4609,101 @@ ${allMsgs.map(m=>`
   };
 
   const launchDebate = async () => {
-    const question = debInput.trim(); if (!question) return;
+    const question = debInput.trim();
+    const hasFile = !!debFile;
+    const isAnalyse = debMode === "analyse";
+    if (!question && !hasFile) { showToast("Saisis une question ou attache un fichier"); return; }
     const ids = IDS.filter(id => enabled[id] && !isLimited(id));
     if (ids.length < 2) { showToast("Active au moins 2 IAs disponibles"); return; }
-    setDebQuestion(question); setDebRound1({}); setDebRound2({}); setDebSynthesis(""); setDebSynthBy("Claude");
+
+    // Build file context string for text injection
+    const buildFileCtx = () => {
+      if (!debFile) return "";
+      if (debFile.type === "image") return ""; // handled via callModel file param
+      return `\n\n📎 **Fichier joint : ${debFile.name}**\n\`\`\`\n${debFile.content}\n\`\`\``;
+    };
+    const fileCtx = buildFileCtx();
+    const fileParam = (debFile?.type === "image") ? debFile : null; // image passed as file param
+    const displayQ = question || `Analyse du fichier : ${debFile?.name}`;
+
+    setDebQuestion(displayQ);
+    setDebRound1({}); setDebRound2({}); setDebSynthesis(""); setDebSynthBy("Claude");
     setDebPhase(1); setOpenPhases({ r1:true, r2:true, syn:true });
     const total = ids.length + ids.length + 1; let done = 0;
     const tick = (lbl) => { done++; setDebProgress(Math.round(done/total*100)); setDebProgressLabel(lbl); };
+
+    // Build Tour 1 prompt — inject file content
+    const buildT1Prompt = (id) => {
+      const m = MODEL_DEFS[id];
+      if (isAnalyse) {
+        // Mode Analyse : consignes précises d'analyse fichier
+        const analyseInstructions = [
+          "Identifie les points clés, la structure et le sujet principal",
+          "Évalue la qualité, la cohérence et les lacunes",
+          "Propose des améliorations ou des actions concrètes",
+          "Donne ton avis d'expert avec exemples et arguments",
+        ];
+        const myTask = analyseInstructions[ids.indexOf(id) % analyseInstructions.length];
+        return `${question ? `Contexte : "${question}"\n\n` : ""}Analyse ce fichier. Ta mission spécifique : **${myTask}**.${fileCtx}`;
+      } else {
+        // Mode Débat : chaque IA défend une perspective
+        return `${question}${fileCtx}`;
+      }
+    };
+
+    const sysT1 = isAnalyse
+      ? "Tu es un expert analyste. Analyse le document fourni selon ta mission. Sois précis, factuel et actionnable."
+      : "Tu es un expert. Réponds à la question de manière complète et précise. Si un fichier est joint, base-toi dessus.";
+
     const r1 = {};
     await Promise.all(ids.map(async (id) => {
-      try { r1[id] = await callModel(id, [{ role:"user", content:question }], apiKeys, "Tu es un expert. Réponds à la question de manière complète et précise."); }
+      try {
+        const prompt = buildT1Prompt(id);
+        r1[id] = await callModel(id, [{ role:"user", content:prompt }], apiKeys, sysT1, fileParam);
+      }
       catch(e) { const t=classifyError(e.message); if(t==="ratelimit") markLimited(id,t); r1[id]=`❌ ${e.message}`; }
       tick(`Tour 1 — ${MODEL_DEFS[id].short}`);
       setDebRound1(prev => ({ ...prev, [id]:r1[id] }));
     }));
+
     setDebPhase(2);
     const r2 = {};
     await Promise.all(ids.map(async (id) => {
-      const others = ids.filter(o=>o!==id).map(o=>`**${MODEL_DEFS[o].short}**:\n${r1[o]||"(pas de réponse)"}`).join("\n\n---\n\n");
-      const prompt = `Question: "${question}"\n\nRéponses des autres IAs:\n\n${others}\n\n---\n\nEn tenant compte de ces perspectives, affine ta réponse finale.`;
-      try { r2[id] = await callModel(id, [{ role:"user", content:prompt }], apiKeys, "Tu analyses les réponses de tes pairs et affines ta propre réponse."); }
+      const others = ids.filter(o=>o!==id).map(o=>`**${MODEL_DEFS[o].short}** :\n${r1[o]||"(pas de réponse)"}`).join("\n\n---\n\n");
+      const fileReminder = hasFile && !fileParam ? `\n\n(Rappel fichier : ${debFile.name})\n${debFile.content?.slice(0,2000)||""}` : "";
+      const prompt = isAnalyse
+        ? `Voici les analyses des autres IAs sur "${debFile?.name||"ce document"}" :\n\n${others}${fileReminder}\n\n---\nComplète et enrichis l'analyse avec ce que les autres ont manqué. Fusionne les points importants.`
+        : `Question : "${question}"${fileCtx.slice(0,500)}\n\nRéponses des autres IAs :\n\n${others}\n\n---\nEn tenant compte de ces perspectives, affine ta réponse finale.`;
+      try { r2[id] = await callModel(id, [{ role:"user", content:prompt }], apiKeys, "Tu analyses les réponses de tes pairs et affines ta propre analyse."); }
       catch(e) { const t=classifyError(e.message); if(t==="ratelimit") markLimited(id,t); r2[id]=`❌ ${e.message}`; }
       tick(`Tour 2 — ${MODEL_DEFS[id].short}`);
       setDebRound2(prev => ({ ...prev, [id]:r2[id] }));
     }));
+
     setDebPhase(3);
-    const allAnswers = ids.map(id=>`**${MODEL_DEFS[id].short}**:\n${r2[id]||r1[id]||"(pas de réponse)"}`).join("\n\n---\n\n");
-    const synPrompt = `Question: "${question}"\n\nRéponses finales:\n\n${allAnswers}\n\n---\n\nProduis:\n1. La MEILLEURE RÉPONSE SYNTHÉTISÉE\n2. POINTS DE CONSENSUS\n3. DIVERGENCES notables`;
+    const allAnswers = ids.map(id=>`**${MODEL_DEFS[id].short}** :\n${r2[id]||r1[id]||"(pas de réponse)"}`).join("\n\n---\n\n");
+    const synPrompt = isAnalyse
+      ? `Synthèse finale de l'analyse du fichier "${debFile?.name||"document"}"${question?` (contexte : "${question}")`:""}.\n\nToutes les analyses :\n\n${allAnswers}\n\n---\nProduis :\n1. **SYNTHÈSE COMPLÈTE** — combine toutes les analyses\n2. **POINTS CLÉS** — les insights les plus importants\n3. **ACTIONS RECOMMANDÉES** — que faire concrètement\n4. **POINTS DE DÉSACCORD** entre les IAs`
+      : `Question : "${question}"${fileCtx.slice(0,300)}\n\nRéponses finales :\n\n${allAnswers}\n\n---\nProduis :\n1. La MEILLEURE RÉPONSE SYNTHÉTISÉE\n2. POINTS DE CONSENSUS\n3. DIVERGENCES notables`;
+
     const synthPriority = ["groq","mistral","cohere","cerebras","sambanova","mixtral"];
     let synDone = false;
     for (const sid of synthPriority) {
       if (!enabled[sid] || isLimited(sid)) continue;
       try {
-        const syn = await callModel(sid, [{ role:"user", content:synPrompt }], apiKeys, "Tu produis des synthèses claires et objectives.");
+        const syn = await callModel(sid, [{ role:"user", content:synPrompt }], apiKeys, "Tu produis des synthèses claires, structurées et actionnables.");
         setDebSynthesis(syn); setDebSynthBy(MODEL_DEFS[sid].name); synDone = true; break;
       } catch(e) { const t=classifyError(e.message); if(t==="ratelimit"||t==="credit") markLimited(sid,t); }
     }
     if (!synDone) {
       const valid = ids.filter(id => r2[id] && !r2[id].startsWith("❌"));
-      if (valid.length > 0) { setDebSynthesis(`⚠️ Aucune IA dispo pour synthèse. Meilleure réponse (${MODEL_DEFS[valid[0]].short}):\n\n${r2[valid[0]]}`); setDebSynthBy(MODEL_DEFS[valid[0]].name + " (fallback)"); }
+      if (valid.length > 0) { setDebSynthesis(`⚠️ Synthèse auto — ${MODEL_DEFS[valid[0]].short}:\n\n${r2[valid[0]]}`); setDebSynthBy(MODEL_DEFS[valid[0]].name + " (fallback)"); }
       else setDebSynthesis("❌ Aucune IA disponible pour produire une synthèse.");
     }
     tick("Synthèse générée"); setDebPhase(4);
   };
 
-  const clearDebate = () => { setDebPhase(0); setDebInput(""); setDebRound1({}); setDebRound2({}); setDebSynthesis(""); setDebQuestion(""); setDebProgress(0); };
+  const clearDebate = () => { setDebPhase(0); setDebInput(""); setDebRound1({}); setDebRound2({}); setDebSynthesis(""); setDebQuestion(""); setDebProgress(0); setDebFile(null); };
 
   const sortedArena = [...ARENA_MODELS].sort((a,b) => {
     if (arenaSort === "score") return b.score - a.score;
@@ -5883,21 +5966,48 @@ ${allMsgs.map(m=>`
 
         {/* ── DEBATE TAB ── */}
         {tab === "debate" && <>
-          <div className="debate-wrap">
+          <div className="debate-wrap"
+            onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px dashed var(--ac)";}}
+            onDragLeave={e=>{e.currentTarget.style.outline="none";}}
+            onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const f=e.dataTransfer.files?.[0];if(f)handleDebFile(f);}}>
             {debPhase === 0 && (
               <div className="debate-intro">
-                <div style={{ fontSize:28 }}>⚡</div>
-                <div className="debate-title">Mode Débat</div>
+                <div style={{ fontSize:28 }}>{debMode==="analyse"?"🔬":"⚡"}</div>
+                <div className="debate-title">{debMode==="analyse"?"Mode Analyse":"Mode Débat"}</div>
                 <div className="debate-desc">
-                  Les IAs répondent indépendamment, confrontent leurs points de vue, puis une synthèse finale est produite par la <strong>première IA disponible</strong> (fallback automatique si Claude est KO).<br/><br/>
-                  <em style={{ fontSize:9 }}>IAs disponibles : {availableIds.length>0?availableIds.map(id=>`${MODEL_DEFS[id].icon}${MODEL_DEFS[id].short}`).join(" · "):"aucune"}</em>
+                  {debMode==="analyse" ? <>
+                    <strong>Chaque IA analyse sous un angle différent</strong> — structure, qualité, insights, améliorations — puis une synthèse complète combine tout.<br/><br/>
+                    <strong style={{color:"var(--blue)"}}>Idéal pour :</strong> contrats, code, rapports, articles, emails importants.<br/><br/>
+                    <em style={{fontSize:9}}>Glisse ton fichier ici ou clique sur 📎 · PDF, TXT, MD, code, images</em>
+                  </> : <>
+                    Les IAs répondent indépendamment, confrontent leurs points de vue, puis une synthèse finale est produite.<br/><br/>
+                    <em style={{ fontSize:9 }}>IAs disponibles : {availableIds.length>0?availableIds.map(id=>`${MODEL_DEFS[id].icon}${MODEL_DEFS[id].short}`).join(" · "):"aucune"}</em>
+                  </>}
+                </div>
+                {/* Drop zone visual */}
+                <div style={{marginTop:12,border:"2px dashed rgba(96,165,250,.3)",borderRadius:8,padding:"12px 20px",color:"var(--mu)",fontSize:9,cursor:"pointer",transition:"all .2s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(96,165,250,.3)"}
+                  onClick={()=>debFileRef.current?.click()}>
+                  {debFile
+                    ? <span style={{color:"var(--blue)"}}>✓ {debFile.icon} <strong>{debFile.name}</strong> — {debFile.type==="image"?"Image":Math.round((debFile.content||"").length/1000)+"k car"}</span>
+                    : <span>📎 Glisse un fichier ici ou <span style={{color:"var(--ac)",textDecoration:"underline"}}>clique pour parcourir</span><br/><span style={{opacity:.6}}>PDF · TXT · MD · CSV · JSON · Code · Images</span></span>
+                  }
                 </div>
               </div>
             )}
             {debPhase > 0 && debQuestion && (
-              <div style={{ padding:"7px 14px", borderBottom:"1px solid var(--bd)", background:"var(--s1)" }}>
-                <span style={{ fontSize:8, color:"var(--ac)", fontWeight:600, letterSpacing:1 }}>QUESTION </span>
-                <span style={{ fontSize:10, color:"var(--tx)" }}>{debQuestion}</span>
+              <div style={{ padding:"7px 14px", borderBottom:"1px solid var(--bd)", background:"var(--s1)", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                <div>
+                  <span style={{ fontSize:8, color:"var(--ac)", fontWeight:600, letterSpacing:1 }}>{debMode==="analyse"?"ANALYSE":"QUESTION"} </span>
+                  <span style={{ fontSize:10, color:"var(--tx)" }}>{debQuestion}</span>
+                </div>
+                {debFile && (
+                  <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:4,padding:"2px 8px"}}>
+                    <span style={{fontSize:10}}>{debFile.icon}</span>
+                    <span style={{fontSize:8,color:"var(--blue)",fontFamily:"var(--font-mono)","overflow":"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{debFile.name}</span>
+                  </div>
+                )}
               </div>
             )}
             {debPhase >= 1 && debPhase <= 3 && <>
@@ -5949,19 +6059,85 @@ ${allMsgs.map(m=>`
               </div>
             )}
           </div>
-          <div className="debate-foot">
-            <div style={{ display:"flex", gap:7, alignItems:"flex-end" }}>
-              <textarea rows={1} value={debInput}
-                placeholder="Question à débattre…"
-                onChange={e => setDebInput(e.target.value)}
-                onKeyDown={e => { if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(debPhase===0||debPhase===4)launchDebate();} }}
-                onInput={e => { e.target.style.height="auto"; e.target.style.height=Math.min(e.target.scrollHeight,100)+"px"; }}
-                disabled={debPhase>0&&debPhase<4}
-              />
-              {(debPhase===0||debPhase===4) && <button className="launch-btn" onClick={debPhase===4?clearDebate:launchDebate} disabled={debPhase===0&&!debInput.trim()}>{debPhase===4?"↺ Nouveau":"⚡ Débattre"}</button>}
-              {debPhase>0&&debPhase<4 && <button className="launch-btn" disabled>⟳ En cours…</button>}
+          <div className="debate-foot" style={{padding:"8px 12px",borderTop:"1px solid var(--bd)",background:"var(--bg)",flexShrink:0}}>
+            {/* Mode selector */}
+            <div style={{display:"flex",gap:5,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:".5px"}}>MODE :</span>
+              {[["debate","⚡ Débat","Les IAs défendent des positions différentes"],["analyse","🔬 Analyse","Chaque IA analyse selon un angle différent — idéal pour les fichiers"]].map(([m,label,desc])=>(
+                <button key={m} onClick={()=>setDebMode(m)} title={desc}
+                  style={{fontSize:9,padding:"3px 10px",background:debMode===m?"rgba(212,168,83,.2)":"transparent",border:`1px solid ${debMode===m?"rgba(212,168,83,.5)":"var(--bd)"}`,borderRadius:5,color:debMode===m?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-ui)",transition:"all .15s"}}>
+                  {label}
+                </button>
+              ))}
+              {debFile && <span style={{marginLeft:"auto",fontSize:8,color:"var(--green)"}}>✓ Fichier : {debFile.icon} {debFile.name} · {debFile.type==="image"?"Image":Math.round((debFile.content||"").length/1000)+"k car"}</span>}
             </div>
-            <div className="fhint" style={{ marginTop:4 }}>{debPhase===0&&`${availableIds.length} IA(s) · Synthèse auto sur première IA dispo si Claude KO`}{debPhase===4&&`Terminé · Synthèse par ${debSynthBy}`}</div>
+
+            {/* File preview if attached */}
+            {debFile && (
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"rgba(96,165,250,.06)",border:"1px solid rgba(96,165,250,.2)",borderRadius:6,marginBottom:8}}>
+                {debFile.type==="image" && debFile.base64 && (
+                  <img src={`data:${debFile.mimeType};base64,${debFile.base64}`} alt={debFile.name}
+                    style={{width:48,height:48,objectFit:"cover",borderRadius:4,border:"1px solid var(--bd)",flexShrink:0}}/>
+                )}
+                {debFile.type!=="image" && (
+                  <div style={{width:40,height:40,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <span style={{fontSize:16}}>{debFile.icon}</span>
+                    <span style={{fontSize:6,color:"var(--mu)",marginTop:1}}>{debFile.name.split(".").pop().toUpperCase()}</span>
+                  </div>
+                )}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debFile.name}</div>
+                  <div style={{fontSize:8,color:"var(--mu)",marginTop:1}}>
+                    {debFile.type==="image"?"🖼️ Image":"📄 Document"}{debFile.content?" · "+Math.round(debFile.content.length/1000)+"k car":""}
+                    {" · "}Les IAs analyseront ce fichier
+                  </div>
+                  {debFile.type!=="image" && debFile.content && (
+                    <div style={{fontSize:7,color:"var(--mu)",marginTop:2,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical",opacity:.6}}>
+                      {debFile.content.slice(0,120)}…
+                    </div>
+                  )}
+                </div>
+                <button onClick={()=>setDebFile(null)}
+                  style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:10,padding:"3px 7px",cursor:"pointer",flexShrink:0}}>✕</button>
+              </div>
+            )}
+
+            {/* Input row */}
+            <div style={{display:"flex",gap:6,alignItems:"flex-end",flexWrap:"wrap"}}>
+              {/* File attach button */}
+              <input type="file" ref={debFileRef} style={{display:"none"}}
+                accept=".pdf,.txt,.md,.csv,.json,.js,.py,.ts,.jsx,.tsx,.html,.css,.sql,.xml,image/*"
+                onChange={e=>{const f=e.target.files?.[0];if(f)handleDebFile(f);e.target.value="";}}/>
+              <button onClick={()=>debFileRef.current?.click()} title="Joindre un fichier (PDF, texte, code, image)"
+                disabled={debPhase>0&&debPhase<4}
+                style={{background:debFile?"rgba(96,165,250,.15)":"var(--s2)",border:`1px solid ${debFile?"rgba(96,165,250,.4)":"var(--bd)"}`,borderRadius:7,color:debFile?"var(--blue)":"var(--mu)",fontSize:14,width:38,height:38,cursor:debPhase>0&&debPhase<4?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s"}}>
+                📎
+              </button>
+              <textarea rows={1} value={debInput}
+                placeholder={debFile ? `Question sur "${debFile.name}"… (optionnel en mode Analyse)` : "Question à débattre ou analyser…"}
+                onChange={e=>setDebInput(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(debPhase===0||debPhase===4)launchDebate();}}}
+                onInput={e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,100)+"px";}}
+                disabled={debPhase>0&&debPhase<4}
+                style={{flex:1,minWidth:120,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontFamily:"var(--font-ui)",fontSize:11,padding:"8px 11px",outline:"none",resize:"none",lineHeight:1.5,transition:"border-color .2s"}}
+                onFocus={e=>e.target.style.borderColor="var(--ac)"}
+                onBlur={e=>e.target.style.borderColor="var(--bd)"}
+              />
+              {(debPhase===0||debPhase===4) && (
+                <button className="launch-btn" onClick={debPhase===4?clearDebate:launchDebate}
+                  disabled={debPhase===0&&!debInput.trim()&&!debFile}
+                  style={{background:debMode==="analyse"?"rgba(96,165,250,.2)":"var(--ac)",borderColor:debMode==="analyse"?"rgba(96,165,250,.5)":undefined,color:debMode==="analyse"?"var(--blue)":"#09090B"}}>
+                  {debPhase===4?"↺ Nouveau":debMode==="analyse"?"🔬 Analyser":"⚡ Débattre"}
+                </button>
+              )}
+              {debPhase>0&&debPhase<4 && <button className="launch-btn" disabled style={{opacity:.5}}>⟳ En cours…</button>}
+            </div>
+
+            {/* Drag-and-drop zone */}
+            <div style={{marginTop:6,fontSize:8,color:"var(--mu)",opacity:.6}}>
+              {debPhase===0&&`${availableIds.length} IA(s) active(s) · ${debMode==="analyse"?"Chaque IA analyse selon un angle différent":"Les IAs débattent et confrontent leurs points de vue"} · Glisse un fichier ici`}
+              {debPhase===4&&`✓ Terminé · Synthèse par ${debSynthBy}`}
+            </div>
           </div>
         </>}
 
