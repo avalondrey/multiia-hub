@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "16.3";
+const APP_VERSION = "16.8";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
@@ -262,6 +262,22 @@ const PRICING = {
 };
 
 // ── Prompts par défaut ────────────────────────────────────────────
+// ── Token pricing per 1M tokens (USD) — input/output
+const TOKEN_PRICE = {
+  groq:      { in: 0.59,  out: 0.79,  free:true },
+  mistral:   { in: 0.10,  out: 0.30,  free:true },
+  cohere:    { in: 0.0,   out: 0.0,   free:true },
+  cerebras:  { in: 0.10,  out: 0.10,  free:true },
+  sambanova: { in: 0.60,  out: 1.20,  free:false },
+  qwen3:     { in: 0.10,  out: 0.20,  free:true },
+  llama4s:   { in: 0.11,  out: 0.34,  free:true },
+  gemma2:    { in: 0.08,  out: 0.08,  free:true },
+  poll_gpt:  { in: 0.0,   out: 0.0,   free:true },
+  poll_claude: { in: 0.0, out: 0.0,   free:true },
+  poll_deepseek:{ in:0.0, out: 0.0,   free:true },
+  poll_gemini: { in: 0.0, out: 0.0,   free:true },
+};
+
 const DEFAULT_PROMPTS = [
   { id:"p1", cat:"Code", icon:"💻", title:"Expliquer du code", text:"Explique ce code ligne par ligne en français. Sois clair et pédagogique :\n\n[COLLE TON CODE ICI]" },
   { id:"p2", cat:"Code", icon:"🐛", title:"Déboguer un bug", text:"J'ai un bug dans ce code. Trouve le problème, explique pourquoi et propose une correction :\n\n[COLLE TON CODE ICI]\n\nErreur obtenue : [COLLE L'ERREUR]" },
@@ -376,13 +392,20 @@ function CodeBlock({ code, lang }) {
   };
   const tokens = tokenizeCode((code||"").trimEnd(), lang);
   const CLR = { kw:"#C084FC", st:"#FB923C", cm:"#6B6B85", nm:"#60A5FA", op:"#94A3B8" };
+  const isHtmlLike = lang && (lang==="html"||lang==="html5"||lang==="svg");
   return (
     <div className="md-code-block">
       <div className="md-code-hdr">
         <span className="md-code-lang">{lang||"code"}</span>
-        <button className={"md-code-copy"+(copied?" copied":"")} onClick={copy}>
-          {copied ? "✓ Copié" : "⎘ Copier"}
-        </button>
+        <div style={{display:"flex",gap:4,alignItems:"center"}}>
+          {isHtmlLike && (
+            <button className="md-code-copy" style={{background:"rgba(96,165,250,.15)",borderColor:"rgba(96,165,250,.4)",color:"var(--blue)"}}
+              onClick={()=>{ if(window.__openCanvas) window.__openCanvas((code||"").trimEnd(), lang, "Aperçu HTML"); }}>▶ Canvas</button>
+          )}
+          <button className={"md-code-copy"+(copied?" copied":"")} onClick={copy}>
+            {copied ? "✓ Copié" : "⎘ Copier"}
+          </button>
+        </div>
       </div>
       <div className="md-code-body">
         {tokens.map((tok,idx) => {
@@ -473,9 +496,31 @@ function MarkdownRenderer({ text }) {
 
 // ── Prompt variables {{date}}, {{heure}}, etc. ────────────────────
 // ── Supprime les blocs <think>…</think> (Qwen3, DeepSeek R1) ──────
+function CoTBlock({ think }) {
+  const [open, setOpen] = React.useState(false);
+  if (!think) return null;
+  const words = think.split(/\s+/).length;
+  return (
+    <div className="cot-block">
+      <button className="cot-toggle" onClick={()=>setOpen(o=>!o)}>
+        <span style={{fontSize:10}}>{open?"▼":"▶"}</span>
+        <span style={{opacity:.7}}>🧠 Raisonnement interne</span>
+        <span style={{marginLeft:"auto",opacity:.5}}>{words} mots</span>
+        <span style={{opacity:.5}}>{open?"Masquer":"Afficher"}</span>
+      </button>
+      {open && <div className="cot-body">{think}</div>}
+    </div>
+  );
+}
+
 function stripThink(text) {
   if (!text) return text;
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+function extractThink(text) {
+  if (!text) return null;
+  const m = text.match(/<think>([\s\S]*?)<\/think>/i);
+  return m ? m[1].trim() : null;
 }
 
 function applyPromptVars(text) {
@@ -703,7 +748,7 @@ const S = `
 html{font-size:16px}
 body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;overflow:hidden}
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
-.nav{padding:clamp(5px,1.2vw,9px) clamp(8px,2vw,14px);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:clamp(5px,1.2vw,9px);background:linear-gradient(180deg,#0D0D11,var(--bg));flex-shrink:0;flex-wrap:wrap;min-height:42px}
+.nav{padding:clamp(5px,1.2vw,9px) clamp(8px,2vw,14px);border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:clamp(5px,1.2vw,9px);background:rgba(13,13,17,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);flex-shrink:0;flex-wrap:wrap;min-height:42px;position:sticky;top:0;z-index:200}
 .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(13px,2.5vw,17px);color:var(--ac);white-space:nowrap}
 .logo em{color:var(--mu);font-style:normal;font-weight:400}
 .nav-tabs{display:flex;gap:2px;background:var(--s1);border:1px solid var(--bd);border-radius:6px;padding:2px;flex-wrap:wrap}
@@ -728,8 +773,13 @@ body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;
 .col.solo-dim{opacity:.10;filter:grayscale(1);pointer-events:none}
 .col.solo-focus{min-height:clamp(480px,70vh,800px)}
 /* ── HISTORY SIDEBAR ── */
-.hist-sidebar{width:170px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;background:var(--bg);overflow:hidden;transition:width .2s}
+.hist-sidebar{width:170px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;background:rgba(10,10,14,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);overflow:hidden;transition:width .2s}
 .hist-sidebar.closed{width:0;border-right:none}
+.hist-folder-tabs{display:flex;gap:2px;padding:5px 6px;flex-wrap:wrap;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--s1)}
+.hist-folder-tab{padding:2px 7px;border-radius:3px;border:1px solid transparent;font-size:8px;cursor:pointer;color:var(--mu);background:transparent;font-family:'IBM Plex Mono',monospace;white-space:nowrap;transition:all .15s;max-width:80px;overflow:hidden;text-overflow:ellipsis}
+.hist-folder-tab:hover{background:rgba(255,255,255,.05);color:var(--tx)}
+.hist-folder-tab.active{background:rgba(212,168,83,.12);border-color:rgba(212,168,83,.3);color:var(--ac)}
+.hist-folder-add{padding:2px 5px;border-radius:3px;border:1px dashed rgba(255,255,255,.15);font-size:8px;cursor:pointer;color:var(--mu);background:transparent;font-family:'IBM Plex Mono',monospace}
 .hist-hdr{padding:8px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px;flex-shrink:0}
 .hist-hdr-title{font-family:'Syne',sans-serif;font-weight:700;font-size:10px;color:var(--tx);flex:1;white-space:nowrap;overflow:hidden}
 .hist-new-btn{background:rgba(212,168,83,.12);border:1px solid rgba(212,168,83,.35);border-radius:4px;color:var(--ac);font-size:9px;font-weight:700;cursor:pointer;padding:3px 7px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;transition:all .15s}
@@ -748,6 +798,7 @@ body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;
 .hist-item-ia{font-size:7px;padding:1px 3px;border-radius:2px;font-weight:600}
 .hist-item-del{position:absolute;top:7px;right:7px;background:none;border:none;color:var(--mu);cursor:pointer;font-size:11px;padding:1px 3px;border-radius:3px;opacity:0;transition:opacity .15s}
 .hist-item:hover .hist-item-del{opacity:1}
+.hist-item:hover .hist-item-folder-sel{opacity:1 !important}
 .hist-item-del:hover{color:var(--red)}
 .hist-toggle{background:var(--s1);border:none;border-right:1px solid var(--bd);color:var(--mu);cursor:pointer;font-size:11px;padding:0 5px;writing-mode:vertical-lr;letter-spacing:1px;transition:background .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center;min-height:40px}
 .hist-toggle:hover{background:var(--s2);color:var(--tx)}
@@ -766,6 +817,9 @@ body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;
 .dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.5s infinite}
 .dot.limited{background:var(--red)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes pulse-glow{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.25)}}
+@keyframes stream-bar-anim{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .countdown{font-size:8px;color:var(--red);white-space:nowrap;font-family:'IBM Plex Mono',monospace;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:3px;padding:1px 5px}
 .msgs{flex:1;overflow-y:auto;padding:clamp(5px,1.2vw,9px);display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
 .msg{padding:clamp(5px,1vw,8px) clamp(7px,1.5vw,10px);border-radius:5px;font-size:clamp(9px,1.6vw,12px);line-height:1.68;border:1px solid var(--bd)}
@@ -1556,6 +1610,25 @@ html, body{
 /* ══════════════════════════════════════════════════════
    MARKDOWN RENDERER
    ══════════════════════════════════════════════════════ */
+.mem-panel{position:fixed;top:0;left:0;bottom:0;width:min(320px,90vw);background:var(--bg);border-right:1px solid var(--bd);z-index:9991;display:flex;flex-direction:column;box-shadow:8px 0 40px rgba(0,0,0,.5);transition:transform .25s}
+.mem-hdr{padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;background:var(--s1);flex-shrink:0}
+.mem-list{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
+.mem-fact{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:8px 10px;display:flex;align-items:flex-start;gap:8px;font-size:10px;color:var(--tx);line-height:1.5}
+.mem-fact-del{background:none;border:none;color:var(--mu);cursor:pointer;font-size:12px;padding:0 2px;flex-shrink:0;margin-top:1px;line-height:1}
+.mem-fact-del:hover{color:var(--red)}
+.canvas-panel{position:fixed;top:0;right:0;bottom:0;width:min(540px,50vw);background:var(--bg);border-left:1px solid var(--bd);z-index:9990;display:flex;flex-direction:column;box-shadow:-8px 0 40px rgba(0,0,0,.5)}
+.canvas-hdr{padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;background:var(--s1);flex-shrink:0}
+.canvas-iframe{flex:1;border:none;background:#fff}
+@media(max-width:768px){.canvas-panel{width:100vw;top:50vh}}
+.zen-mode .nav,.zen-mode .hist-sidebar,.zen-mode .mobile-header,.zen-mode .mobile-ia-selector{display:none !important}
+.zen-mode .chat-area{flex:1}
+.zen-mode .col-cmds{display:none !important}
+.zen-mode-btn{position:fixed;bottom:18px;right:18px;z-index:9998;width:36px;height:36px;background:rgba(212,168,83,.15);border:1px solid rgba(212,168,83,.4);border-radius:50%;color:var(--ac);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);transition:background .2s}
+.zen-mode-btn:hover{background:rgba(212,168,83,.3)}
+.cot-block{margin-bottom:8px;border:1px solid rgba(96,165,250,.2);border-radius:5px;overflow:hidden}
+.cot-toggle{width:100%;display:flex;align-items:center;gap:6px;padding:5px 9px;background:rgba(96,165,250,.06);border:none;cursor:pointer;color:var(--blue);font-family:'IBM Plex Mono',monospace;font-size:8.5px;text-align:left}
+.cot-toggle:hover{background:rgba(96,165,250,.12)}
+.cot-body{padding:8px 10px;background:rgba(96,165,250,.03);color:var(--mu);line-height:1.6;white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;font-size:8px;max-height:220px;overflow-y:auto;border-top:1px solid rgba(96,165,250,.15)}
 .md{line-height:1.72;font-size:inherit}
 .md-h1{font-family:'Syne',sans-serif;font-size:clamp(13px,2.1vw,16px);font-weight:800;color:var(--ac);margin:10px 0 5px;border-bottom:1px solid var(--bd);padding-bottom:4px}
 .md-h2{font-family:'Syne',sans-serif;font-size:clamp(11px,1.8vw,14px);font-weight:700;color:var(--tx);margin:8px 0 4px}
@@ -2724,6 +2797,61 @@ function YouTubeTab({ apiKeys = {} }) {
           </a>
         ))}
       </div>
+    {/* ── Zen mode FAB ── */}
+    {zenMode && (
+      <button className="zen-mode-btn" title="Quitter le mode Zen" onClick={()=>setZenMode(false)}>⊡</button>
+    )}
+    {/* ── Memory panel ── */}
+    {showMemPanel && (
+      <div className="mem-panel">
+        <div className="mem-hdr">
+          <span style={{fontSize:14}}>💾</span>
+          <span style={{flex:1,fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,color:"var(--tx)"}}>Mémoire locale</span>
+          <span style={{fontSize:8,color:"var(--mu)",padding:"2px 6px",background:"var(--s2)",borderRadius:3}}>{memFacts.length} fait{memFacts.length>1?"s":""}</span>
+          <button onClick={()=>setShowMemPanel(false)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:12,width:24,height:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+        </div>
+        <div style={{padding:"8px 10px",borderBottom:"1px solid var(--bd)",flexShrink:0}}>
+          <div style={{fontSize:8,color:"var(--mu)",marginBottom:6,lineHeight:1.5}}>Ces faits sont injectés automatiquement dans le <strong style={{color:"var(--ac)"}}>system prompt</strong> de chaque IA.</div>
+          <div style={{display:"flex",gap:6}}>
+            <input value={memInput} onChange={e=>setMemInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&memInput.trim())addMemFact(memInput);}}
+              placeholder="Ex: Je préfère Python, niveau intermédiaire…"
+              style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 9px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}/>
+            <button onClick={()=>addMemFact(memInput)} disabled={!memInput.trim()}
+              style={{background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:10,padding:"6px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontWeight:700}}>＋</button>
+          </div>
+        </div>
+        <div className="mem-list">
+          {memFacts.length === 0 && (
+            <div style={{color:"var(--mu)",fontSize:9,textAlign:"center",padding:"20px 10px",opacity:.6}}>
+              Aucun souvenir encore.<br/>Ajoute des faits sur toi pour personnaliser les réponses.
+            </div>
+          )}
+          {memFacts.map(f => (
+            <div key={f.id} className="mem-fact">
+              <span style={{fontSize:12,flexShrink:0}}>📌</span>
+              <span style={{flex:1}}>{f.text}</span>
+              <button className="mem-fact-del" onClick={()=>delMemFact(f.id)}>✕</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+    {/* ── Canvas preview panel ── */}
+    {canvasContent && (
+      <div className="canvas-panel">
+        <div className="canvas-hdr">
+          <span style={{fontSize:11}}>🎨</span>
+          <span style={{flex:1,fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{canvasContent.title||"Aperçu"}</span>
+          <span style={{fontSize:8,color:"var(--mu)",padding:"2px 6px",background:"var(--s2)",borderRadius:3}}>{canvasContent.lang}</span>
+          <button onClick={()=>{const b=new Blob([canvasContent.code],{type:"text/html"});const u=URL.createObjectURL(b);window.open(u,"_blank");}}
+            style={{fontSize:8,padding:"3px 8px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:4,color:"var(--blue)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>↗ Nouvel onglet</button>
+          <button onClick={()=>setCanvasContent(null)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:12,width:24,height:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+        </div>
+        <iframe className="canvas-iframe" sandbox="allow-scripts allow-same-origin"
+          srcDoc={canvasContent.code} title="Canvas preview"/>
+      </div>
+    )}
     {/* ── YouTube Player Modal ── */}
     {ytPlayer && (
       <div onClick={()=>setYtPlayer(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(6px)"}}>
@@ -3645,13 +3773,34 @@ function App() {
 
   // ── Recherche plein-texte historique ───────────────────────────
   const [histSearch, setHistSearch] = useState("");
-  const filteredConvs = histSearch.trim()
-    ? savedConvs.filter(c => {
-        const q = histSearch.toLowerCase();
-        if (c.title.toLowerCase().includes(q)) return true;
-        return Object.values(c.conversations||{}).flat().some(m => m.content?.toLowerCase().includes(q));
-      })
-    : savedConvs;
+  const FOLDERS_KEY = "multiia_hist_folders";
+  const [histFolders, setHistFolders] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FOLDERS_KEY) || '["Tout","⭐ Favoris"]'); } catch { return ["Tout","⭐ Favoris"]; }
+  });
+  const [activeFolder, setActiveFolder] = useState("Tout");
+  const [showFolderInput, setShowFolderInput] = useState(false);
+  const [folderInput, setFolderInput] = useState("");
+  const saveHistFolders = (fl) => { setHistFolders(fl); try { localStorage.setItem(FOLDERS_KEY, JSON.stringify(fl)); } catch {} };
+  const addFolder = () => {
+    const name = folderInput.trim(); if (!name || histFolders.includes(name)) return;
+    saveHistFolders([...histFolders, name]);
+    setFolderInput(""); setShowFolderInput(false);
+  };
+  const moveConvToFolder = (convId, folder) => {
+    const updated = savedConvs.map(c => c.id === convId ? {...c, folder} : c);
+    setSavedConvs(updated);
+    try { localStorage.setItem("multiia_history", JSON.stringify(updated)); } catch {}
+  };
+  const filteredConvs = savedConvs.filter(c => {
+    const matchFolder = activeFolder === "Tout" ? true
+      : activeFolder === "⭐ Favoris" ? c.favorite === true
+      : (c.folder || "Sans dossier") === activeFolder;
+    if (!matchFolder) return false;
+    if (!histSearch.trim()) return true;
+    const q = histSearch.toLowerCase();
+    if (c.title.toLowerCase().includes(q)) return true;
+    return Object.values(c.conversations||{}).flat().some(m => m.content?.toLowerCase().includes(q));
+  });
 
   // ── RAG : document long → chunks ───────────────────────────────
   const [ragText, setRagText] = useState("");
@@ -3868,6 +4017,34 @@ ${allMsgs.map(m=>`
   const currentPersona = allPersonas.find(p=>p.id===activePersona) || DEFAULT_PERSONAS[0];
   const currentSystem = currentPersona.system;
 
+  // ── Mémoire locale (faits persistants injectés dans system) ────
+  const MEM_KEY = "multiia_memory";
+  const [memFacts, setMemFacts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(MEM_KEY) || "[]"); } catch { return []; }
+  });
+  const [showMemPanel, setShowMemPanel] = useState(false);
+  const [memInput, setMemInput] = useState("");
+  const addMemFact = (text) => {
+    const fact = text.trim(); if (!fact) return;
+    const updated = [...memFacts, { id: Date.now(), text: fact }];
+    setMemFacts(updated);
+    try { localStorage.setItem(MEM_KEY, JSON.stringify(updated)); } catch {}
+    setMemInput("");
+  };
+  const delMemFact = (id) => {
+    const updated = memFacts.filter(f => f.id !== id);
+    setMemFacts(updated);
+    try { localStorage.setItem(MEM_KEY, JSON.stringify(updated)); } catch {}
+  };
+  const buildSystem = () => {
+    let sys = currentSystem || "";
+    if (memFacts.length > 0) {
+      const facts = memFacts.map(f => "- " + f.text).join("\n");
+      sys = `${sys}\n\n📌 Mémoire utilisateur (rappels persistants) :\n${facts}`.trim();
+    }
+    return sys;
+  };
+
   // ── Raccourcis clavier globaux ─────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
@@ -3958,6 +4135,10 @@ ${allMsgs.map(m=>`
         // silence volontaire, on laisse onend gérer
       } else if (e.error === "no-speech") {
         // pas de parole, continue d'écouter
+      } else if (e.error === "network") {
+        shouldListenRef.current = false;
+        setIsListening(false);
+        showToast("⚠️ Micro : réseau requis (Chrome envoie l'audio à Google). Essaie Edge ou connecte-toi à Internet.");
       } else {
         shouldListenRef.current = false;
         setIsListening(false);
@@ -4003,13 +4184,15 @@ ${allMsgs.map(m=>`
   
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize, {passive:true});
-    window.addEventListener('online', () => setIsOnline(true));
-    window.addEventListener('offline', () => setIsOnline(false));
+    const handleOnline  = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('resize',  handleResize,  {passive:true});
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
     return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('online', () => setIsOnline(true));
-      window.removeEventListener('offline', () => setIsOnline(false));
+      window.removeEventListener('resize',  handleResize);
+      window.removeEventListener('online',  handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -4060,6 +4243,23 @@ ${allMsgs.map(m=>`
   };
 
   // ── Zoom / Échelle UI ──
+  const [zenMode, setZenMode] = React.useState(false);
+  const [canvasContent, setCanvasContent] = React.useState(null); // {code, lang, title}
+  // Expose to window so CodeBlock (non-child) can trigger canvas
+  React.useEffect(() => { window.__openCanvas = (code, lang, title) => setCanvasContent({code, lang, title}); return () => { delete window.__openCanvas; }; }, []);
+  const [sessionTokens, setSessionTokens] = React.useState({}); // {id: {in:N, out:N}}
+  const estimateCost = (id, inTok, outTok) => {
+    const p = TOKEN_PRICE[id];
+    if (!p) return 0;
+    return (inTok / 1e6 * p.in) + (outTok / 1e6 * p.out);
+  };
+  const addTokens = (id, inTok, outTok) => {
+    setSessionTokens(prev => {
+      const cur = prev[id] || {in:0, out:0};
+      return {...prev, [id]: {in: cur.in + inTok, out: cur.out + outTok}};
+    });
+  };
+
   const [uiZoom, setUiZoom] = React.useState(() => {
     try { return parseFloat(localStorage.getItem("multiia_zoom") || "1"); } catch { return 1; }
   });
@@ -4283,14 +4483,19 @@ ${allMsgs.map(m=>`
         const hist = [...conversations[id], userMsg];
         let reply;
         if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
-          reply = await callOllama(ollamaModel, hist, currentSystem);
+          reply = await callOllama(ollamaModel, hist, buildSystem());
         } else {
-          reply = await callModel(id, hist, apiKeys, currentSystem, file);
+          reply = await callModel(id, hist, apiKeys, buildSystem(), file);
         }
+        const thinkContent = extractThink(reply);
         const cleanReply = stripThink(reply);
         if (ttsEnabled && ids.length===1) speakText(cleanReply);
+        // Token estimation (heuristic: 1 token ≈ 4 chars)
+        const inEst = Math.round(hist.reduce((a,m)=>(a+(m.content||"").length),0)/4);
+        const outEst = Math.round((cleanReply||"").length/4);
+        addTokens(id, inEst, outEst);
         setConversations(prev => {
-          const updated = { ...prev, [id]: [...prev[id], { role:"assistant", content:cleanReply }] };
+          const updated = { ...prev, [id]: [...prev[id], { role:"assistant", content:cleanReply, think:thinkContent||undefined }] };
           return updated;
         });
       } catch(e) {
@@ -4383,7 +4588,7 @@ ${allMsgs.map(m=>`
   return (
     <>
       <style>{S}</style>
-      <div className="app" style={{zoom: uiZoom, transformOrigin:"top left"}}>
+      <div className={`app ${zenMode?"zen-mode":""}`} style={{zoom: uiZoom, transformOrigin:"top left"}}>
 
         {/* ── OFFLINE BAR ── */}
         {!isOnline && (
@@ -4401,6 +4606,7 @@ ${allMsgs.map(m=>`
             <button className="mh-btn" title="Historique" onClick={()=>setShowHist(h=>!h)}>📋</button>
           )}
           <button className={`mh-btn ${ttsEnabled?"on":""}`} title="Lecture vocale" onClick={()=>setTtsEnabled(v=>!v)}>🔊</button>
+          <button className={`mh-btn ${memFacts.length>0?"on":""}`} style={memFacts.length>0?{borderColor:"var(--ac)",color:"var(--ac)"}:{}} title="Mémoire locale" onClick={()=>setShowMemPanel(m=>!m)}>💾</button>
           <button className="mh-btn" title={darkMode?"Mode clair":"Mode sombre"} onClick={()=>setDarkMode(d=>!d)}>
             {darkMode?"☀":"🌙"}
           </button>
@@ -4441,6 +4647,10 @@ ${allMsgs.map(m=>`
 
         {/* NAV */}
         <div className="nav" style={isMobile?{display:"none"}:{}}>
+          <button onClick={()=>setShowMemPanel(m=>!m)} title="Mémoire locale" style={{background:memFacts.length>0?"rgba(212,168,83,.15)":"var(--s1)",border:"1px solid "+(memFacts.length>0?"rgba(212,168,83,.4)":"var(--bd)"),borderRadius:5,color:memFacts.length>0?"var(--ac)":"var(--mu)",fontSize:10,padding:"4px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap",flexShrink:0}}>
+            💾 Mémoire{memFacts.length>0?` (${memFacts.length})`:""}
+          </button>
+          <button className="zen-mode-btn" style={{position:"relative",bottom:"auto",right:"auto",width:28,height:28,fontSize:11,borderRadius:5,flexShrink:0}} title={zenMode?"Quitter le mode Zen":"Mode Zen (focus)"} onClick={()=>setZenMode(z=>!z)}>{zenMode?"⊡":"⊞"}</button>
           <div className="logo" style={{display:"flex",alignItems:"center",gap:6}}>multi<em>IA</em>
   <em style={{fontSize:11,color:"var(--ac)",background:"rgba(212,168,83,.15)",padding:"1px 6px",borderRadius:4,border:"1px solid rgba(212,168,83,.3)",cursor:"pointer"}}
     title="Cliquer pour forcer le rechargement"
@@ -4567,6 +4777,21 @@ ${allMsgs.map(m=>`
                   style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,padding:"4px 8px",color:"var(--tx)",fontSize:9,fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}
                 />
               </div>
+              {/* 📁 Dossiers */}
+              <div className="hist-folder-tabs">
+                {histFolders.map(f => (
+                  <button key={f} className={`hist-folder-tab ${activeFolder===f?"active":""}`}
+                    onClick={()=>setActiveFolder(f)} title={f}>{f}</button>
+                ))}
+                {showFolderInput
+                  ? <input autoFocus value={folderInput} onChange={e=>setFolderInput(e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Enter")addFolder();if(e.key==="Escape")setShowFolderInput(false);}}
+                      onBlur={()=>setShowFolderInput(false)}
+                      placeholder="Nom…"
+                      style={{width:60,background:"var(--s2)",border:"1px solid var(--ac)",borderRadius:3,padding:"1px 5px",color:"var(--tx)",fontSize:8,fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}/>
+                  : <button className="hist-folder-add" onClick={()=>setShowFolderInput(true)} title="Nouveau dossier">＋</button>
+                }
+              </div>
               <div className="hist-list">
                 {filteredConvs.length === 0 ? (
                   <div className="hist-empty">
@@ -4576,9 +4801,14 @@ ${allMsgs.map(m=>`
                   <div key={entry.id}
                     className={`hist-item ${activeHistId === entry.id ? "active" : ""}`}
                     onClick={() => loadConv(entry)}>
-                    <div className="hist-item-title">{histSearch ? entry.title.replace(new RegExp(`(${histSearch})`, "gi"), "**$1**") : entry.title}</div>
+                    <div className="hist-item-title" style={{display:"flex",alignItems:"flex-start",gap:4}}>
+                      <button onClick={e=>{e.stopPropagation();const upd=savedConvs.map(cc=>cc.id===entry.id?{...cc,favorite:!cc.favorite}:cc);setSavedConvs(upd);try{localStorage.setItem("multiia_history",JSON.stringify(upd));}catch{}}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:9,padding:0,flexShrink:0,opacity:entry.favorite?1:.3,color:"var(--ac)"}}>⭐</button>
+                      <span>{histSearch ? entry.title.replace(new RegExp(`(${histSearch})`, "gi"), "**$1**") : entry.title}</span>
+                    </div>
                     <div className="hist-item-meta">
                       <span className="hist-item-date">🕐 {entry.date}</span>
+                      {entry.folder && <span style={{fontSize:7,background:"rgba(212,168,83,.12)",color:"var(--ac)",borderRadius:2,padding:"0 3px"}}>{entry.folder}</span>}
                       <div className="hist-item-ias">
                         {(entry.ias||[]).slice(0,4).map(id => (
                           <span key={id} className="hist-item-ia"
@@ -4588,6 +4818,16 @@ ${allMsgs.map(m=>`
                         ))}
                       </div>
                     </div>
+                    <select
+                      title="Déplacer vers un dossier"
+                      value={entry.folder||""}
+                      onClick={e=>e.stopPropagation()}
+                      onChange={e=>{e.stopPropagation();moveConvToFolder(entry.id, e.target.value);}}
+                      style={{position:"absolute",top:7,right:24,fontSize:7,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",padding:"1px 2px",cursor:"pointer",opacity:0,transition:"opacity .15s",width:14}}
+                      className="hist-item-folder-sel">
+                      <option value="">📁 Sans dossier</option>
+                      {histFolders.filter(f=>f!=="Tout"&&f!=="⭐ Favoris").map(f=><option key={f} value={f}>{f}</option>)}
+                    </select>
                     <button className="hist-item-del" onClick={e => deleteConv(e, entry.id)} title="Supprimer">✕</button>
                   </div>
                 ))}
@@ -4596,6 +4836,11 @@ ${allMsgs.map(m=>`
 
             {/* Zone de chat principale */}
             <div className="chat-area">
+          {Object.values(loading).some(Boolean) && (
+            <div style={{position:"absolute",top:0,left:0,right:0,height:2,zIndex:100,overflow:"hidden",pointerEvents:"none"}}>
+              <div style={{height:"100%",background:"linear-gradient(90deg,var(--ac),var(--blue),var(--green),var(--ac))",backgroundSize:"200% 100%",animation:"stream-bar-anim 2s linear infinite",width:"100%"}}/>
+            </div>
+          )}
           <div className="cols tab-content-mobile"
               onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
               style={isMobile?{flexDirection:"column"}:{}}>
@@ -4724,17 +4969,30 @@ ${allMsgs.map(m=>`
                     display: focusId ? (focusId===id?"flex":"none") : isMobile && mobileCol !== id ? "none" : undefined,
                     flex: focusId===id ? "1" : isMobile && mobileCol === id ? "1" : undefined,
                     width: isMobile ? "100%" : undefined,
-                    outline: isWinner ? `2px solid ${m.color}` : undefined,
-                    boxShadow: isWinner ? `0 0 20px ${m.color}40` : undefined,
+                    outline: isWinner ? `2px solid ${m.color}` : loading[id] ? `1px solid ${m.color}60` : undefined,
+                    boxShadow: isWinner ? `0 0 20px ${m.color}40` : loading[id] ? `inset 0 0 30px ${m.color}08, 0 0 12px ${m.color}20` : undefined,
+                    transition: "box-shadow .4s ease, outline .4s ease",
                   }}>
-                  <div className="ch" style={{ borderBottomColor:lim?"var(--red)":m.border }}>
-                    <span className="ci" style={{ color:lim?"var(--red)":m.color }}>{m.icon}</span>
+                  <div className="ch" style={{ borderBottomColor:lim?"var(--red)":loading[id]?m.color:m.border, transition:"border-color .3s" }}>
+                    <span className="ci" style={{ color:lim?"var(--red)":m.color, animation: loading[id]?"pulse-glow 1.2s ease-in-out infinite":undefined }}>{m.icon}</span>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div className="cn" style={{ color:lim?"var(--red)":m.color }}>
                         {m.name}
                         {isWinner && <span style={{marginLeft:5,fontSize:9,color:"var(--ac)"}}>🏆</span>}
                       </div>
                       <div className="csub">{m.provider}{m.free&&<span style={{color:"var(--green)",marginLeft:4}}>· FREE</span>}</div>
+                      {sessionTokens[id] && (() => {
+                        const t = sessionTokens[id];
+                        const cost = estimateCost(id, t.in, t.out);
+                        const totalTok = t.in + t.out;
+                        return (
+                          <div style={{fontSize:7,color:"var(--mu)",marginTop:1,fontFamily:"'IBM Plex Mono',monospace"}}>
+                            ~{totalTok > 1000 ? (totalTok/1000).toFixed(1)+"k" : totalTok} tokens
+                            {cost > 0.0001 && <span style={{color:"var(--green)",marginLeft:4}}>${cost.toFixed(4)}</span>}
+                            {cost <= 0.0001 && TOKEN_PRICE[id]?.free && <span style={{color:"var(--green)",marginLeft:4}}>gratuit</span>}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="cm">
                       {lim && <span className="countdown">⏳ {fmtCd(id)}</span>}
@@ -4764,7 +5022,8 @@ ${allMsgs.map(m=>`
                   <div className="msgs" ref={el => msgRefs.current[id] = el}>
                     {conversations[id].length === 0 && !loading[id] && <div className="empty">{enabled[id]?lim?`⏳ Bloqué — ${fmtCd(id)}`:"En attente…":"Désactivé"}</div>}
                     {conversations[id].map((msg, i) => (
-                      <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative"}:{}}>
+                      <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative",animation:"fadeInUp .3s ease-out"}:{animation:"fadeInUp .25s ease-out"}}>
+                        {msg.think && <CoTBlock think={msg.think}/>}
                         <MarkdownRenderer text={msg.displayContent || msg.content} />
                         {msg.displayContent && <span style={{fontSize:8,color:"var(--mu)",marginLeft:6,verticalAlign:"middle"}}>📄 RAG</span>}
                         {msg.role==="blocked" && (
@@ -4793,10 +5052,28 @@ ${allMsgs.map(m=>`
           </div>
           {/* File attachment preview */}
         {attachedFile && (
-          <div className="attach-preview">
-            <span>{attachedFile.icon} {attachedFile.name}</span>
-            <span style={{fontSize:8,color:"var(--mu)"}}>{attachedFile.type==="image"?"Image":"Texte"} · {attachedFile.type!=="image"?Math.round((attachedFile.content||"").length/1000)+"k car":""}</span>
-            <button onClick={()=>setAttachedFile(null)}>✕</button>
+          <div className="attach-preview" style={{flexDirection:"column",alignItems:"flex-start",gap:6,padding:"8px 12px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,width:"100%"}}>
+              {attachedFile.type==="image" && attachedFile.base64 && (
+                <img src={`data:${attachedFile.mimeType};base64,${attachedFile.base64}`}
+                  alt={attachedFile.name}
+                  style={{width:64,height:64,objectFit:"cover",borderRadius:5,border:"1px solid var(--bd)",flexShrink:0}}/>
+              )}
+              {attachedFile.type!=="image" && (
+                <div style={{width:48,height:48,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:18}}>{attachedFile.icon||"📄"}</span>
+                  <span style={{fontSize:6,color:"var(--mu)",marginTop:2}}>{(attachedFile.name||"").split(".").pop().toUpperCase()}</span>
+                </div>
+              )}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{attachedFile.name}</div>
+                <div style={{fontSize:8,color:"var(--mu)",marginTop:2}}>
+                  {attachedFile.type==="image" ? "🖼️ Image" : "📄 Document"} · {attachedFile.type!=="image" ? Math.round((attachedFile.content||"").length/1000)+"k car" : attachedFile.mimeType}
+                </div>
+                <div style={{fontSize:8,color:"var(--green)",marginTop:2}}>✓ Prêt à envoyer aux IAs</div>
+              </div>
+              <button onClick={()=>setAttachedFile(null)} style={{marginLeft:"auto",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:10,padding:"3px 7px",cursor:"pointer",flexShrink:0}}>✕ Retirer</button>
+            </div>
           </div>
         )}
         {/* ── RAG Panel ── */}
@@ -4816,6 +5093,19 @@ ${allMsgs.map(m=>`
             />
           </div>
         )}
+        {/* ── Session cost strip ── */}
+        {Object.keys(sessionTokens).length > 0 && (() => {
+          const totalTok = Object.values(sessionTokens).reduce((a,t)=>a+t.in+t.out, 0);
+          const totalCost = Object.entries(sessionTokens).reduce((a,[id,t])=>a+estimateCost(id,t.in,t.out), 0);
+          return (
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"3px 10px",background:"rgba(212,168,83,.04)",borderTop:"1px solid rgba(212,168,83,.1)",fontSize:8,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",flexShrink:0,flexWrap:"wrap"}}>
+              <span>🔢 Session : ~{totalTok>1000?(totalTok/1000).toFixed(1)+"k":totalTok} tokens</span>
+              {totalCost > 0.0001 && <span style={{color:"var(--green)"}}>💰 ${totalCost.toFixed(4)}</span>}
+              {totalCost <= 0.0001 && <span style={{color:"var(--green)"}}>✓ Gratuit</span>}
+              <button onClick={()=>setSessionTokens({})} style={{marginLeft:"auto",background:"none",border:"none",color:"var(--mu)",fontSize:7,cursor:"pointer",padding:"1px 4px",borderRadius:3}}>↺ Reset</button>
+            </div>
+          );
+        })()}
         <div className="foot">
             {/* Prompt variables hint */}
             {chatInput.includes("{{") && (
