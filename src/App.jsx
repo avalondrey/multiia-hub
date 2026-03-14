@@ -3,24 +3,24 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "16.9";
+const APP_VERSION = "17.1";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
   // ── IAs 100% gratuites ────────────────────────────────────────────
-  groq:       { name:"Llama 3.3 (Groq)",   short:"Groq",      provider:"Groq / Meta",   color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat", maxTokens:128000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"GRATUIT 14 400/jour",   baseUrl:"https://api.groq.com/openai/v1",              model:"llama-3.3-70b-versatile" },
-  mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
-  cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
-  cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:128000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide", baseUrl:"https://api.cerebras.ai/v1",                  model:"llama3.1-8b" },
-  sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  qwen3:      { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
+  groq:       { name:"Llama 3.3 (Groq)",   short:"Groq",      provider:"Groq / Meta",   color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat", maxTokens:128000, inputLimit:32000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"GRATUIT 14 400/jour",   baseUrl:"https://api.groq.com/openai/v1",              model:"llama-3.3-70b-versatile" },
+  mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  inputLimit:28000, free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
+  cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, inputLimit:60000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
+  cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:8192,   inputLimit:6000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide (ctx 8k)", baseUrl:"https://api.cerebras.ai/v1", model:"llama3.1-8b" },
+  sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  inputLimit:28000, free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
+  qwen3:      { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  inputLimit:28000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
   // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
-  llama4s:    { name:"Llama 4 Scout (Groq)",   short:"L4 Scout", provider:"Groq / Meta",    color:"#FF6B35", bg:"#180A04", border:"#3D1500", icon:"🦙", apiType:"compat", maxTokens:128000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — Llama 4 Scout 17B multimodal", baseUrl:"https://api.groq.com/openai/v1", model:"meta-llama/llama-4-scout-17b-16e-instruct" },
-  gemma2:     { name:"Llama 3.1 8B (Groq)",     short:"L3.1-8B",  provider:"Groq / Meta",    color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"◎", apiType:"compat", maxTokens:131072, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — même clé Groq, très rapide", baseUrl:"https://api.groq.com/openai/v1", model:"llama-3.1-8b-instant" },
-  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations",      maxTokens:128000, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — modèle openai uniquement · legacy endpoint", model:"openai" },
+  llama4s:    { name:"Llama 4 Scout (Groq)",   short:"L4 Scout", provider:"Groq / Meta",    color:"#FF6B35", bg:"#180A04", border:"#3D1500", icon:"🦙", apiType:"compat", maxTokens:128000, inputLimit:32000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — Llama 4 Scout 17B multimodal", baseUrl:"https://api.groq.com/openai/v1", model:"meta-llama/llama-4-scout-17b-16e-instruct" },
+  gemma2:     { name:"Llama 3.1 8B (Groq)",     short:"L3.1-8B",  provider:"Groq / Meta",    color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"◎", apiType:"compat", maxTokens:8192,   inputLimit:6000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — même clé Groq, très rapide (ctx 8k)", baseUrl:"https://api.groq.com/openai/v1", model:"llama-3.1-8b-instant" },
+  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations",      maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s max", model:"openai" },
   poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"claude-airforce" },
   poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"deepseek" },
-  poll_gemini:   { name:"GPT-4o Large (Pollinations)", short:"GPT-4o L", provider:"OpenAI via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations",      maxTokens:128000, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai",   desc:"SANS CLÉ — openai-large (GPT-4o Large)", model:"openai-large" },
+  poll_gemini:   { name:"GPT-4o Large (Pollinations)", short:"GPT-4o L", provider:"OpenAI via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations",      maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai",   desc:"SANS CLÉ — 1 req/16s max", model:"openai-large" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -607,6 +607,50 @@ function classifyError(msg) {
   return "other";
 }
 
+
+// ── Smart message truncation based on model context limit ────────
+function truncateForModel(messages, modelId, system="") {
+  const m = MODEL_DEFS[modelId];
+  const limit = m?.inputLimit || 28000; // default safe 28k tokens
+  const CHARS_PER_TOKEN = 4;
+  const maxChars = limit * CHARS_PER_TOKEN;
+
+  // Count current chars
+  const sysChars = (system||"").length;
+  const msgChars = messages.reduce((a,m)=>a+(m.content||"").length, 0);
+  const totalChars = sysChars + msgChars;
+
+  if (totalChars <= maxChars) return messages; // no truncation needed
+
+  // Find the last user message and truncate its content
+  const budget = maxChars - sysChars - 200; // 200 chars safety margin
+  const msgs = [...messages];
+
+  // First try: truncate only the last message
+  for (let i = msgs.length-1; i >= 0; i--) {
+    if (msgs[i].role === "user" && msgs[i].content.length > 500) {
+      const otherChars = msgs.reduce((a,m,idx)=>idx!==i?a+(m.content||"").length:a, 0);
+      const allowedChars = budget - otherChars;
+      if (allowedChars > 200) {
+        const orig = msgs[i].content;
+        // Keep the end of the message (the question) + truncate the middle (context)
+        const keepEnd = Math.min(800, Math.floor(allowedChars * 0.3));
+        const keepStart = allowedChars - keepEnd - 60;
+        msgs[i] = {
+          ...msgs[i],
+          content: orig.slice(0, keepStart) +
+            `\n\n[... ${Math.round((orig.length - keepStart - keepEnd)/CHARS_PER_TOKEN)}k tokens tronqués pour respecter la limite du modèle (${limit}k tokens) ...]\n\n` +
+            orig.slice(-keepEnd)
+        };
+        return msgs;
+      }
+    }
+  }
+
+  // Fallback: keep only last 2 messages
+  return msgs.slice(-2);
+}
+
 async function callClaude(messages, system="Tu es un assistant IA utile et concis.", attachedFile=null) {
   // Construire les messages avec support fichiers (vision + texte)
   const apiMessages = messages.map((m, i) => {
@@ -667,11 +711,13 @@ async function callGemini(messages, apiKey, system="Tu es un assistant IA utile 
 // text.pollinations.ai/openai  = GRATUIT ANONYME, modèle "openai" uniquement (legacy)
 // gen.pollinations.ai/v1/...   = TOUS les modèles (claude, deepseek, gemini…) — clé Pollen gratuite sur enter.pollinations.ai
 let _pollQueue = Promise.resolve();
+const POLL_DELAY_MS = 18000; // 18s entre requêtes Pollinations — limite IP
 
 async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  // Endpoint legacy anonyme — uniquement modèle "openai"
-  _pollQueue = _pollQueue.then(() => new Promise(res => setTimeout(res, 16000)));
-  await _pollQueue;
+  // Endpoint legacy anonyme — 1 seule req simultanée par IP (partagée avec callPollinationsPaid)
+  const ticket = _pollQueue;
+  _pollQueue = ticket.then(() => new Promise(res => setTimeout(res, POLL_DELAY_MS)));
+  await ticket; // attendre sa place dans la queue
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
   const r = await fetch("https://text.pollinations.ai/openai", {
     method:"POST",
@@ -685,8 +731,11 @@ async function callPollinations(messages, model, system="Tu es un assistant IA u
 }
 
 async function callPollinationsPaid(messages, apiKey, model, system="Tu es un assistant IA utile et concis.") {
-  // Endpoint gen.pollinations.ai — clé Pollen gratuite sur enter.pollinations.ai
+  // Endpoint gen.pollinations.ai — partage la même queue IP que callPollinations
   if(!apiKey) throw new Error("Clé Pollen manquante. Va sur enter.pollinations.ai → inscription gratuite → copie ta clé dans Config.");
+  const ticket = _pollQueue;
+  _pollQueue = ticket.then(() => new Promise(res => setTimeout(res, POLL_DELAY_MS)));
+  await ticket;
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
   const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
     method:"POST",
@@ -706,7 +755,10 @@ async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un ass
     headers["HTTP-Referer"] = "https://multiia-hub.vercel.app";
     headers["X-Title"] = "Multi-IA Hub";
   }
-  const r = await fetch(`${baseUrl}/chat/completions`,{method:"POST",headers,body:JSON.stringify({model,max_tokens:1500,messages:[{role:"system",content:system},...messages.map(m=>({role:m.role,content:m.content}))]})});
+  // Find model id from baseUrl+model to apply correct limit
+  const modelId = Object.keys(MODEL_DEFS).find(id => MODEL_DEFS[id].model === model && MODEL_DEFS[id].baseUrl === baseUrl);
+  const safeMessages = truncateForModel(messages, modelId, system);
+  const r = await fetch(`${baseUrl}/chat/completions`,{method:"POST",headers,body:JSON.stringify({model,max_tokens:1500,messages:[{role:"system",content:system},...safeMessages.map(m=>({role:m.role,content:m.content}))]})});
   const raw = await r.text();
   let d;
   try { d = JSON.parse(raw); } catch { throw new Error("Réponse invalide : " + raw.slice(0,120)); }
@@ -4579,7 +4631,8 @@ ${allMsgs.map(m=>`
         if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
           reply = await callOllama(ollamaModel, hist, buildSystem());
         } else {
-          reply = await callModel(id, hist, apiKeys, buildSystem(), file);
+          const safeHist = truncateForModel(hist, id, buildSystem());
+          reply = await callModel(id, safeHist, apiKeys, buildSystem(), file);
         }
         const thinkContent = extractThink(reply);
         const cleanReply = stripThink(reply);
@@ -4662,29 +4715,75 @@ ${allMsgs.map(m=>`
       : "Tu es un expert. Réponds à la question de manière complète et précise. Si un fichier est joint, base-toi dessus.";
 
     const r1 = {};
-    await Promise.all(ids.map(async (id) => {
+    // Séparer les IAs "serial" (Pollinations) des autres
+    const serialIds1 = ids.filter(id => MODEL_DEFS[id]?.serial);
+    const parallelIds1 = ids.filter(id => !MODEL_DEFS[id]?.serial);
+
+    // Lancer les IAs normales en parallèle (avec petit délai entre elles pour éviter le flood)
+    await Promise.all(parallelIds1.map(async (id, idx) => {
+      // Petit délai pour ne pas hitter les rate limits simultanément
+      if (idx > 0) await new Promise(res => setTimeout(res, idx * 800));
       try {
         const prompt = buildT1Prompt(id);
-        r1[id] = await callModel(id, [{ role:"user", content:prompt }], apiKeys, sysT1, fileParam);
+        const truncated = truncateForModel([{ role:"user", content:prompt }], id, sysT1);
+        r1[id] = await callModel(id, truncated, apiKeys, sysT1, fileParam);
       }
       catch(e) { const t=classifyError(e.message); if(t==="ratelimit") markLimited(id,t); r1[id]=`❌ ${e.message}`; }
       tick(`Tour 1 — ${MODEL_DEFS[id].short}`);
       setDebRound1(prev => ({ ...prev, [id]:r1[id] }));
     }));
 
+    // Lancer les IAs serial (Pollinations) séquentiellement après les autres
+    for (const id of serialIds1) {
+      try {
+        const prompt = buildT1Prompt(id);
+        const truncated = truncateForModel([{ role:"user", content:prompt }], id, sysT1);
+        r1[id] = await callModel(id, truncated, apiKeys, sysT1, null); // images non supportées par Pollinations
+      }
+      catch(e) { const t=classifyError(e.message); if(t==="ratelimit") markLimited(id,t); r1[id]=`❌ ${e.message}`; }
+      tick(`Tour 1 — ${MODEL_DEFS[id].short}`);
+      setDebRound1(prev => ({ ...prev, [id]:r1[id] }));
+    }
+
     setDebPhase(2);
     const r2 = {};
-    await Promise.all(ids.map(async (id) => {
+    const sysT2 = "Tu analyses les réponses de tes pairs et affines ta propre analyse.";
+    const buildT2Prompt = (id) => {
       const others = ids.filter(o=>o!==id).map(o=>`**${MODEL_DEFS[o].short}** :\n${r1[o]||"(pas de réponse)"}`).join("\n\n---\n\n");
-      const fileReminder = hasFile && !fileParam ? `\n\n(Rappel fichier : ${debFile.name})\n${debFile.content?.slice(0,2000)||""}` : "";
-      const prompt = isAnalyse
-        ? `Voici les analyses des autres IAs sur "${debFile?.name||"ce document"}" :\n\n${others}${fileReminder}\n\n---\nComplète et enrichis l'analyse avec ce que les autres ont manqué. Fusionne les points importants.`
-        : `Question : "${question}"${fileCtx.slice(0,500)}\n\nRéponses des autres IAs :\n\n${others}\n\n---\nEn tenant compte de ces perspectives, affine ta réponse finale.`;
-      try { r2[id] = await callModel(id, [{ role:"user", content:prompt }], apiKeys, "Tu analyses les réponses de tes pairs et affines ta propre analyse."); }
+      // Limiter la taille du contexte des "autres" pour les petits modèles
+      const isSmall = (MODEL_DEFS[id]?.inputLimit||28000) < 8000;
+      const othersCtx = isSmall ? others.slice(0, 2000) : others.slice(0, 8000);
+      const fileReminder = hasFile && !fileParam && !isSmall ? `\n\n(Rappel fichier : ${debFile.name})\n${debFile.content?.slice(0,1500)||""}` : "";
+      return isAnalyse
+        ? `Voici les analyses des autres IAs sur "${debFile?.name||"ce document"}" :\n\n${othersCtx}${fileReminder}\n\n---\nComplète et enrichis l'analyse avec ce que les autres ont manqué.`
+        : `Question : "${question}"\n\nRéponses des autres IAs :\n\n${othersCtx}\n\n---\nEn tenant compte de ces perspectives, affine ta réponse finale.`;
+    };
+
+    const serialIds2 = ids.filter(id => MODEL_DEFS[id]?.serial);
+    const parallelIds2 = ids.filter(id => !MODEL_DEFS[id]?.serial);
+
+    await Promise.all(parallelIds2.map(async (id, idx) => {
+      if (idx > 0) await new Promise(res => setTimeout(res, idx * 800));
+      try {
+        const prompt = buildT2Prompt(id);
+        const truncated = truncateForModel([{ role:"user", content:prompt }], id, sysT2);
+        r2[id] = await callModel(id, truncated, apiKeys, sysT2);
+      }
       catch(e) { const t=classifyError(e.message); if(t==="ratelimit") markLimited(id,t); r2[id]=`❌ ${e.message}`; }
       tick(`Tour 2 — ${MODEL_DEFS[id].short}`);
       setDebRound2(prev => ({ ...prev, [id]:r2[id] }));
     }));
+
+    for (const id of serialIds2) {
+      try {
+        const prompt = buildT2Prompt(id);
+        const truncated = truncateForModel([{ role:"user", content:prompt }], id, sysT2);
+        r2[id] = await callModel(id, truncated, apiKeys, sysT2);
+      }
+      catch(e) { const t=classifyError(e.message); if(t==="ratelimit") markLimited(id,t); r2[id]=`❌ ${e.message}`; }
+      tick(`Tour 2 — ${MODEL_DEFS[id].short}`);
+      setDebRound2(prev => ({ ...prev, [id]:r2[id] }));
+    }
 
     setDebPhase(3);
     const allAnswers = ids.map(id=>`**${MODEL_DEFS[id].short}** :\n${r2[id]||r1[id]||"(pas de réponse)"}`).join("\n\n---\n\n");
@@ -4780,8 +4879,9 @@ ${allMsgs.map(m=>`
       const prev = accumulated[config.steps[i-1]?.id] || "";
       try {
         const prompt = step.prompt(synCtx, fileCtx, prev, accumulated);
-        const reply = await callModel(ia, [{role:"user", content:prompt}], apiKeys,
-          "Tu es expert. Réponds de façon précise, structurée et actionnable. Utilise du Markdown.", null);
+        const pipeSys = "Tu es expert. Réponds de façon précise, structurée et actionnable. Utilise du Markdown.";
+        const safePipeMsg = truncateForModel([{role:"user", content:prompt}], ia, pipeSys);
+        const reply = await callModel(ia, safePipeMsg, apiKeys, pipeSys, null);
         accumulated[step.id] = reply;
         setPipeSteps(prev2 => prev2.map((s,idx) => idx===i ? {...s, status:"done", output:reply, ia} : s));
         // Auto-close previous, keep current open
@@ -6678,7 +6778,7 @@ ${allMsgs.map(m=>`
                         <tr key={id}>
                           <td><span style={{color:m.color,marginRight:4}}>{m.icon}</span><span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,color:m.color,fontSize:10}}>{m.short}</span></td>
                           <td style={{color:"var(--mu)",fontSize:9}}>{m.provider}</td>
-                          <td style={{fontSize:9}}>{fmt(m.maxTokens)}</td>
+                          <td style={{fontSize:9}}>{fmt(m.maxTokens)}{m.inputLimit&&m.inputLimit<m.maxTokens?<span style={{fontSize:7,color:"var(--orange)",marginLeft:3}} title={"Limite input : "+fmt(m.inputLimit)+" tokens"}>⚡{fmt(m.inputLimit)}</span>:null}</td>
                           <td>{m.free?<span className="free-badge">FREE</span>:<span style={{fontSize:8,color:"var(--mu)"}}>Payant</span>}</td>
                           <td>
                             {lim?<span className="sbadge" style={{background:"rgba(248,113,113,.1)",color:"var(--red)"}}>⏳ {fmtCd(id)}</span>:
