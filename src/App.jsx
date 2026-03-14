@@ -4353,6 +4353,12 @@ ${allMsgs.map(m=>`
   const [debSynthBy, setDebSynthBy] = useState("Claude");
   const [debQuestion, setDebQuestion] = useState("");
   const [openPhases, setOpenPhases] = useState({ r1:true, r2:true, syn:true });
+  // ── Pipeline de Concrétisation ──────────────────────────────────
+  const [pipeMode, setPipeMode]       = useState(null);   // "action"|"code"|"doc"|null
+  const [pipeRunning, setPipeRunning] = useState(false);
+  const [pipeSteps, setPipeSteps]     = useState([]);     // [{id,label,icon,status,output,ia}]
+  const [pipeOpen, setPipeOpen]       = useState({});     // {stepId: bool}
+  const pipeAbortRef = useRef(null);
   // ── Fichier dans le Débat ────────────────────────────────────
   const [debFile, setDebFile] = useState(null);   // {name, type, content, base64, mimeType, icon}
   const [debMode, setDebMode] = useState("debate"); // "debate" | "analyse"
@@ -4703,7 +4709,142 @@ ${allMsgs.map(m=>`
     tick("Synthèse générée"); setDebPhase(4);
   };
 
-  const clearDebate = () => { setDebPhase(0); setDebInput(""); setDebRound1({}); setDebRound2({}); setDebSynthesis(""); setDebQuestion(""); setDebProgress(0); setDebFile(null); };
+  const clearDebate = () => { setDebPhase(0); setDebInput(""); setDebRound1({}); setDebRound2({}); setDebSynthesis(""); setDebQuestion(""); setDebProgress(0); setDebFile(null); setPipeMode(null); setPipeSteps([]); setPipeRunning(false); };
+
+  // ── PIPELINE DE CONCRÉTISATION ──────────────────────────────────
+  // Prend la synthèse + fichier du débat → pipeline multi-étapes vérifiées
+  const PIPE_CONFIGS = {
+    action: {
+      label:"Plan d'Action", icon:"🎯", color:"#D4A853",
+      steps: [
+        { id:"decomp",  icon:"📋", label:"Décomposition",    ia:0, prompt:(syn,ctx)=>`Tu es expert en gestion de projet. Basé sur cette analyse/synthèse :\n\n${syn}\n\n${ctx}\nDécompose en tâches concrètes et prioritisées :\n- Liste numérotée de toutes les actions à faire\n- Pour chaque tâche : priorité (CRITIQUE/HAUTE/NORMALE), effort estimé (XS/S/M/L/XL)\n- Dépendances entre tâches\nSois précis et exhaustif.` },
+        { id:"risks",   icon:"⚠️",  label:"Risques & Blocages",ia:1, prompt:(syn,ctx,prev)=>`Analyse les risques de ce plan d'action :\n\n${prev}\n\nContexte original :\n${syn.slice(0,1000)}\n\nIdentifie :\n1. Risques critiques (bloquants)\n2. Risques modérés (à surveiller)\n3. Points d'attention techniques\nPour chaque risque : impact (1-10), probabilité (1-10), mitigation proposée.` },
+        { id:"timeline",icon:"📅", label:"Planning & Séquence", ia:2, prompt:(syn,ctx,prev,all)=>`Basé sur les tâches et risques identifiés :\n\nTâches :\n${all.decomp||""}\n\nRisques :\n${all.risks||""}\n\nCrée un planning réaliste :\n1. Séquence optimale des tâches (en tenant compte des dépendances)\n2. Estimation de temps réaliste pour chaque phase\n3. Jalons clés (milestones)\n4. Critères de succès mesurables pour chaque étape` },
+        { id:"valid",   icon:"✅", label:"Validation Croisée",  ia:3, prompt:(syn,ctx,prev,all)=>`Tu es un expert critique. Examine ce plan d'action et vérifie :\n\nPlan :\n${all.decomp||""}\nTimeline :\n${all.timeline||""}\n\n1. Ce plan est-il RÉALISTE et COMPLET ?\n2. Y a-t-il des tâches oubliées ?\n3. Le planning est-il cohérent ?\n4. Donne un score de faisabilité /10 avec justification\n5. Liste les 3 modifications prioritaires si nécessaire` },
+        { id:"final",   icon:"🏆", label:"Synthèse Finale",    ia:0, prompt:(syn,ctx,prev,all)=>`Compile le plan d'action FINAL en format actionnable :\n\n## 🎯 PLAN D'ACTION FINAL\n\nBasé sur :\n- Tâches : ${(all.decomp||"").slice(0,500)}\n- Timeline : ${(all.timeline||"").slice(0,500)}\n- Validation : ${(all.valid||"").slice(0,400)}\n\nFormat de sortie :\n## Objectif\n## Tâches par priorité (tableau ou liste)\n## Planning (phases)\n## Risques principaux\n## Critères de succès\n## Prochaines étapes immédiates (les 3 premières choses à faire MAINTENANT)` },
+      ]
+    },
+    code: {
+      label:"Code + Vérification", icon:"💻", color:"#60A5FA",
+      steps: [
+        { id:"spec",    icon:"📐", label:"Spécifications Tech",  ia:0, prompt:(syn,ctx)=>`Tu es architecte logiciel. À partir de cette synthèse :\n\n${syn}\n\n${ctx}\nRédige les spécifications techniques :\n1. Architecture proposée (technologies, structure)\n2. Interfaces / API / structures de données\n3. Contraintes et pré-requis\n4. Points techniques à risque\nSois précis sur le langage/framework à utiliser.` },
+        { id:"code",    icon:"⌨️",  label:"Implémentation",       ia:1, prompt:(syn,ctx,prev,all)=>`Tu es développeur senior expert. Implémente la solution basée sur ces specs :\n\n${all.spec||""}\n\nContexte : ${syn.slice(0,600)}\n\nÉcris le code complet :\n- Code propre, commenté, production-ready\n- Gestion des erreurs exhaustive (try/catch, validation)\n- Types/interfaces si TypeScript\n- Respect des bonnes pratiques (SOLID, DRY)\n- Inclus les imports/dépendances nécessaires` },
+        { id:"tests",   icon:"🧪", label:"Tests Unitaires",       ia:2, prompt:(syn,ctx,prev,all)=>`Tu es expert QA/Testing. Écris des tests complets pour ce code :\n\n${all.code||""}\n\nInclus :\n1. Tests unitaires pour chaque fonction (cas nominaux)\n2. Tests des cas limites (edge cases)\n3. Tests d'erreurs (cas où ça doit échouer)\n4. Tests d'intégration si applicable\n5. Couverture cible : 90%+\nUtilise le framework de test approprié.` },
+        { id:"review",  icon:"🔍", label:"Code Review & Bugs",    ia:3, prompt:(syn,ctx,prev,all)=>`Tu es expert en sécurité et qualité du code. Fais une code review critique :\n\n### CODE\n${all.code||""}\n\n### TESTS\n${all.tests||""}\n\nIdentifie :\n1. 🐛 Bugs potentiels (avec ligne approximative et correction)\n2. 🔒 Failles de sécurité\n3. ⚡ Problèmes de performance\n4. 🧹 Améliorations de lisibilité\n5. ✅ Points positifs\nDonne un score qualité /10 avec justification.` },
+        { id:"final",   icon:"🏆", label:"Code Final Vérifié",    ia:0, prompt:(syn,ctx,prev,all)=>`Tu es développeur senior. Produis le CODE FINAL corrigé en intégrant tous les retours :\n\n### Code original :\n${all.code||""}\n\n### Issues identifiées :\n${all.review||""}\n\nLivrable final :\n1. Code corrigé et optimisé (COMPLET, prêt à copier-coller)\n2. Changelog : liste des corrections apportées\n3. Instructions d'installation/déploiement\n4. Exemples d'utilisation` },
+      ]
+    },
+    doc: {
+      label:"Document Formel", icon:"📄", color:"#34D399",
+      steps: [
+        { id:"struct",  icon:"🏗️",  label:"Structure du Document",ia:0, prompt:(syn,ctx)=>`Tu es expert en rédaction professionnelle. Basé sur cette synthèse :\n\n${syn}\n\n${ctx}\nPropose la structure optimale du document :\n1. Type de document recommandé (rapport, note de synthèse, guide, spec...)\n2. Plan détaillé avec sections et sous-sections\n3. Public cible et ton adapté\n4. Longueur estimée` },
+        { id:"content", icon:"✍️", label:"Rédaction",              ia:1, prompt:(syn,ctx,prev,all)=>`Tu es rédacteur expert. Rédige le document complet basé sur :\n\nStructure :\n${all.struct||""}\n\nContenu source :\n${syn}\n\nRédige en respectant :\n- Ton professionnel et précis\n- Structure avec titres clairs (##, ###)\n- Paragraphes bien construits\n- Données et arguments concrets\n- Transitions fluides` },
+        { id:"exec",    icon:"📊", label:"Résumé Exécutif",        ia:2, prompt:(syn,ctx,prev,all)=>`Écris un résumé exécutif PERCUTANT de max 250 mots pour ce document :\n\n${all.content||""}\n\nFormat :\n- 1 phrase d'accroche\n- Contexte (2-3 phrases)\n- Points clés (3-5 bullets)\n- Décision/action attendue\n- Impact attendu` },
+        { id:"review",  icon:"🔍", label:"Relecture & Qualité",    ia:3, prompt:(syn,ctx,prev,all)=>`Tu es éditeur expert. Relis et améliore ce document :\n\n${all.content||""}\n\nVérifie :\n1. Cohérence et logique du propos\n2. Clarté et lisibilité\n3. Fautes et formulations maladroites\n4. Structure et transitions\n5. Ton adapté au public\nFournis : corrections + texte amélioré + score qualité /10` },
+        { id:"final",   icon:"🏆", label:"Document Final",         ia:0, prompt:(syn,ctx,prev,all)=>`Produis le DOCUMENT FINAL en intégrant toutes les améliorations :\n\nRésumé exécutif :\n${all.exec||""}\n\nDocument principal :\n${all.content||""}\n\nSuggestions éditeur :\n${(all.review||"").slice(0,600)}\n\nLivre le document complet, poli, prêt à partager.` },
+      ]
+    }
+  };
+
+  const runPipeline = async (mode) => {
+    if (pipeRunning) return;
+    const config = PIPE_CONFIGS[mode];
+    if (!config) return;
+    const ids = IDS.filter(id => enabled[id] && !isLimited(id));
+    if (!ids.length) { showToast("Active au moins une IA"); return; }
+
+    const abort = new AbortController();
+    pipeAbortRef.current = abort;
+    setPipeMode(mode);
+    setPipeRunning(true);
+    setPipeOpen({});
+
+    // Init steps as pending
+    const initSteps = config.steps.map(s => ({...s, status:"pending", output:"", ia: ids[s.ia % ids.length] }));
+    setPipeSteps(initSteps);
+
+    const fileCtx = debFile && debFile.type !== "image"
+      ? `\n\n📎 Fichier de référence (${debFile.name}) :\n\`\`\`\n${debFile.content?.slice(0,4000) || ""}\n\`\`\``
+      : "";
+    const synCtx = debSynthesis || debQuestion || "";
+    const accumulated = {};
+
+    for (let i = 0; i < config.steps.length; i++) {
+      if (abort.signal.aborted) break;
+      const step = config.steps[i];
+      const ia = ids[step.ia % ids.length];
+
+      setPipeSteps(prev => prev.map((s,idx) => idx===i ? {...s, status:"running", ia} : s));
+      setPipeOpen(prev => ({...prev, [step.id]: true}));
+
+      const prev = accumulated[config.steps[i-1]?.id] || "";
+      try {
+        const prompt = step.prompt(synCtx, fileCtx, prev, accumulated);
+        const reply = await callModel(ia, [{role:"user", content:prompt}], apiKeys,
+          "Tu es expert. Réponds de façon précise, structurée et actionnable. Utilise du Markdown.", null);
+        accumulated[step.id] = reply;
+        setPipeSteps(prev2 => prev2.map((s,idx) => idx===i ? {...s, status:"done", output:reply, ia} : s));
+        // Auto-close previous, keep current open
+        if (i > 0) setPipeOpen(prev2 => ({...prev2, [config.steps[i-1].id]: false}));
+      } catch(e) {
+        accumulated[step.id] = "❌ " + e.message;
+        setPipeSteps(prev2 => prev2.map((s,idx) => idx===i ? {...s, status:"error", output:"❌ "+e.message, ia} : s));
+        if (classifyError(e.message) === "ratelimit") markLimited(ia, "ratelimit");
+        break;
+      }
+    }
+    setPipeRunning(false);
+    if (!abort.signal.aborted) {
+      playBeep();
+      showToast(`✓ Pipeline "${config.label}" terminé`);
+    }
+  };
+
+  const cancelPipeline = () => {
+    if (pipeAbortRef.current) pipeAbortRef.current.abort();
+    setPipeRunning(false);
+    showToast("⏹ Pipeline annulé");
+  };
+
+  const exportPipeline = () => {
+    const config = PIPE_CONFIGS[pipeMode];
+    if (!config || !pipeSteps.length) return;
+    const md = [
+      `# ${config.icon} ${config.label}`,
+      `> Généré par Multi-IA Hub v${APP_VERSION} · Basé sur : "${debQuestion}"`,
+      "",
+      ...pipeSteps.filter(s=>s.output&&!s.output.startsWith("❌")).map(s =>
+        `## ${s.icon} ${s.label}\n\n${s.output}`
+      )
+    ].join("\n\n---\n\n");
+    navigator.clipboard.writeText(md).then(()=>showToast("📋 Pipeline exporté en Markdown"));
+  };
+
+  const sendPipelineToChat = () => {
+    const lastDone = [...pipeSteps].reverse().find(s=>s.status==="done"&&s.id==="final");
+    const best = lastDone || [...pipeSteps].reverse().find(s=>s.status==="done");
+    if (!best) return;
+    setChatInput(best.output.slice(0,4000));
+    navigateTab("chat");
+    showToast("✓ Résultat envoyé dans le Chat");
+  };
+
+  const sendPipelineToWorkflow = () => {
+    const config = PIPE_CONFIGS[pipeMode];
+    if (!config || !pipeSteps.length) return;
+    const finalStep = pipeSteps.find(s=>s.id==="final");
+    if (!finalStep?.output) return;
+    setWorkflowInput(debQuestion || "Résultat du débat");
+    const nodes = config.steps.map((s,i) => ({
+      id: Date.now().toString()+i,
+      label: s.label, type:"prompt", ia: IDS.find(id=>enabled[id])||IDS[0],
+      prompt: i===0 ? s.prompt("","")||"" : "{PREVIOUS}",
+      name: s.id, usePrevOutput: i>0, parallel_ias:[]
+    }));
+    saveWorkflow(nodes);
+    navigateTab("workflows");
+    showToast("✓ Pipeline exporté dans Workflows");
+  };
 
   const sortedArena = [...ARENA_MODELS].sort((a,b) => {
     if (arenaSort === "score") return b.score - a.score;
@@ -6054,8 +6195,130 @@ ${allMsgs.map(m=>`
                   <span style={{ fontSize:14 }}>✦</span>
                   <div className="syn-title">Synthèse Finale</div>
                   <span className="syn-by">par {debSynthBy}</span>
+                  {debPhase===4 && debSynthesis && (
+                    <button onClick={()=>navigator.clipboard.writeText(debSynthesis)} title="Copier la synthèse"
+                      style={{marginLeft:"auto",background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>⎘</button>
+                  )}
                 </div>
                 <div className={`syn-body ${debSynthesis?"":"mu"}`}>{debSynthesis?<MarkdownRenderer text={debSynthesis}/>:"En cours…"}</div>
+              </div>
+            )}
+
+            {/* ══ PIPELINE DE CONCRÉTISATION ══ */}
+            {debPhase === 4 && debSynthesis && (
+              <div style={{margin:"0 clamp(7px,1.5vw,12px) clamp(7px,1.5vw,12px)",border:"1px solid rgba(212,168,83,.25)",borderRadius:9,overflow:"hidden",background:"var(--s1)"}}>
+                {/* Header */}
+                <div style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",background:"linear-gradient(135deg,rgba(212,168,83,.08),rgba(212,168,83,.03))",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <span style={{fontSize:16}}>🚀</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:11,color:"var(--ac)"}}>Pipeline de Concrétisation</div>
+                    <div style={{fontSize:8,color:"var(--mu)",marginTop:1}}>Transforme la synthèse en résultat concret et vérifié — chaque étape est validée par une IA différente</div>
+                  </div>
+                  {pipeRunning && (
+                    <button onClick={cancelPipeline} style={{fontSize:8,padding:"3px 9px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>⏹ Arrêter</button>
+                  )}
+                  {pipeSteps.length > 0 && !pipeRunning && (
+                    <>
+                      <button onClick={exportPipeline} style={{fontSize:8,padding:"3px 9px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:4,color:"var(--blue)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>⎘ Exporter MD</button>
+                      <button onClick={sendPipelineToChat} style={{fontSize:8,padding:"3px 9px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>💬 → Chat</button>
+                      <button onClick={sendPipelineToWorkflow} style={{fontSize:8,padding:"3px 9px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>🔀 → Workflow</button>
+                    </>
+                  )}
+                </div>
+
+                {/* Mode selector — only when no pipeline running */}
+                {!pipeRunning && pipeSteps.length === 0 && (
+                  <div style={{padding:"12px 14px",display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {Object.entries(PIPE_CONFIGS).map(([key, cfg]) => (
+                      <button key={key} onClick={()=>runPipeline(key)}
+                        style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4,padding:"10px 12px",background:"var(--s2)",border:`1px solid ${cfg.color}30`,borderRadius:8,cursor:"pointer",flex:"1 1 140px",minWidth:140,maxWidth:220,textAlign:"left",transition:"all .2s"}}
+                        onMouseEnter={e=>{e.currentTarget.style.borderColor=cfg.color;e.currentTarget.style.background=cfg.color+"10";}}
+                        onMouseLeave={e=>{e.currentTarget.style.borderColor=cfg.color+"30";e.currentTarget.style.background="var(--s2)";}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:16}}>{cfg.icon}</span>
+                          <span style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:10,color:cfg.color}}>{cfg.label}</span>
+                        </div>
+                        <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.45}}>
+                          {key==="action" && "Plan d'action priorisé · Gestion des risques · Planning réaliste · Validation croisée"}
+                          {key==="code" && "Specs techniques · Code complet · Tests unitaires · Code Review · Livrable final"}
+                          {key==="doc" && "Structure doc · Rédaction · Résumé exécutif · Relecture · Document final"}
+                        </div>
+                        <div style={{fontSize:7,color:cfg.color,opacity:.7}}>{PIPE_CONFIGS[key].steps.length} étapes · {IDS.filter(id=>enabled[id]).length} IAs</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Pipeline in progress or done */}
+                {pipeSteps.length > 0 && (() => {
+                  const cfg = PIPE_CONFIGS[pipeMode];
+                  const doneCount = pipeSteps.filter(s=>s.status==="done").length;
+                  const total = pipeSteps.length;
+                  return (
+                    <div style={{padding:"8px 14px 12px"}}>
+                      {/* Progress bar */}
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                        <span style={{fontSize:10}}>{cfg?.icon}</span>
+                        <span style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:10,color:cfg?.color}}>{cfg?.label}</span>
+                        <div style={{flex:1,height:3,background:"var(--s2)",borderRadius:2,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${(doneCount/total)*100}%`,background:cfg?.color,borderRadius:2,transition:"width .4s ease"}}/>
+                        </div>
+                        <span style={{fontSize:8,color:"var(--mu)",whiteSpace:"nowrap"}}>{doneCount}/{total}</span>
+                      </div>
+
+                      {/* Steps */}
+                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                        {pipeSteps.map((step,i) => {
+                          const isOpen = pipeOpen[step.id] !== false && (step.status==="done"||step.status==="running");
+                          const statusColor = step.status==="done"?"var(--green)":step.status==="running"?cfg?.color:step.status==="error"?"var(--red)":"var(--mu)";
+                          const statusIcon = step.status==="done"?"✓":step.status==="running"?"⟳":step.status==="error"?"✗":"○";
+                          const ia = step.ia ? MODEL_DEFS[step.ia] : null;
+                          return (
+                            <div key={step.id} style={{border:`1px solid ${step.status==="running"?cfg?.color+"60":step.status==="done"?"rgba(74,222,128,.2)":step.status==="error"?"rgba(248,113,113,.2)":"var(--bd)"}`,borderRadius:7,overflow:"hidden",transition:"border-color .3s"}}>
+                              {/* Step header */}
+                              <div onClick={()=>{if(step.output)setPipeOpen(p=>({...p,[step.id]:!isOpen}));}}
+                                style={{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",background:step.status==="running"?`${cfg?.color}08`:"transparent",cursor:step.output?"pointer":"default"}}>
+                                <div style={{width:20,height:20,borderRadius:"50%",background:`${statusColor}18`,border:`1.5px solid ${statusColor}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:statusColor,flexShrink:0,animation:step.status==="running"?"pulse-glow 1.2s ease-in-out infinite":undefined}}>
+                                  {statusIcon}
+                                </div>
+                                <span style={{fontSize:10}}>{step.icon}</span>
+                                <span style={{fontFamily:"var(--font-mono)",fontWeight:600,fontSize:9,color:step.status==="pending"?"var(--mu)":"var(--tx)",flex:1}}>{step.label}</span>
+                                {ia && step.status!=="pending" && <span style={{fontSize:8,color:ia.color,opacity:.8}}>{ia.icon} {ia.short}</span>}
+                                {step.output && <span style={{fontSize:8,color:"var(--mu)"}}>{isOpen?"▲":"▼"}</span>}
+                                {step.status==="done" && <button onClick={e=>{e.stopPropagation();navigator.clipboard.writeText(step.output);}}
+                                  style={{background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:7,padding:"1px 5px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>⎘</button>}
+                              </div>
+                              {/* Step output */}
+                              {isOpen && step.output && (
+                                <div style={{padding:"8px 12px",borderTop:`1px solid ${step.status==="running"?cfg?.color+"30":"var(--bd)"}`,background:"var(--bg)",maxHeight:280,overflowY:"auto"}}>
+                                  <MarkdownRenderer text={step.output}/>
+                                </div>
+                              )}
+                              {step.status==="running" && !step.output && (
+                                <div style={{padding:"6px 12px",borderTop:`1px solid ${cfg?.color}20`}}>
+                                  <span className="dots"><span>·</span><span>·</span><span>·</span></span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Change mode button */}
+                      {!pipeRunning && (
+                        <div style={{marginTop:8,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                          <button onClick={()=>{setPipeSteps([]);setPipeMode(null);}} style={{fontSize:8,padding:"3px 9px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>← Changer de mode</button>
+                          {Object.keys(PIPE_CONFIGS).filter(k=>k!==pipeMode).map(k=>(
+                            <button key={k} onClick={()=>{setPipeSteps([]);runPipeline(k);}}
+                              style={{fontSize:8,padding:"3px 9px",background:`${PIPE_CONFIGS[k].color}10`,border:`1px solid ${PIPE_CONFIGS[k].color}30`,borderRadius:4,color:PIPE_CONFIGS[k].color,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                              {PIPE_CONFIGS[k].icon} {PIPE_CONFIGS[k].label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
