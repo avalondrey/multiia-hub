@@ -385,14 +385,39 @@ function tokenizeCode(code, lang) {
 
 function CodeBlock({ code, lang }) {
   const [copied, setCopied] = useState(false);
+  const [highlighted, setHighlighted] = useState(null);
+  const codeStr = (code||"").trimEnd();
+  const isHtmlLike = lang && (lang==="html"||lang==="html5"||lang==="svg");
+
+  // Try Prism highlight, fall back to homemade tokenizer
+  React.useEffect(() => {
+    loadPrism();
+    const doHL = () => {
+      if (!window.Prism) { setHighlighted(null); return; }
+      try {
+        const grammar = window.Prism.languages[lang] || window.Prism.languages.clike || window.Prism.languages.markup;
+        if (grammar) {
+          setHighlighted(window.Prism.highlight(codeStr, grammar, lang||"text"));
+        } else {
+          // Language not loaded yet — wait for autoloader
+          window.Prism.highlightAll && window.Prism.hooks?.add("complete", () => {
+            const g2 = window.Prism.languages[lang];
+            if (g2) setHighlighted(window.Prism.highlight(codeStr, g2, lang));
+          });
+        }
+      } catch { setHighlighted(null); }
+    };
+    onPrismReady(doHL);
+  }, [codeStr, lang]);
+
   const copy = () => {
-    try { navigator.clipboard.writeText((code||"").trimEnd()); } catch {}
+    try { navigator.clipboard.writeText(codeStr); } catch {}
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-  const tokens = tokenizeCode((code||"").trimEnd(), lang);
+  // Fallback tokenizer (homemade)
+  const tokens = highlighted ? null : tokenizeCode(codeStr, lang);
   const CLR = { kw:"#C084FC", st:"#FB923C", cm:"#6B6B85", nm:"#60A5FA", op:"#94A3B8" };
-  const isHtmlLike = lang && (lang==="html"||lang==="html5"||lang==="svg");
   return (
     <div className="md-code-block">
       <div className="md-code-hdr">
@@ -400,7 +425,7 @@ function CodeBlock({ code, lang }) {
         <div style={{display:"flex",gap:4,alignItems:"center"}}>
           {isHtmlLike && (
             <button className="md-code-copy" style={{background:"rgba(96,165,250,.15)",borderColor:"rgba(96,165,250,.4)",color:"var(--blue)"}}
-              onClick={()=>{ if(window.__openCanvas) window.__openCanvas((code||"").trimEnd(), lang, "Aperçu HTML"); }}>▶ Canvas</button>
+              onClick={()=>{ if(window.__openCanvas) window.__openCanvas(codeStr, lang, "Aperçu HTML"); }}>▶ Canvas</button>
           )}
           <button className={"md-code-copy"+(copied?" copied":"")} onClick={copy}>
             {copied ? "✓ Copié" : "⎘ Copier"}
@@ -408,11 +433,15 @@ function CodeBlock({ code, lang }) {
         </div>
       </div>
       <div className="md-code-body">
-        {tokens.map((tok,idx) => {
-          if (tok.t==="ws"||tok.t==="id") return tok.v;
-          if (CLR[tok.t]) return <span key={idx} style={{color:CLR[tok.t],fontStyle:tok.t==="cm"?"italic":"normal"}}>{tok.v}</span>;
-          return tok.v;
-        })}
+        {highlighted
+          ? <code dangerouslySetInnerHTML={{__html: highlighted}}
+              style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"inherit",background:"none",display:"block"}}/>
+          : (tokens||[]).map((tok,idx) => {
+              if (tok.t==="ws"||tok.t==="id") return tok.v;
+              if (CLR[tok.t]) return <span key={idx} style={{color:CLR[tok.t],fontStyle:tok.t==="cm"?"italic":"normal"}}>{tok.v}</span>;
+              return tok.v;
+            })
+        }
       </div>
     </div>
   );
@@ -496,6 +525,37 @@ function MarkdownRenderer({ text }) {
 
 // ── Prompt variables {{date}}, {{heure}}, etc. ────────────────────
 // ── Supprime les blocs <think>…</think> (Qwen3, DeepSeek R1) ──────
+
+// ── Prism.js dynamic loader ─────────────────────────────────────
+let _prismReady = false;
+const _prismCallbacks = [];
+function onPrismReady(cb) { if (_prismReady) cb(); else _prismCallbacks.push(cb); }
+function loadPrism() {
+  if (_prismReady || document.getElementById("prism-js")) return;
+  // Theme CSS
+  const link = document.createElement("link");
+  link.rel = "stylesheet"; link.id = "prism-css";
+  link.href = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css";
+  document.head.appendChild(link);
+  // Autoloader (handles all languages automatically)
+  const script = document.createElement("script");
+  script.id = "prism-js";
+  script.src = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js";
+  script.onload = () => {
+    const autoload = document.createElement("script");
+    autoload.src = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js";
+    autoload.onload = () => {
+      if (window.Prism?.plugins?.autoloader) {
+        window.Prism.plugins.autoloader.languages_path = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/";
+      }
+      _prismReady = true;
+      _prismCallbacks.forEach(cb => cb());
+    };
+    document.head.appendChild(autoload);
+  };
+  document.head.appendChild(script);
+}
+
 function CoTBlock({ think }) {
   const [open, setOpen] = React.useState(false);
   if (!think) return null;
@@ -742,11 +802,11 @@ const REDACTION_ACTIONS = [
   { id:"critique", icon:"🧐", label:"Analyser critiquement", prompt:(t)=>`Analyse ce texte de manière critique : points forts, points faibles, logique, arguments, style. Sois honnête et constructif :\n\n${t}` },
 ];
 const S = `
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Syne:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090B;--s1:#0F0F13;--s2:#16161C;--bd:#222228;--tx:#DDDDE8;--mu:#555568;--ac:#D4A853;--green:#4ADE80;--red:#F87171;--orange:#FB923C;--blue:#60A5FA;--r:7px}
 html{font-size:16px}
-body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;overflow:hidden}
+body{background:var(--bg);color:var(--tx);font-family:var(--font-ui);overflow:hidden}
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
 .nav{padding:clamp(5px,1.2vw,9px) clamp(8px,2vw,14px);border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:clamp(5px,1.2vw,9px);background:rgba(13,13,17,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);flex-shrink:0;flex-wrap:wrap;min-height:42px;position:sticky;top:0;z-index:200}
 .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(13px,2.5vw,17px);color:var(--ac);white-space:nowrap}
@@ -817,6 +877,14 @@ body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Mono',monospace;
 .dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.5s infinite}
 .dot.limited{background:var(--red)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+/* ── Tab transitions (Framer Motion-like) ── */
+@keyframes tabEnter{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes tabEnterLeft{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:translateX(0)}}
+@keyframes tabEnterRight{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
+.tab-animate{animation:tabEnter .22s cubic-bezier(.4,0,.2,1) both}
+.tab-animate-left{animation:tabEnterLeft .22s cubic-bezier(.4,0,.2,1) both}
+.tab-animate-right{animation:tabEnterRight .22s cubic-bezier(.4,0,.2,1) both}
+
 @keyframes pulse-glow{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.25)}}
 @keyframes stream-bar-anim{0%{background-position:0% 50%}100%{background-position:200% 50%}}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -1625,6 +1693,17 @@ html, body{
 .zen-mode .col-cmds{display:none !important}
 .zen-mode-btn{position:fixed;bottom:18px;right:18px;z-index:9998;width:36px;height:36px;background:rgba(212,168,83,.15);border:1px solid rgba(212,168,83,.4);border-radius:50%;color:var(--ac);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);transition:background .2s}
 .zen-mode-btn:hover{background:rgba(212,168,83,.3)}
+
+/* ── Prism.js dark theme override ── */
+.token.comment,.token.prolog,.token.doctype,.token.cdata{color:#6B6B85!important;font-style:italic}
+.token.keyword,.token.selector,.token.important,.token.atrule{color:#C084FC!important}
+.token.string,.token.attr-value,.token.char,.token.builtin{color:#FB923C!important}
+.token.number,.token.boolean,.token.constant,.token.symbol{color:#60A5FA!important}
+.token.operator,.token.entity,.token.url,.token.variable{color:#94A3B8!important}
+.token.function,.token.class-name{color:#34D399!important}
+.token.tag,.token.attr-name{color:#F472B6!important}
+pre[class*="language-"],code[class*="language-"]{background:none!important;text-shadow:none!important}
+
 .cot-block{margin-bottom:8px;border:1px solid rgba(96,165,250,.2);border-radius:5px;overflow:hidden}
 .cot-toggle{width:100%;display:flex;align-items:center;gap:6px;padding:5px 9px;background:rgba(96,165,250,.06);border:none;cursor:pointer;color:var(--blue);font-family:'IBM Plex Mono',monospace;font-size:8.5px;text-align:left}
 .cot-toggle:hover{background:rgba(96,165,250,.12)}
@@ -3636,6 +3715,19 @@ function WebIAsTab() {
 }
 
 function App() {
+  const prevTabRef = React.useRef(null);
+
+  // Tab order for transition direction
+  const TAB_ORDER = ["chat","prompts","redaction","recherche","workflows","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
+  const navigateTab = (newTab) => {
+    const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
+    const newIdx = TAB_ORDER.indexOf(newTab);
+    setTabAnimDir(newIdx > oldIdx ? "right" : newIdx < oldIdx ? "left" : "enter");
+    prevTabRef.current = newTab;
+    setTab(newTab);
+  };
+
+  const [tabAnimDir, setTabAnimDir] = React.useState('enter');
   const [tab, setTab] = useState(() => {
     // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
     const params = new URLSearchParams(window.location.search);
@@ -3905,32 +3997,107 @@ function App() {
     try { return JSON.parse(localStorage.getItem("multiia_workflow")||"[]"); } catch { return []; }
   });
   const [workflowRunning, setWorkflowRunning] = useState(false);
-  const [workflowResults, setWorkflowResults] = useState([]);
-  const [workflowDrag, setWorkflowDrag] = useState(null);
+  const [workflowResults, setWorkflowResults] = useState([]); // [{nodeId,label,ia,output,ok,duration}]
+  const [workflowRunStep, setWorkflowRunStep] = useState(null); // id of currently running step
+  const [workflowSavedTpls, setWorkflowSavedTpls] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_wf_templates")||"[]"); } catch { return []; }
+  });
+  const [workflowInput, setWorkflowInput] = useState("");
+  const wfAbortRef = React.useRef(null);
+
   const saveWorkflow = (nodes) => { setWorkflowNodes(nodes); try { localStorage.setItem("multiia_workflow", JSON.stringify(nodes)); } catch {} };
-  const addWorkflowNode = () => {
-    const node = { id: Date.now().toString(), prompt: "", ia: IDS.find(id=>enabled[id])||IDS[0], usePrevOutput: workflowNodes.length > 0, label: `Étape ${workflowNodes.length+1}` };
+  const saveWfTemplates = (tpls) => { setWorkflowSavedTpls(tpls); try { localStorage.setItem("multiia_wf_templates", JSON.stringify(tpls)); } catch {} };
+
+  const addWorkflowNode = (type="prompt") => {
+    const firstActive = IDS.find(id=>enabled[id]) || IDS[0];
+    const node = {
+      id: Date.now().toString(),
+      label: `Étape ${workflowNodes.length+1}`,
+      type,                          // "prompt" | "parallel" | "transform"
+      ia: firstActive,
+      parallel_ias: [firstActive],   // for parallel type
+      prompt: "",
+      name: `step${workflowNodes.length+1}`, // variable name for {stepN}
+      usePrevOutput: workflowNodes.length > 0,
+      maxTokens: 2000,
+    };
     saveWorkflow([...workflowNodes, node]);
   };
+
+  const cancelWorkflow = () => {
+    if (wfAbortRef.current) wfAbortRef.current.abort();
+    setWorkflowRunning(false);
+    setWorkflowRunStep(null);
+    showToast("⏹ Workflow annulé");
+  };
+
   const runWorkflow = async (input) => {
+    const inp = (input !== undefined ? input : workflowInput) || "";
     if (!workflowNodes.length) { showToast("Ajoute des étapes d'abord !"); return; }
-    setWorkflowRunning(true); setWorkflowResults([]);
-    let prevOutput = input || "";
+    const abort = new AbortController();
+    wfAbortRef.current = abort;
+    setWorkflowRunning(true); setWorkflowResults([]); setWorkflowRunStep(null);
+
+    const namedOutputs = { INPUT: inp }; // {stepName: output}
+    let prevOutput = inp;
     const results = [];
+    const t0 = Date.now();
+
+    const resolvePrompt = (template, prev, named) => {
+      let p = template || prev;
+      p = p.replace(/\{INPUT\}/g, inp);
+      p = p.replace(/\{PREVIOUS\}/g, prev);
+      Object.entries(named).forEach(([k,v]) => { p = p.replace(new RegExp("\\{"+k+"\\}", "g"), v); });
+      return p;
+    };
+
     for (const node of workflowNodes) {
-      const prompt = node.usePrevOutput && prevOutput ? `${node.prompt}\n\n[Entrée précédente]\n${prevOutput}` : (node.prompt || prevOutput);
+      if (abort.signal.aborted) break;
+      setWorkflowRunStep(node.id);
+      const stepT0 = Date.now();
+
       try {
-        const reply = await callModel(node.ia, [{role:"user",content:prompt}], apiKeys, currentSystem, null);
-        prevOutput = reply;
-        results.push({ nodeId: node.id, label: node.label, ia: node.ia, output: reply, ok: true });
+        let output = "";
+        if (node.type === "parallel") {
+          // Run multiple IAs simultaneously, combine results
+          const ias = (node.parallel_ias||[node.ia]).filter(id => enabled[id] || id === node.ia);
+          const prompt = resolvePrompt(node.prompt, prevOutput, namedOutputs);
+          const replies = await Promise.all(ias.map(async id => {
+            try {
+              const r = await callModel(id, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
+              return `**${MODEL_DEFS[id]?.short||id}**: ${r}`;
+            } catch(e) { return `**${MODEL_DEFS[id]?.short||id}**: ❌ ${e.message}`; }
+          }));
+          output = replies.join("\n\n---\n\n");
+        } else if (node.type === "transform") {
+          // JS transform function: receives prev output, returns transformed string
+          try {
+            // eslint-disable-next-line no-new-func
+            const fn = new Function("input","prev","named", node.prompt || "return prev;");
+            output = String(fn(inp, prevOutput, namedOutputs));
+          } catch(e) { output = "❌ Erreur transform : " + e.message; }
+        } else {
+          // Default: prompt type
+          const prompt = resolvePrompt(node.prompt, prevOutput, namedOutputs);
+          const reply = await callModel(node.ia, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
+          output = reply;
+        }
+
+        prevOutput = output;
+        namedOutputs[node.name || node.id] = output;
+        const duration = Date.now() - stepT0;
+        results.push({ nodeId:node.id, label:node.label, ia:node.ia, type:node.type, output, ok:true, duration });
       } catch(e) {
-        results.push({ nodeId: node.id, label: node.label, ia: node.ia, output: e.message, ok: false });
+        const duration = Date.now() - stepT0;
+        results.push({ nodeId:node.id, label:node.label, ia:node.ia, type:node.type, output:e.message, ok:false, duration });
+        setWorkflowResults([...results]);
         break;
       }
       setWorkflowResults([...results]);
     }
-    setWorkflowRunning(false);
-    showToast(`✓ Workflow terminé — ${results.filter(r=>r.ok).length}/${workflowNodes.length} étapes`);
+    setWorkflowRunStep(null); setWorkflowRunning(false);
+    const totalTime = ((Date.now()-t0)/1000).toFixed(1);
+    if (!abort.signal.aborted) showToast(`✓ Workflow — ${results.filter(r=>r.ok).length}/${workflowNodes.length} étapes en ${totalTime}s`);
   };
 
   // ── Plugins JS ──────────────────────────────────────────────────
@@ -4676,7 +4843,7 @@ ${allMsgs.map(m=>`
               ["stats","📊 Stats"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
-              <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>setTab(t)}>{l}</button>
+              <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>navigateTab(t)}>{l}</button>
             ))}
           </div>
           <div className="pills">
@@ -5203,135 +5370,234 @@ ${allMsgs.map(m=>`
 
         {/* ── WORKFLOW TAB ── */}
         {(tab === "workflow" || tab === "workflows") && (
-          <div className="scroll-tab pad">
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,color:"var(--tx)"}}>🔀 Workflow visuel</div>
-              <div style={{fontSize:10,color:"var(--mu)"}}>Chaîne de prompts séquentielle — la sortie de chaque étape alimente la suivante</div>
-              <button onClick={addWorkflowNode} style={{marginLeft:"auto",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:10,padding:"5px 12px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>＋ Ajouter étape</button>
-              <button onClick={()=>saveWorkflow([])} style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",fontSize:10,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>🗑 Vider</button>
+          <div className={`scroll-tab pad tab-animate${tabAnimDir==="left"?" tab-animate-left":tabAnimDir==="right"?" tab-animate-right":""}`}>
+            {/* ── Header ── */}
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"var(--font-display,'Syne',sans-serif)",fontWeight:800,fontSize:14,color:"var(--tx)"}}>🔀 Workflow Multi-Steps</div>
+              <div style={{fontSize:9,color:"var(--mu)",flex:1}}>Chaîne d'IAs — sortie de chaque étape → entrée suivante · Variables : {"{INPUT}"} {"{PREVIOUS}"} {"{stepN}"}</div>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                <button onClick={()=>addWorkflowNode("prompt")} style={{background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>＋ Prompt</button>
+                <button onClick={()=>addWorkflowNode("parallel")} style={{background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>⚡ Parallèle</button>
+                <button onClick={()=>addWorkflowNode("transform")} style={{background:"rgba(251,146,60,.1)",border:"1px solid rgba(251,146,60,.3)",borderRadius:5,color:"var(--orange)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>⚙ Transform</button>
+              </div>
             </div>
-            {workflowNodes.length === 0 && (
-              <div style={{textAlign:"center",padding:"40px 20px",color:"var(--mu)",fontSize:11}}>
-                <div style={{fontSize:36,marginBottom:12}}>🔀</div>
-                <div style={{marginBottom:8}}>Aucune étape. Ajoute des étapes pour construire ton workflow.</div>
-                <div style={{fontSize:10,opacity:.7}}>Exemple : Étape 1 = Résumer un texte → Étape 2 = Traduire en anglais → Étape 3 = Générer un email</div>
-              </div>
-            )}
-            {workflowNodes.map((node, idx) => (
-              <div key={node.id} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:14,marginBottom:10,display:"flex",flexDirection:"column",gap:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{background:"var(--ac)",color:"#09090B",borderRadius:4,fontWeight:700,fontSize:10,padding:"2px 8px",fontFamily:"'Syne',sans-serif"}}>{idx+1}</span>
-                  <input value={node.label} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],label:e.target.value};saveWorkflow(n);}}
-                    style={{flex:1,background:"transparent",border:"none",color:"var(--tx)",fontSize:11,fontFamily:"'IBM Plex Mono',monospace",outline:"none",fontWeight:600}} placeholder="Nom de l'étape"/>
-                  <select value={node.ia} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],ia:e.target.value};saveWorkflow(n);}}
-                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 6px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}>
-                    {IDS.map(id=><option key={id} value={id}>{MODEL_DEFS[id].icon} {MODEL_DEFS[id].short}</option>)}
-                  </select>
-                  <label style={{display:"flex",alignItems:"center",gap:4,fontSize:9,color:"var(--mu)",cursor:"pointer",whiteSpace:"nowrap"}}>
-                    <input type="checkbox" checked={node.usePrevOutput} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],usePrevOutput:e.target.checked};saveWorkflow(n);}} style={{accentColor:"var(--ac)"}}/>
-                    Utiliser sortie précédente
-                  </label>
-                  <button onClick={()=>saveWorkflow(workflowNodes.filter((_,i)=>i!==idx))}
-                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>✕</button>
-                </div>
-                <textarea value={node.prompt} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],prompt:e.target.value};saveWorkflow(n);}}
-                  placeholder="Prompt pour cette étape… (laisser vide pour passer la sortie précédente telle quelle)"
-                  rows={2}
-                  style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,fontFamily:"'IBM Plex Mono',monospace",padding:"6px 10px",resize:"vertical",outline:"none",width:"100%"}}/>
-                {/* Résultat de l'étape */}
-                {workflowResults[idx] && (
-                  <div style={{background:workflowResults[idx].ok?"rgba(74,222,128,.06)":"rgba(248,113,113,.06)",border:"1px solid "+(workflowResults[idx].ok?"rgba(74,222,128,.2)":"rgba(248,113,113,.2)"),borderRadius:5,padding:"8px 10px",fontSize:9,color:"var(--tx)",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"pre-wrap",maxHeight:120,overflowY:"auto"}}>
-                    {workflowResults[idx].ok?"✓ ":"❌ "}{workflowResults[idx].output.slice(0,600)}{workflowResults[idx].output.length>600?"…":""}
-                  </div>
-                )}
-                {idx < workflowNodes.length-1 && (
-                  <div style={{textAlign:"center",fontSize:14,color:"var(--mu)"}}>↓</div>
-                )}
-              </div>
-            ))}
-            {workflowNodes.length > 0 && (
-              <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
-                <input id="wf-input" placeholder="Entrée initiale (optionnel)…"
-                  style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"8px 12px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}/>
-                <button onClick={()=>runWorkflow(document.getElementById("wf-input")?.value||"")}
-                  disabled={workflowRunning}
-                  style={{background:"rgba(212,168,83,.2)",border:"1px solid rgba(212,168,83,.5)",borderRadius:5,color:"var(--ac)",fontSize:11,fontWeight:700,padding:"8px 18px",cursor:"pointer",fontFamily:"'Syne',sans-serif",opacity:workflowRunning?.6:1}}>
-                  {workflowRunning?"⟳ Exécution…":"▶ Lancer le workflow"}
+
+            {/* ── Quick templates ── */}
+            <div style={{marginBottom:14,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:".5px"}}>MODÈLES RAPIDES :</span>
+              {[
+                {name:"📝 Article blog", nodes:[
+                  {id:"t1",label:"Plan en 5 parties",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un plan en 5 parties pour un article sur : {INPUT}",name:"plan",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Rédaction complète",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Rédige l'article complet basé sur ce plan :\n{PREVIOUS}",name:"draft",usePrevOutput:true,parallel_ias:[]},
+                  {id:"t3",label:"Révision & SEO",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Corrige et optimise SEO cet article :\n{PREVIOUS}",name:"final",usePrevOutput:true,parallel_ias:[]},
+                ]},
+                {name:"🔬 Analyse IA", nodes:[
+                  {id:"t1",label:"Analyse parallèle",type:"parallel",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Analyse ce sujet en profondeur : {INPUT}",name:"analyses",usePrevOutput:false,parallel_ias:IDS.filter(id=>enabled[id]).slice(0,3)},
+                  {id:"t2",label:"Synthèse des analyses",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Synthétise ces analyses en points clés :\n{PREVIOUS}",name:"synthese",usePrevOutput:true,parallel_ias:[]},
+                ]},
+                {name:"💼 Pitch produit", nodes:[
+                  {id:"t1",label:"Problème",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris le problème que résout : {INPUT}. Sois factuel et précis.",name:"problem",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Solution & USP",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Propose une solution et un USP basés sur :\n{problem}",name:"solution",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"Pitch 30s",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Rédige un pitch de 30 secondes à partir de :\nProblème: {problem}\nSolution: {solution}",name:"pitch",usePrevOutput:false,parallel_ias:[]},
+                ]},
+              ].map((tpl,ti) => (
+                <button key={ti} onClick={()=>{saveWorkflow(tpl.nodes.map(n=>({...n,id:Date.now().toString()+Math.random()})));setWorkflowResults([]);}}
+                  style={{fontSize:8,padding:"3px 9px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",transition:"border-color .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}
+                >{tpl.name}</button>
+              ))}
+              {workflowSavedTpls.map((tpl,ti) => (
+                <button key={"s"+ti} onClick={()=>{saveWorkflow(tpl.nodes.map(n=>({...n,id:Date.now().toString()+Math.random()})));setWorkflowResults([]);}}
+                  style={{fontSize:8,padding:"3px 9px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",position:"relative"}}>
+                  ⭐ {tpl.name}
+                  <span onClick={e=>{e.stopPropagation();saveWfTemplates(workflowSavedTpls.filter((_,i)=>i!==ti));}}
+                    style={{marginLeft:4,opacity:.5,cursor:"pointer"}}>✕</span>
                 </button>
+              ))}
+            </div>
+
+            {/* ── Input + run bar ── */}
+            <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+              <input value={workflowInput} onChange={e=>setWorkflowInput(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"&&!workflowRunning&&workflowNodes.length)runWorkflow();}}
+                placeholder="Entrée initiale — {INPUT} dans les prompts…"
+                style={{flex:1,minWidth:200,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 12px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}/>
+              {workflowRunning
+                ? <button onClick={cancelWorkflow} style={{background:"rgba(248,113,113,.15)",border:"1px solid rgba(248,113,113,.4)",borderRadius:6,color:"var(--red)",fontSize:10,fontWeight:700,padding:"8px 14px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap"}}>⏹ Annuler</button>
+                : <button onClick={()=>runWorkflow()} disabled={!workflowNodes.length} style={{background:"rgba(212,168,83,.2)",border:"1px solid rgba(212,168,83,.5)",borderRadius:6,color:"var(--ac)",fontSize:11,fontWeight:700,padding:"8px 16px",cursor:workflowNodes.length?"pointer":"not-allowed",fontFamily:"var(--font-display,'Syne',sans-serif)",opacity:workflowNodes.length?1:.4,whiteSpace:"nowrap"}}>▶ Lancer</button>
+              }
+              {workflowNodes.length > 0 && !workflowRunning && (
+                <button onClick={()=>{const name=prompt("Nom du template :");if(name?.trim())saveWfTemplates([...workflowSavedTpls,{name:name.trim(),nodes:workflowNodes}]);}}
+                  style={{background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.3)",borderRadius:6,color:"var(--ac)",fontSize:9,padding:"6px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap"}}>⭐ Sauvegarder</button>
+              )}
+              {workflowResults.length > 0 && (
+                <button onClick={()=>{
+                  const md = workflowResults.map((r,i)=>`## Étape ${i+1}: ${r.label}\n\n${r.output}`).join("\n\n---\n\n");
+                  navigator.clipboard.writeText(md).then(()=>showToast("📋 Résultats copiés en Markdown"));
+                }} style={{background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--blue)",fontSize:9,padding:"6px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap"}}>⎘ Exporter</button>
+              )}
+              <button onClick={()=>{if(window.confirm("Vider le workflow ?"))saveWorkflow([]);}} style={{background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.25)",borderRadius:6,color:"var(--red)",fontSize:9,padding:"6px 9px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>🗑</button>
+            </div>
+
+            {/* ── Timeline ── */}
+            {workflowNodes.length > 0 && (
+              <div style={{display:"flex",gap:0,alignItems:"center",marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+                {workflowNodes.map((node,idx) => {
+                  const res = workflowResults.find(r=>r.nodeId===node.id);
+                  const isRunning = workflowRunStep === node.id;
+                  const color = node.type==="parallel"?"var(--blue)":node.type==="transform"?"var(--orange)":"var(--ac)";
+                  return (
+                    <React.Fragment key={node.id}>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,flexShrink:0}}>
+                        <div style={{width:28,height:28,borderRadius:"50%",background:res?.ok?"rgba(74,222,128,.2)":res&&!res.ok?"rgba(248,113,113,.2)":isRunning?`${color}22`:"var(--s2)",border:`2px solid ${res?.ok?"var(--green)":res&&!res.ok?"var(--red)":isRunning?color:"var(--bd)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:res?.ok?"var(--green)":res&&!res.ok?"var(--red)":isRunning?color:"var(--mu)",animation:isRunning?"pulse-glow 1.2s ease-in-out infinite":undefined,transition:"all .3s"}}>
+                          {res?.ok?"✓":res&&!res.ok?"✗":isRunning?"⟳":(idx+1)}
+                        </div>
+                        <div style={{fontSize:7,color:"var(--mu)",whiteSpace:"nowrap",maxWidth:60,overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"}}>{node.label}</div>
+                        {res?.duration && <div style={{fontSize:6,color:"var(--mu)"}}>{(res.duration/1000).toFixed(1)}s</div>}
+                      </div>
+                      {idx < workflowNodes.length-1 && <div style={{flex:1,height:2,minWidth:12,background:res?.ok?"var(--green)":"var(--bd)",margin:"0 2px",marginBottom:18,transition:"background .5s"}}/>}
+                    </React.Fragment>
+                  );
+                })}
               </div>
             )}
-            {/* Panel Plugins */}
+
+            {/* ── Steps ── */}
+            {workflowNodes.length === 0 && (
+              <div style={{textAlign:"center",padding:"50px 20px",color:"var(--mu)",fontSize:11}}>
+                <div style={{fontSize:40,marginBottom:12}}>🔀</div>
+                <div style={{marginBottom:8,color:"var(--tx)",fontWeight:600}}>Aucune étape</div>
+                <div style={{fontSize:10,opacity:.7,maxWidth:340,margin:"0 auto"}}>Ajoute des étapes Prompt, Parallèle ou Transform. Chaque sortie est transmise à l'étape suivante automatiquement.</div>
+              </div>
+            )}
+            {workflowNodes.map((node, idx) => {
+              const res = workflowResults.find(r=>r.nodeId===node.id);
+              const isRunning = workflowRunStep === node.id;
+              const typeColor = node.type==="parallel"?"var(--blue)":node.type==="transform"?"var(--orange)":"var(--ac)";
+              const typeLabel = node.type==="parallel"?"⚡ Parallèle":node.type==="transform"?"⚙ Transform":"💬 Prompt";
+              return (
+                <div key={node.id} style={{background:"var(--s1)",border:`1px solid ${isRunning?typeColor:res?.ok?"rgba(74,222,128,.25)":res&&!res.ok?"rgba(248,113,113,.3)":"var(--bd)"}`,borderRadius:10,padding:12,marginBottom:8,display:"flex",flexDirection:"column",gap:8,transition:"border-color .3s",boxShadow:isRunning?`0 0 16px ${typeColor}20`:undefined}}>
+                  {/* Step header */}
+                  <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:typeColor+"22",border:`1.5px solid ${typeColor}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:typeColor,flexShrink:0}}>{idx+1}</div>
+                    <input value={node.label} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],label:e.target.value};saveWorkflow(n);}}
+                      style={{flex:1,background:"transparent",border:"none",color:"var(--tx)",fontSize:11,fontFamily:"'IBM Plex Mono',monospace",outline:"none",fontWeight:600,minWidth:80}} placeholder="Nom de l'étape"/>
+                    <span style={{fontSize:8,padding:"2px 6px",background:typeColor+"18",border:`1px solid ${typeColor}40`,borderRadius:3,color:typeColor,whiteSpace:"nowrap"}}>{typeLabel}</span>
+                    {/* IA selector */}
+                    {node.type !== "parallel" && (
+                      <select value={node.ia} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],ia:e.target.value};saveWorkflow(n);}}
+                        style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:8,padding:"2px 5px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}>
+                        {IDS.map(id=><option key={id} value={id}>{MODEL_DEFS[id].icon} {MODEL_DEFS[id].short}</option>)}
+                      </select>
+                    )}
+                    {/* Variable name */}
+                    <div style={{display:"flex",alignItems:"center",gap:3}}>
+                      <span style={{fontSize:7,color:"var(--mu)"}}>{"{"}</span>
+                      <input value={node.name||""} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],name:e.target.value.replace(/[^a-zA-Z0-9_]/g,"")};saveWorkflow(n);}}
+                        style={{width:55,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--ac)",fontSize:8,padding:"1px 4px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}
+                        placeholder="varName" title="Nom de variable pour référencer la sortie"/>
+                      <span style={{fontSize:7,color:"var(--mu)"}}>{"}"}</span>
+                    </div>
+                    {/* Reorder */}
+                    <button onClick={()=>{if(idx===0)return;const n=[...workflowNodes];[n[idx-1],n[idx]]=[n[idx],n[idx-1]];saveWorkflow(n);}} disabled={idx===0}
+                      style={{background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:9,width:20,height:20,cursor:idx===0?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:idx===0?.3:1}}>↑</button>
+                    <button onClick={()=>{if(idx===workflowNodes.length-1)return;const n=[...workflowNodes];[n[idx],n[idx+1]]=[n[idx+1],n[idx]];saveWorkflow(n);}} disabled={idx===workflowNodes.length-1}
+                      style={{background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:9,width:20,height:20,cursor:idx===workflowNodes.length-1?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:idx===workflowNodes.length-1?.3:1}}>↓</button>
+                    <button onClick={()=>saveWorkflow(workflowNodes.filter((_,i)=>i!==idx))}
+                      style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:9,padding:"2px 6px",cursor:"pointer"}}>✕</button>
+                  </div>
+
+                  {/* Parallel IAs selector */}
+                  {node.type === "parallel" && (
+                    <div>
+                      <div style={{fontSize:8,color:"var(--mu)",marginBottom:5}}>IAs à lancer en parallèle :</div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                        {IDS.filter(id=>enabled[id]).map(id => (
+                          <label key={id} style={{display:"flex",alignItems:"center",gap:3,fontSize:9,color:MODEL_DEFS[id].color,cursor:"pointer",padding:"2px 6px",background:(node.parallel_ias||[]).includes(id)?`${MODEL_DEFS[id].color}18`:"transparent",border:`1px solid ${(node.parallel_ias||[]).includes(id)?MODEL_DEFS[id].color+"60":"var(--bd)"}`,borderRadius:4,transition:"all .15s"}}>
+                            <input type="checkbox" checked={(node.parallel_ias||[]).includes(id)} onChange={e=>{
+                              const pias = e.target.checked ? [...(node.parallel_ias||[]), id] : (node.parallel_ias||[]).filter(x=>x!==id);
+                              const n=[...workflowNodes]; n[idx]={...n[idx],parallel_ias:pias}; saveWorkflow(n);
+                            }} style={{accentColor:MODEL_DEFS[id].color,margin:0}}/>
+                            {MODEL_DEFS[id].icon} {MODEL_DEFS[id].short}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Prompt / Transform textarea */}
+                  <div>
+                    <div style={{fontSize:7,color:"var(--mu)",marginBottom:3}}>
+                      {node.type==="transform" ? "Code JS — fonction(input, prev, named) { … return string; }" : "Prompt — variables : {INPUT} {PREVIOUS}"+( idx>0?" {"+workflowNodes[idx-1].name+"}":"" )}
+                    </div>
+                    <textarea value={node.prompt} onChange={e=>{const n=[...workflowNodes];n[idx]={...n[idx],prompt:e.target.value};saveWorkflow(n);}}
+                      placeholder={node.type==="transform"?"return prev.toUpperCase();" : node.type==="parallel"?"Analyse ce sujet : {INPUT}":"Résume ceci en 5 points :\n{PREVIOUS}"}
+                      rows={node.type==="transform"?3:2}
+                      style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,fontFamily:"'IBM Plex Mono',monospace",padding:"6px 9px",resize:"vertical",outline:"none",lineHeight:1.55}}/>
+                  </div>
+
+                  {/* Result */}
+                  {res && (
+                    <div style={{background:res.ok?"rgba(74,222,128,.04)":"rgba(248,113,113,.04)",border:`1px solid ${res.ok?"rgba(74,222,128,.2)":"rgba(248,113,113,.2)"}`,borderRadius:6,overflow:"hidden"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 9px",background:res.ok?"rgba(74,222,128,.06)":"rgba(248,113,113,.06)",borderBottom:`1px solid ${res.ok?"rgba(74,222,128,.15)":"rgba(248,113,113,.15)"}`}}>
+                        <span style={{fontSize:9,color:res.ok?"var(--green)":"var(--red)"}}>{res.ok?"✓ Succès":"✗ Erreur"}</span>
+                        {res.duration && <span style={{fontSize:8,color:"var(--mu)"}}>{(res.duration/1000).toFixed(1)}s</span>}
+                        <button onClick={()=>{try{navigator.clipboard.writeText(res.output);}catch{}}} style={{marginLeft:"auto",background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:8,padding:"1px 5px",cursor:"pointer"}}>⎘</button>
+                        <button onClick={()=>{setChatInput(res.output);navigateTab("chat");}} style={{background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:3,color:"var(--ac)",fontSize:8,padding:"1px 5px",cursor:"pointer"}}>→ Chat</button>
+                      </div>
+                      <div style={{padding:"8px 10px",maxHeight:160,overflowY:"auto"}}>
+                        <MarkdownRenderer text={res.output}/>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* ── Plugin section (kept) ── */}
             <div style={{marginTop:24,borderTop:"1px solid var(--bd)",paddingTop:16}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,color:"var(--tx)"}}>🔌 Plugins JS</span>
-                <span style={{fontSize:9,color:"var(--mu)"}}>Charger des modules JavaScript depuis un CDN — prêts à l'emploi</span>
+                <span style={{fontFamily:"var(--font-display,'Syne',sans-serif)",fontWeight:700,fontSize:12,color:"var(--tx)"}}>🔌 Plugins JS</span>
+                <span style={{fontSize:9,color:"var(--mu)"}}>Charger des modules JavaScript depuis un CDN</span>
               </div>
-              {/* Tableau des top plugins */}
               <div style={{marginBottom:14,overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>
-                  <thead>
-                    <tr style={{borderBottom:"1px solid var(--bd)"}}>
-                      {["Plugin","Utilité","CDN URL","Action"].map(h=><th key={h} style={{padding:"5px 8px",color:"var(--mu)",textAlign:"left",fontWeight:600}}>{h}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { name:"📊 Chart.js", usage:"Graphiques & stats interactifs", url:"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" },
-                      { name:"📝 Marked.js", usage:"Rendu Markdown → HTML", url:"https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js" },
-                      { name:"🎨 Highlight.js", usage:"Coloration syntaxique du code", url:"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" },
-                      { name:"📋 Clipboard.js", usage:"Copier dans le presse-papier", url:"https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js" },
-                      { name:"🔣 Fuse.js", usage:"Recherche floue ultra-rapide", url:"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js" },
-                      { name:"📐 Math.js", usage:"Calcul mathématique avancé", url:"https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js" },
-                      { name:"📅 Day.js", usage:"Manipulation de dates", url:"https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js" },
-                      { name:"🔒 DOMPurify", usage:"Sécuriser le HTML (anti-XSS)", url:"https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" },
-                      { name:"📦 JSZip", usage:"Créer/lire des fichiers ZIP", url:"https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" },
-                      { name:"🔁 Lodash", usage:"Utilitaires JS (tri, filtre, deep clone)", url:"https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js" },
-                      { name:"🌍 i18next", usage:"Internationalisation / traductions", url:"https://cdnjs.cloudflare.com/ajax/libs/i18next/23.7.6/i18next.min.js" },
-                      { name:"🎙 RecordRTC", usage:"Enregistrement audio/vidéo navigateur", url:"https://cdnjs.cloudflare.com/ajax/libs/RecordRTC/5.6.2/RecordRTC.min.js" },
-                    ].map(p => (
-                      <tr key={p.url} style={{borderBottom:"1px solid rgba(255,255,255,.03)"}}>
-                        <td style={{padding:"5px 8px",color:"var(--tx)",fontWeight:600}}>{p.name}</td>
-                        <td style={{padding:"5px 8px",color:"var(--mu)"}}>{p.usage}</td>
-                        <td style={{padding:"5px 8px",color:"var(--blue)",fontSize:8,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={p.url}>{p.url.split("/").pop()}</td>
-                        <td style={{padding:"5px 8px"}}>
-                          <button onClick={()=>loadPlugin(p.url)}
-                            style={{background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:3,color:"var(--green)",fontSize:8,padding:"2px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap"}}>
-                            {plugins.find(x=>x.url===p.url)?"✓ Chargé":"+ Charger"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                  <thead><tr style={{borderBottom:"1px solid var(--bd)"}}>{["Plugin","Utilité","Action"].map(h=><th key={h} style={{padding:"5px 8px",color:"var(--mu)",textAlign:"left",fontWeight:600}}>{h}</th>)}</tr></thead>
+                  <tbody>{[
+                    {name:"📊 Chart.js",usage:"Graphiques",url:"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"},
+                    {name:"🎨 Highlight.js",usage:"Coloration syntaxique",url:"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"},
+                    {name:"🔒 DOMPurify",usage:"Anti-XSS",url:"https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"},
+                    {name:"📐 Math.js",usage:"Calcul avancé",url:"https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"},
+                    {name:"📦 JSZip",usage:"ZIP",url:"https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"},
+                    {name:"🔁 Lodash",usage:"Utilitaires JS",url:"https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"},
+                  ].map(p=>(<tr key={p.url} style={{borderBottom:"1px solid rgba(255,255,255,.03)"}}>
+                    <td style={{padding:"5px 8px",color:"var(--tx)",fontWeight:600}}>{p.name}</td>
+                    <td style={{padding:"5px 8px",color:"var(--mu)"}}>{p.usage}</td>
+                    <td style={{padding:"5px 8px"}}><button onClick={()=>loadPlugin(p.url)} style={{background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:3,color:"var(--green)",fontSize:8,padding:"2px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap"}}>{plugins.find(x=>x.url===p.url)?"✓ Chargé":"+ Charger"}</button></td>
+                  </tr>))}</tbody>
                 </table>
               </div>
-              {/* URL manuelle */}
               <div style={{display:"flex",gap:6,marginBottom:10}}>
                 <input value={pluginUrlInput} onChange={e=>setPluginUrlInput(e.target.value)}
-                  placeholder="URL personnalisée — https://example.com/mon-plugin.js"
+                  placeholder="URL CDN personnalisée…"
                   style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 10px",fontFamily:"'IBM Plex Mono',monospace",outline:"none"}}/>
-                <button onClick={()=>{if(pluginUrlInput.trim()){loadPlugin(pluginUrlInput.trim());setPluginUrlInput("");}}}
-                  style={{background:"rgba(96,165,250,.15)",border:"1px solid rgba(96,165,250,.4)",borderRadius:5,color:"var(--blue)",fontSize:10,padding:"6px 12px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
-                  Charger URL
-                </button>
+                <button onClick={()=>{if(pluginUrlInput.trim()){loadPlugin(pluginUrlInput.trim());setPluginUrlInput("");}}} style={{background:"rgba(96,165,250,.15)",border:"1px solid rgba(96,165,250,.4)",borderRadius:5,color:"var(--blue)",fontSize:10,padding:"6px 12px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>Charger URL</button>
               </div>
-              {/* Plugins chargés */}
               {plugins.length>0&&<div style={{fontSize:9,color:"var(--mu)",marginBottom:6}}>Plugins actifs :</div>}
-              {plugins.map(p=>(
-                <div key={p.url} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:5,marginBottom:5,fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>
-                  <span style={{color:p.loaded?"var(--green)":"var(--mu)"}}>{p.loaded?"●":"○"}</span>
-                  <span style={{flex:1,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
-                  <span style={{color:"var(--mu)",fontSize:8,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.url}</span>
-                  <button onClick={()=>{const np=plugins.filter(x=>x.url!==p.url);setPlugins(np);localStorage.setItem("multiia_plugins",JSON.stringify(np));}}
-                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:3,color:"var(--red)",fontSize:9,padding:"1px 6px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>✕</button>
-                </div>
-              ))}
+              {plugins.map(p=>(<div key={p.url} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:5,marginBottom:5,fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>
+                <span style={{color:p.loaded?"var(--green)":"var(--mu)"}}>{p.loaded?"●":"○"}</span>
+                <span style={{flex:1,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                <button onClick={()=>{const np=plugins.filter(x=>x.url!==p.url);setPlugins(np);localStorage.setItem("multiia_plugins",JSON.stringify(np));}} style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:3,color:"var(--red)",fontSize:9,padding:"1px 6px",cursor:"pointer"}}>✕</button>
+              </div>))}
             </div>
           </div>
         )}
 
         {/* ── WEB TAB ── */}
+        {/* ── WEB TAB ── */}
         {tab === "web" && (
-          <div className="scroll-tab pad">
+          <div className={`scroll-tab pad tab-animate${tabAnimDir==="left"?" tab-animate-left":tabAnimDir==="right"?" tab-animate-right":""}`}>
             <div style={{ marginBottom:12, fontSize:11, color:"var(--mu)" }}>
               🌐 <strong style={{ color:"var(--tx)" }}>IAs Web</strong> — Ces services ne peuvent pas être intégrés (sécurité iframe). Clique pour ouvrir dans un nouvel onglet.
             </div>
@@ -6409,7 +6675,7 @@ ${allMsgs.map(m=>`
       {/* MOBILE BOTTOM TAB BAR */}
       <div className="mobile-tabbar" style={isMobile?{display:"flex"}:{display:"none"}}>
         {MOBILE_TABS.map(([t,ico,lbl,badge])=>(
-          <button key={t} className={"mobile-tab-btn "+(tab===t?"on":"")} onClick={()=>setTab(t)} style={{position:"relative"}}>
+          <button key={t} className={"mobile-tab-btn "+(tab===t?"on":"")} onClick={()=>navigateTab(t)} style={{position:"relative"}}>
             <span className="ico">{ico}</span>
             <span>{lbl}</span>
             {badge && <span style={{position:"absolute",top:4,right:"calc(50% - 14px)",background:"var(--red)",borderRadius:"50%",width:8,height:8,fontSize:0}}/>}
