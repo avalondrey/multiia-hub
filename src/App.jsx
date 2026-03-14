@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "16.8";
+const APP_VERSION = "16.9";
 const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 const MODEL_DEFS = {
@@ -434,7 +434,7 @@ function CodeBlock({ code, lang }) {
       </div>
       <div className="md-code-body">
         {highlighted
-          ? <code dangerouslySetInnerHTML={{__html: highlighted}}
+          ? <code dangerouslySetInnerHTML={{__html: window.DOMPurify ? window.DOMPurify.sanitize(highlighted) : highlighted}}
               style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"inherit",background:"none",display:"block"}}/>
           : (tokens||[]).map((tok,idx) => {
               if (tok.t==="ws"||tok.t==="id") return tok.v;
@@ -803,8 +803,9 @@ const REDACTION_ACTIONS = [
 ];
 const S = `
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
+@import url('https://fonts.cdnfonts.com/css/geist');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#09090B;--s1:#0F0F13;--s2:#16161C;--bd:#222228;--tx:#DDDDE8;--mu:#555568;--ac:#D4A853;--green:#4ADE80;--red:#F87171;--orange:#FB923C;--blue:#60A5FA;--r:7px}
+:root{--bg:#09090B;--s1:#0F0F13;--s2:#16161C;--bd:#222228;--tx:#DDDDE8;--mu:#555568;--ac:#D4A853;--green:#4ADE80;--red:#F87171;--orange:#FB923C;--blue:#60A5FA;--r:7px;--font-ui:'Inter',system-ui,sans-serif;--font-mono:'IBM Plex Mono',monospace;--font-display:'Geist','Syne',sans-serif}
 html{font-size:16px}
 body{background:var(--bg);color:var(--tx);font-family:var(--font-ui);overflow:hidden}
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
@@ -827,7 +828,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--font-ui);overflow:hi
 .tf{height:100%;border-radius:2px;transition:width .4s}
 .tbar-total{margin-left:auto;white-space:nowrap}
 .cols{display:flex;flex:1;overflow-y:auto;overflow-x:hidden;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
-.col{flex:none;display:flex;flex-direction:column;border-bottom:1px solid var(--bd);overflow:hidden;width:100%;min-height:clamp(300px,42vh,520px);transition:opacity .3s,filter .3s}
+.col{flex:none;display:flex;flex-direction:column;border-bottom:1px solid var(--bd);overflow:hidden;width:100%;min-height:clamp(300px,42vh,520px);transition:opacity .3s,filter .3s,box-shadow .35s ease,outline .35s ease}
 .col:last-child{border-bottom:none}
 .col.off{opacity:.10;filter:grayscale(1);pointer-events:none}
 .col.solo-dim{opacity:.10;filter:grayscale(1);pointer-events:none}
@@ -863,7 +864,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--font-ui);overflow:hi
 .hist-toggle{background:var(--s1);border:none;border-right:1px solid var(--bd);color:var(--mu);cursor:pointer;font-size:11px;padding:0 5px;writing-mode:vertical-lr;letter-spacing:1px;transition:background .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center;min-height:40px}
 .hist-toggle:hover{background:var(--s2);color:var(--tx)}
 .chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.ch{padding:clamp(5px,1vw,7px) clamp(7px,1.5vw,11px);border-bottom:1px solid;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.ch{padding:clamp(5px,1vw,7px) clamp(7px,1.5vw,11px);border-bottom:1px solid;display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(15,15,20,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
 .ch-actions{display:flex;gap:3px;margin-left:auto;flex-shrink:0;align-items:center}
 .ch-btn{background:none;border:1px solid transparent;border-radius:3px;color:var(--mu);cursor:pointer;font-size:10px;padding:2px 4px;transition:all .15s;line-height:1;font-family:'IBM Plex Mono',monospace}
 .ch-btn:hover{border-color:var(--bd);color:var(--tx);background:rgba(255,255,255,.05)}
@@ -890,12 +891,13 @@ body{background:var(--bg);color:var(--tx);font-family:var(--font-ui);overflow:hi
 @keyframes fadeInUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .countdown{font-size:8px;color:var(--red);white-space:nowrap;font-family:'IBM Plex Mono',monospace;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:3px;padding:1px 5px}
 .msgs{flex:1;overflow-y:auto;padding:clamp(5px,1.2vw,9px);display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
-.msg{padding:clamp(5px,1vw,8px) clamp(7px,1.5vw,10px);border-radius:5px;font-size:clamp(9px,1.6vw,12px);line-height:1.68;border:1px solid var(--bd)}
+.msg{padding:clamp(5px,1vw,8px) clamp(7px,1.5vw,10px);border-radius:5px;font-size:clamp(9px,1.6vw,12px);line-height:1.72;border:1px solid var(--bd);font-family:var(--font-ui)}
 .msg.u{background:#15151B;color:var(--mu);font-style:italic}
 .msg.u::before{content:'> ';color:var(--ac)}
 .msg.a{background:var(--s1);color:var(--tx)}
 .msg.e{color:var(--red);background:#180808;border-color:#350A0A}
 .msg.ld{color:var(--mu);background:var(--s1)}
+.scroll-to-bottom{position:absolute;bottom:10px;right:10px;background:rgba(212,168,83,.2);border:1px solid rgba(212,168,83,.4);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--ac);z-index:20;backdrop-filter:blur(6px);transition:opacity .2s;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .msg.blocked{color:var(--orange);background:rgba(251,146,60,.08);border-color:rgba(251,146,60,.3);font-size:10px}
 .dots span{animation:blink 1.2s infinite;font-size:14px;line-height:0}
 .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
@@ -1098,7 +1100,7 @@ input[type=file]{display:none}
 .news-text{font-size:clamp(9px,1.5vw,11px);color:var(--mu);line-height:1.6}
 .img-wrap{flex:1;overflow-y:auto;padding:clamp(10px,2vw,16px);scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
 .img-filter{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:clamp(10px,2vw,16px)}
-.filter-btn{padding:4px 10px;border-radius:4px;font-size:9px;font-family:'IBM Plex Mono',monospace;cursor:pointer;border:1px solid var(--bd);background:transparent;color:var(--mu);transition:all .2s}
+.filter-btn{padding:4px 10px;border-radius:4px;font-size:9px;font-family:var(--font-ui);cursor:pointer;border:1px solid var(--bd);background:transparent;color:var(--mu);transition:all .2s}
 .filter-btn.on{background:var(--ac);color:#09090B;border-color:var(--ac);font-weight:600}
 .filter-btn:hover{border-color:var(--ac)}
 .img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(220px,28vw,300px),1fr));gap:clamp(8px,1.5vw,12px)}
@@ -1736,7 +1738,7 @@ pre[class*="language-"],code[class*="language-"]{background:none!important;text-
 .md-code-body{padding:10px 13px;overflow-x:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.75;color:#C8C8E0;white-space:pre}
 /* ── Prompt vars hint ── */
 .pvar-hint{display:flex;gap:5px;flex-wrap:wrap;padding:3px 8px;font-size:8px;color:var(--mu);border-top:1px solid var(--bd);background:rgba(212,168,83,.04)}
-.pvar-chip{padding:1px 5px;border-radius:3px;background:rgba(212,168,83,.12);color:var(--ac);border:1px solid rgba(212,168,83,.25);cursor:pointer;font-family:'IBM Plex Mono',monospace}
+.pvar-chip{padding:1px 5px;border-radius:3px;background:rgba(212,168,83,.12);color:var(--ac);border:1px solid rgba(212,168,83,.25);cursor:pointer;font-family:var(--font-ui)}
 .pvar-chip:hover{background:rgba(212,168,83,.22)}
 `;
 
@@ -3362,7 +3364,7 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
                 <span style={{color:m.color,fontWeight:700,fontSize:11,fontFamily:"'Syne',sans-serif"}}>{m.name}</span>
                 {results[id] && !loading[id] && (
                   <button style={{marginLeft:"auto",background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontSize:8,padding:"2px 6px",fontFamily:"'IBM Plex Mono',monospace"}}
-                    onClick={()=>{setChatInput(query);setTab("chat");}}>↗ Chat</button>
+                    onClick={()=>{setChatInput(query);navigateTab("chat");}}>↗ Chat</button>
                 )}
               </div>
               <div className="srch-card-body">
@@ -3377,138 +3379,6 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
 }
 
 // ── WORKFLOWS TAB ─────────────────────────────────────────────────
-function WorkflowsTab({ enabled, apiKeys }) {
-  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
-  // Priorité aux IAs qui fonctionnent sans proxy (pas Claude sur Vercel)
-  const PREFERRED = ["groq","mistral","cohere","cerebras","sambanova","mixtral"];
-  const firstIA = PREFERRED.find(id => enabled[id]) || activeIds[0] || "groq";
-  const [steps, setSteps] = React.useState([
-    { id:1, label:"Génération d'idées", ia:firstIA, prompt:"Génère 5 idées créatives pour : {INPUT}", useInput:true },
-    { id:2, label:"Développement", ia:activeIds[1]||firstIA, prompt:"Développe la meilleure idée :\n\n{PREVIOUS}", useInput:false },
-    { id:3, label:"Synthèse finale", ia:activeIds[2]||firstIA, prompt:"Rédige un résumé exécutif basé sur :\n\n{PREVIOUS}", useInput:false },
-  ]);
-  const [wfInput, setWfInput] = React.useState("");
-  const [outputs, setOutputs] = React.useState({});
-  const [runningStep, setRunningStep] = React.useState(null);
-  const [doneSteps, setDoneSteps] = React.useState(new Set());
-  const [isRunning, setIsRunning] = React.useState(false);
-
-  const TEMPLATES = [
-    { name:"Article blog", steps:[
-      {id:1,label:"Plan",ia:firstIA,prompt:"Plan en 5 parties pour un article sur : {INPUT}",useInput:true},
-      {id:2,label:"Rédaction",ia:activeIds[1]||firstIA,prompt:"Rédige l'article complet basé sur :\n{PREVIOUS}",useInput:false},
-      {id:3,label:"Révision",ia:activeIds[2]||firstIA,prompt:"Corrige et améliore cet article :\n{PREVIOUS}",useInput:false},
-    ]},
-    { name:"Analyse marché", steps:[
-      {id:1,label:"Infos clés",ia:firstIA,prompt:"Infos clés sur ce marché : {INPUT}",useInput:true},
-      {id:2,label:"SWOT",ia:activeIds[1]||firstIA,prompt:"Analyse SWOT basée sur :\n{PREVIOUS}",useInput:false},
-      {id:3,label:"Recommandations",ia:activeIds[2]||firstIA,prompt:"5 recommandations stratégiques basées sur :\n{PREVIOUS}",useInput:false},
-    ]},
-    { name:"Pitch produit", steps:[
-      {id:1,label:"Problème",ia:firstIA,prompt:"Décris le problème que résout : {INPUT}. Sois factuel.",useInput:true},
-      {id:2,label:"Solution",ia:activeIds[1]||firstIA,prompt:"Propose une solution et un USP basés sur :\n{PREVIOUS}",useInput:false},
-      {id:3,label:"Pitch",ia:activeIds[2]||firstIA,prompt:"Rédige un pitch de 30 secondes basé sur :\n{PREVIOUS}",useInput:false},
-    ]},
-  ];
-
-  const runWorkflow = async () => {
-    if (!wfInput.trim() || !steps.length) return;
-    setIsRunning(true); setOutputs({}); setDoneSteps(new Set());
-    let prev = wfInput;
-    for (const step of steps) {
-      setRunningStep(step.id);
-      const prompt = step.prompt.replace("{INPUT}", wfInput).replace("{PREVIOUS}", prev);
-      try {
-        const reply = await callModel(step.ia, [{role:"user",content:prompt}], apiKeys);
-        setOutputs(p => ({...p,[step.id]:{text:reply,ia:step.ia}}));
-        setDoneSteps(p => new Set([...p, step.id]));
-        prev = reply;
-      } catch(e) {
-        setOutputs(p => ({...p,[step.id]:{text:"❌ "+e.message,ia:step.ia}}));
-        break;
-      }
-    }
-    setRunningStep(null); setIsRunning(false);
-  };
-
-  const loadTemplate = (tpl) => {
-    setSteps(tpl.steps.map(s=>({...s,ia:enabled[s.ia]?s.ia:firstIA})));
-    setOutputs({}); setDoneSteps(new Set());
-  };
-
-  return (
-    <div className="wf-wrap">
-      <div className="wf-left">
-        <div style={{padding:"8px 10px",borderBottom:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:11,color:"var(--ac)"}}>🤖 WORKFLOW</span>
-          <span style={{fontSize:8,color:"var(--mu)",flex:1}}>Chaîne d'IAs automatisée</span>
-        </div>
-        <div style={{padding:"8px",borderBottom:"1px solid var(--bd)",flexShrink:0}}>
-          <div style={{fontSize:8,color:"var(--mu)",marginBottom:5,fontWeight:700,letterSpacing:".5px"}}>MODÈLES RAPIDES</div>
-          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-            {TEMPLATES.map((t,i)=><button key={i} className="filter-btn" style={{fontSize:8}} onClick={()=>loadTemplate(t)}>{t.name}</button>)}
-          </div>
-        </div>
-        <div style={{padding:"8px",borderBottom:"1px solid var(--bd)",flexShrink:0}}>
-          <div style={{fontSize:8,color:"var(--mu)",marginBottom:4,fontWeight:700,letterSpacing:".5px"}}>INPUT DE DÉPART</div>
-          <textarea style={{width:"100%",height:70,background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontFamily:"'IBM Plex Mono',monospace",fontSize:10,padding:"6px 8px",outline:"none",resize:"none",lineHeight:1.55}}
-            placeholder="Sujet, texte ou question…" value={wfInput} onChange={e=>setWfInput(e.target.value)}/>
-        </div>
-        <div className="wf-steps">
-          {steps.map((step,idx) => (
-            <div key={step.id} className={"wf-step "+(doneSteps.has(step.id)?"done":runningStep===step.id?"running":"")}>
-              <div className="wf-step-hdr">
-                <div className="wf-step-num">{idx+1}</div>
-                <div className="wf-step-label">{step.label}</div>
-                <div className="wf-step-ia" style={{color:MODEL_DEFS[step.ia]?.color}}>{MODEL_DEFS[step.ia]?.icon} {MODEL_DEFS[step.ia]?.short}</div>
-                {doneSteps.has(step.id) && <span style={{color:"var(--green)",fontSize:12}}>✓</span>}
-              </div>
-              <select style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",fontSize:9,padding:"3px 6px",width:"100%"}}
-                value={step.ia} onChange={e=>setSteps(prev=>prev.map(s=>s.id===step.id?{...s,ia:e.target.value}:s))}>
-                {activeIds.map(id=><option key={id} value={id}>{MODEL_DEFS[id].icon} {MODEL_DEFS[id].name}</option>)}
-              </select>
-              <textarea style={{width:"100%",height:55,background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",fontSize:8,padding:"4px 6px",outline:"none",resize:"none",lineHeight:1.5}}
-                value={step.prompt} onChange={e=>setSteps(prev=>prev.map(s=>s.id===step.id?{...s,prompt:e.target.value}:s))}/>
-              <div style={{fontSize:7,color:"var(--mu)"}}>Utilise {"{INPUT}"} pour l'input initial, {"{PREVIOUS}"} pour la sortie précédente</div>
-            </div>
-          ))}
-        </div>
-        <button className="wf-run-btn" onClick={runWorkflow} disabled={isRunning||!wfInput.trim()}>
-          {isRunning ? "⚙ Étape "+runningStep+"/"+steps.length+" en cours…" : "▶ Lancer le workflow"}
-        </button>
-      </div>
-      <div className="wf-right">
-        {Object.keys(outputs).length === 0 ? (
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:10,color:"var(--mu)",fontSize:11,textAlign:"center",padding:20}}>
-            <div style={{fontSize:36}}>🤖</div>
-            <strong style={{color:"var(--tx)"}}>Workflow prêt</strong>
-            <div style={{maxWidth:280}}>Configure les étapes, saisis ton input, puis lance. Chaque IA passe sa sortie à la suivante automatiquement.</div>
-          </div>
-        ) : (
-          <div className="wf-output">
-            {steps.map(step => {
-              const out = outputs[step.id];
-              if (!out) return null;
-              const m = MODEL_DEFS[out.ia];
-              return (
-                <div key={step.id} className="wf-out-card" style={{borderColor:m?.color+"33"}}>
-                  <div className="wf-out-hdr">
-                    <div className="wf-step-num">{step.id}</div>
-                    <span style={{fontSize:10,fontWeight:700,color:"var(--tx)"}}>{step.label}</span>
-                    <span style={{fontSize:9,color:m?.color,marginLeft:4}}>{m?.icon} {m?.name}</span>
-                    <button style={{marginLeft:"auto",background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontSize:8,padding:"2px 5px",fontFamily:"'IBM Plex Mono',monospace"}}
-                      onClick={()=>{try{navigator.clipboard.writeText(out.text);}catch{}}}>⎘</button>
-                  </div>
-                  <div className="wf-out-body" style={{color:out.text.startsWith("❌")?"var(--red)":"var(--tx)"}}><MarkdownRenderer text={out.text}/></div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ── STATS TAB ─────────────────────────────────────────────────────
 function StatsTab({ stats, onReset }) {
@@ -3824,6 +3694,8 @@ function App() {
 
   const [conversations, setConversations] = useState(() => Object.fromEntries(IDS.map(id => [id, []])));
   const [loading, setLoading] = useState(() => Object.fromEntries(IDS.map(id => [id, false])));
+  const abortRefs = React.useRef({}); // {id: AbortController}
+  const msgsEndRefs = React.useRef({}); // {id: ref}
   const [chatInput, setChatInput] = useState("");
   const [modal, setModal] = useState(null);
   const [keyDraft, setKeyDraft] = useState("");
@@ -4022,6 +3894,18 @@ function App() {
       maxTokens: 2000,
     };
     saveWorkflow([...workflowNodes, node]);
+  };
+
+  const cancelModelCall = (id) => {
+    if (abortRefs.current[id]) {
+      abortRefs.current[id].abort();
+      delete abortRefs.current[id];
+    }
+    setLoading(prev => ({ ...prev, [id]: false }));
+    setConversations(prev => ({
+      ...prev,
+      [id]: [...(prev[id]||[]), { role:"error", content:"⏹ Réponse annulée" }]
+    }));
   };
 
   const cancelWorkflow = () => {
@@ -4226,13 +4110,15 @@ ${allMsgs.map(m=>`
         if (id) { e.preventDefault(); setEnabled(prev=>({...prev,[id]:!prev[id]})); showToast(`${MODEL_DEFS[id].icon} ${MODEL_DEFS[id].short} ${enabled[id]?"désactivé":"activé"}`); }
       }
       // Ctrl+K = focus recherche historique
-      if (e.ctrlKey && e.key==="k") { e.preventDefault(); setTab("chat"); setTimeout(()=>document.getElementById("hist-search-inp")?.focus(),150); }
+      if (e.ctrlKey && e.key==="k") { e.preventDefault(); navigateTab("chat"); setTimeout(()=>document.getElementById("hist-search-inp")?.focus(),150); }
       // Ctrl+L = clear conversations
       if (e.ctrlKey && e.key==="l") { e.preventDefault(); setConversations(Object.fromEntries(IDS.map(id=>[id,[]]))); showToast("💬 Conversations effacées"); }
       // Ctrl+M = export markdown
       if (e.ctrlKey && e.key==="m") { e.preventDefault(); exportMarkdown(null); }
       // Escape = quitter focus / solo
-      if (e.key==="Escape") { setFocusId(null); setSoloId(null); setShowRagPanel(false); }
+      if (e.key==="Escape") { setFocusId(null); setSoloId(null); setShowRagPanel(false); setCanvasContent(null); }
+      // Ctrl+T = reset session tokens
+      if (e.ctrlKey && e.key==="t" && !inInput) { e.preventDefault(); setSessionTokens({}); showToast("🔢 Compteur tokens réinitialisé"); }
     };
     window.addEventListener("keydown", handler);
     return ()=>window.removeEventListener("keydown", handler);
@@ -4339,7 +4225,7 @@ ${allMsgs.map(m=>`
   // ── Statistiques d'usage ──
 
   // ── Injection prompt depuis Bibliothèque ──
-  const injectPrompt = (text) => { setChatInput(text); setTab("chat"); showToast("✓ Prompt injecté dans le Chat"); };
+  const injectPrompt = (text) => { setChatInput(text); navigateTab("chat"); showToast("✓ Prompt injecté dans le Chat"); };
 
   // ── Onglet médias sous-onglet ──
   const [mediaSubTab, setMediaSubTab] = useState("youtube");
@@ -4645,6 +4531,8 @@ ${allMsgs.map(m=>`
     }
     if (!ids.length) return;
     setLoading(prev => { const n={...prev}; ids.forEach(id => { n[id]=true; }); return n; });
+    // Create AbortControllers per IA
+    ids.forEach(id => { abortRefs.current[id] = new AbortController(); });
     await Promise.all(ids.map(async (id) => {
       try {
         const hist = [...conversations[id], userMsg];
@@ -4657,6 +4545,8 @@ ${allMsgs.map(m=>`
         const thinkContent = extractThink(reply);
         const cleanReply = stripThink(reply);
         if (ttsEnabled && ids.length===1) speakText(cleanReply);
+        // Auto-scroll to bottom
+        setTimeout(()=>{ const el = msgsEndRefs.current[id]; if(el) el.scrollIntoView({behavior:"smooth"}); }, 50);
         // Token estimation (heuristic: 1 token ≈ 4 chars)
         const inEst = Math.round(hist.reduce((a,m)=>(a+(m.content||"").length),0)/4);
         const outEst = Math.round((cleanReply||"").length/4);
@@ -4814,7 +4704,7 @@ ${allMsgs.map(m=>`
 
         {/* NAV */}
         <div className="nav" style={isMobile?{display:"none"}:{}}>
-          <button onClick={()=>setShowMemPanel(m=>!m)} title="Mémoire locale" style={{background:memFacts.length>0?"rgba(212,168,83,.15)":"var(--s1)",border:"1px solid "+(memFacts.length>0?"rgba(212,168,83,.4)":"var(--bd)"),borderRadius:5,color:memFacts.length>0?"var(--ac)":"var(--mu)",fontSize:10,padding:"4px 8px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",whiteSpace:"nowrap",flexShrink:0}}>
+          <button onClick={()=>setShowMemPanel(m=>!m)} title="Mémoire locale" style={{background:memFacts.length>0?"rgba(212,168,83,.15)":"var(--s1)",border:"1px solid "+(memFacts.length>0?"rgba(212,168,83,.4)":"var(--bd)"),borderRadius:5,color:memFacts.length>0?"var(--ac)":"var(--mu)",fontSize:10,padding:"4px 8px",cursor:"pointer",fontFamily:"var(--font-ui)",whiteSpace:"nowrap",flexShrink:0,position:"relative"}}>
             💾 Mémoire{memFacts.length>0?` (${memFacts.length})`:""}
           </button>
           <button className="zen-mode-btn" style={{position:"relative",bottom:"auto",right:"auto",width:28,height:28,fontSize:11,borderRadius:5,flexShrink:0}} title={zenMode?"Quitter le mode Zen":"Mode Zen (focus)"} onClick={()=>setZenMode(z=>!z)}>{zenMode?"⊡":"⊞"}</button>
@@ -5075,7 +4965,7 @@ ${allMsgs.map(m=>`
                         <button onClick={()=>setShowRecap(v=>!v)} style={{fontSize:8,padding:"4px 10px",background:"rgba(74,222,128,.08)",border:"1px solid rgba(74,222,128,.25)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>
                           📋 {showRecap?"Masquer":"Voir"} tableau récap
                         </button>
-                        <button onClick={()=>setTab("compare")} style={{fontSize:8,padding:"4px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>
+                        <button onClick={()=>navigateTab("compare")} style={{fontSize:8,padding:"4px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>
                           📊 Historique comparaisons
                         </button>
                       </div>
@@ -5162,6 +5052,10 @@ ${allMsgs.map(m=>`
                       })()}
                     </div>
                     <div className="cm">
+                      {loading[id] && (
+                        <button onClick={()=>cancelModelCall(id)} title="Annuler la réponse"
+                          style={{background:"rgba(248,113,113,.12)",border:"1px solid rgba(248,113,113,.35)",borderRadius:4,color:"var(--red)",fontSize:9,padding:"2px 6px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",marginRight:3,flexShrink:0}}>⏹</button>
+                      )}
                       {lim && <span className="countdown">⏳ {fmtCd(id)}</span>}
                       <div className={`dot ${loading[id]?"live":lim?"limited":""}`}/>
                     </div>
@@ -5186,7 +5080,7 @@ ${allMsgs.map(m=>`
                       </button>
                     </div>
                   </div>
-                  <div className="msgs" ref={el => msgRefs.current[id] = el}>
+                  <div className="msgs" style={{position:"relative"}} ref={el => msgRefs.current[id] = el}>
                     {conversations[id].length === 0 && !loading[id] && <div className="empty">{enabled[id]?lim?`⏳ Bloqué — ${fmtCd(id)}`:"En attente…":"Désactivé"}</div>}
                     {conversations[id].map((msg, i) => (
                       <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative",animation:"fadeInUp .3s ease-out"}:{animation:"fadeInUp .25s ease-out"}}>
@@ -5205,14 +5099,19 @@ ${allMsgs.map(m=>`
                             <button className="voice-btn" title="Copier" onClick={()=>{try{navigator.clipboard.writeText(msg.content);}catch{}}}>⎘</button>
                             <button className="voice-btn" title="Réutiliser dans le chat" onClick={()=>{
                               const prev=conversations[id].slice(0,i).reverse().find(x=>x.role==="user");
-                              if(prev){setChatInput(prev.content);setTab("chat");}
+                              if(prev){setChatInput(prev.content);navigateTab("chat");}
                             }} style={{fontSize:8}}>↩ Renvoyer</button>
                           </div>
                         )}
                       </div>
                     ))}
                     {loading[id] && <div className="msg ld"><span className="dots"><span>·</span><span>·</span><span>·</span></span></div>}
+                    <div ref={el => { if(el) msgsEndRefs.current[id] = el; }} style={{height:1}}/>
                   </div>
+                  {/* Scroll-to-bottom btn */}
+                  {conversations[id]?.length > 4 && !loading[id] && (
+                    <button className="scroll-to-bottom" onClick={()=>msgsEndRefs.current[id]?.scrollIntoView({behavior:"smooth"})} title="Défiler vers le bas">↓</button>
+                  )}
                 </div>
               );
             })}
@@ -5293,7 +5192,7 @@ ${allMsgs.map(m=>`
                 style={{background:ollamaConnected?"rgba(74,222,128,.12)":"transparent",border:"1px solid "+(ollamaConnected?"rgba(74,222,128,.4)":"var(--bd)"),borderRadius:4,color:ollamaConnected?"var(--green)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🖥 Ollama{ollamaConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
               </button>
-              <button onClick={()=>setTab("workflow")} title="Éditeur de workflow visuel"
+              <button onClick={()=>navigateTab("workflow")} title="Éditeur de workflow visuel"
                 style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🔀 Workflow
               </button>
@@ -5953,7 +5852,7 @@ ${allMsgs.map(m=>`
         {/* ── NOTES TAB ── */}
         {tab === "notes" && (
           <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <NotesTab onCopyToChat={(text) => { setTab("chat"); setTimeout(()=>setChatInput(text),100); }}/>
+            <NotesTab onCopyToChat={(text) => { navigateTab("chat"); setTimeout(()=>setChatInput(text),100); }}/>
           </div>
         )}
 
@@ -6224,7 +6123,7 @@ ${allMsgs.map(m=>`
                         </div>
                         <div style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace"}}>{v.reason}</div>
                       </div>
-                      <button onClick={()=>{setBestVote(v);setShowVoteDetail(true);setShowDiffModal(false);setTab("chat");}} style={{flexShrink:0,fontSize:8,padding:"3px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>↩ Revoir</button>
+                      <button onClick={()=>{setBestVote(v);setShowVoteDetail(true);setShowDiffModal(false);navigateTab("chat");}} style={{flexShrink:0,fontSize:8,padding:"3px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>↩ Revoir</button>
                     </div>
                   );
                 })}
