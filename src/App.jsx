@@ -2542,28 +2542,33 @@ function YouTubeTab({ apiKeys = {} }) {
   const [ytPlayer, setYtPlayer] = useState(null); // {videoId, title, channel}
   const [ytSearching, setYtSearching] = useState(null); // index de la carte en cours de recherche
 
-  const searchAndPlay = async (v, idx) => {
-    setYtSearching(idx);
-    const ytKey = (apiKeys || {}).youtube_data;
-    if (ytKey) {
-      // Recherche via YouTube Data API v3
-      try {
-        const q = encodeURIComponent(`${v.title} ${v.channel}`);
-        const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=1&key=${ytKey}`);
-        const d = await r.json();
+  const searchAndPlay = (v, idx) => {
+  setYtSearching(idx);
+  // Construire l'URL de recherche YouTube immédiatement
+  const query = encodeURIComponent(`${v.title} ${v.channel}`);
+  const url = `https://www.youtube.com/results?search_query=${query}`;
+  
+  // Ouvrir l'onglet tout de suite (synchrone)
+  window.open(url, '_blank');
+  
+  // Marquer la vidéo comme vue (ne bloque pas l'ouverture)
+  markWatched(v);
+  
+  // Optionnel : si une clé YouTube est configurée, on peut tenter d'obtenir l'ID exact
+  // mais on ne bloque pas l'ouverture
+  if (apiKeys.youtube_data) {
+    fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=1&key=${apiKeys.youtube_data}`)
+      .then(r => r.json())
+      .then(d => {
         if (d.items?.[0]?.id?.videoId) {
-          markWatched(v);
-          setYtPlayer({ videoId: d.items[0].id.videoId, title: v.title, channel: v.channel });
-          setYtSearching(null); return;
+          // On pourrait afficher une notification, mais l'utilisateur est déjà sur la page de recherche
         }
-      } catch {}
-    }
-    // Fallback : ouvre dans un nouvel onglet (recherche précise)
-    const q = encodeURIComponent(`${v.title} ${v.channel}`);
-    markWatched(v);
-    window.open(`https://www.youtube.com/results?search_query=${q}`, "_blank");
-    setYtSearching(null);
-  };
+      })
+      .catch(() => {});
+  }
+  
+  setYtSearching(null);
+};
   const [vidProvider, setVidProvider] = useState(null);
   const [vidFallback, setVidFallback] = useState(false);
   const [vidCache, setVidCache] = useState({});
