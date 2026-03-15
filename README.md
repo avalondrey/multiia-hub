@@ -1,123 +1,122 @@
-# 🤖 Multi-IA Hub 
+# 🤖 Multi-IA Hub — v18.0
 
 > Interface web parallèle pour comparer et utiliser plusieurs IAs simultanément — gratuit, open source, déployable en 1 clic.
 
-![Version](https://img.shields.io/badge/version-16.1-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Deploy](https://img.shields.io/badge/deploy-Vercel-black)
+[![Version](https://img.shields.io/badge/version-18.0-blue)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Deploy](https://img.shields.io/badge/deploy-Vercel-black)](https://vercel.com/new)
+[![Live](https://img.shields.io/badge/live-multiia--hub.vercel.app-brightgreen)](https://multiia-hub.vercel.app)
 
-## ✨ Fonctionnalités
+---
 
-- **10 IAs en parallèle** — Groq, Mistral, Cohere, Cerebras, SambaNova, Qwen3, + 4 via Pollinations (GPT-4o, Claude, DeepSeek, GPT-4o Large)
-- **🏆 Jury IA automatique** — une IA note les autres après chaque échange (podium, barres de score, raison)
-- **🔍 Vue diff** — surlignage des mots communs/uniques entre deux réponses
-- **⚖ Historique des comparaisons** — win rate cumulé par IA sur tous tes échanges
-- **📄 RAG** — coller un document long, injection du contexte pertinent
-- **🎭 13 Personas** — Dev senior, Rédacteur, Coach, Avocat du diable, Socrate, Débutant, Tuteur IA…
-- **🔀 Workflow** — chaîne de prompts séquentiels avec sortie → entrée
-- **🖥 Ollama local** — connecte tes modèles locaux
-- **⌨️ Raccourcis clavier** — Ctrl+Enter, Ctrl+1..9, Ctrl+K, Ctrl+L, Ctrl+M, Escape
-- **📝 Export** — Markdown, PDF, .txt, JSON
-- **📺 Médias** — chaînes YouTube IA (FR + EN), générateurs d'images
-- **⚔ Arène** — tableau comparatif de 18 modèles
-- **🌐 37 IAs Web** — liens directs vers les interfaces web
-- **💾 Historique** — sauvegarde automatique jusqu'à 50 conversations (localStorage)
-- **📲 PWA** — installable sur mobile/desktop, fonctionne hors-ligne
+## ✨ Fonctionnalités principales
 
-## 🚀 Déploiement rapide (Vercel)
+| Feature | Description |
+|---|---|
+| **12 IAs en parallèle** | Groq, Mistral, Cohere, Cerebras, SambaNova, Qwen3, Llama 4, + 4 via Pollinations |
+| **⚡ Mode Débat** | Tour 1 → Tour 2 → Synthèse, avec fichier joint (PDF/code/image) |
+| **🚀 Pipeline Concrétisation** | Plan d'action / Code+Tests / Document formel en 5 étapes vérifiées |
+| **🏆 Jury IA** | Une IA note les autres après chaque échange (podium + barres de score) |
+| **🌐 37 IAs Web** | Cartes enrichies avec tags, tendances, tarifs précis |
+| **📋 Workflows Multi-Steps** | Pipeline de prompts séquentiels avec variables |
+| **🧠 CoT visible** | Raisonnement `<think>` de Qwen3/DeepSeek affiché en panel pliable |
+| **💾 Mémoire locale** | Faits persistants injectés dans le system prompt |
+| **📎 Upload fichiers** | PDF, TXT, code, images dans le chat et le débat |
+| **📲 PWA** | Installable sur mobile/desktop, fonctionne hors-ligne |
 
-### 1. Fork ce dépôt
+---
+
+## 🚀 Déploiement rapide (Vercel — gratuit)
+
+### Option 1 — Fork + Deploy
 
 ```bash
-git clone https://github.com/TON_PSEUDO/multiia-hub.git
+git clone https://github.com/avalondrey/multiia-hub.git
 cd multiia-hub
 npm install
+npm run build   # test local
 ```
 
-### 2. Déploie sur Vercel
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/avalondrey/multiia-hub)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
-
+**Configuration Vercel :**
 - Build Command : `node node_modules/vite/bin/vite.js build`
 - Output Directory : `dist`
+- Root Directory : *(laisser vide)*
 
-### 3. Variables d'environnement (optionnel)
+### Option 2 — Utiliser directement
 
-Uniquement si tu veux activer Claude via proxy Vercel :
+👉 **[multiia-hub.vercel.app](https://multiia-hub.vercel.app)** — aucune installation requise
 
-| Variable | Description |
-|---|---|
-| `ANTHROPIC_API_KEY` | Clé API Anthropic (claude.ai) |
+---
 
-> ⚠️ Ne jamais mettre de clés dans le code source. Utilise toujours les variables d'environnement Vercel.
+## 🔑 Clés API — Toutes gratuites
 
-## 🔑 Clés API — Où les obtenir ?
-
-Toutes les clés se saisissent dans l'onglet **⚙ Config** de l'app — elles sont stockées **uniquement dans ton navigateur** (localStorage), jamais envoyées à un serveur tiers.
-
-| IA | Prix | Lien |
+| IA | Limite gratuite | Lien |
 |---|---|---|
-| Groq (Llama 3.3) | ✅ Gratuit (14 400 req/jour) | [console.groq.com](https://console.groq.com/keys) |
-| Mistral Small | ✅ Gratuit | [console.mistral.ai](https://console.mistral.ai) |
-| Cohere Command R+ | ✅ Gratuit | [dashboard.cohere.com](https://dashboard.cohere.com) |
-| Cerebras | ✅ Gratuit | [cloud.cerebras.ai](https://cloud.cerebras.ai) |
-| SambaNova | ✅ Gratuit | [cloud.sambanova.ai](https://cloud.sambanova.ai) |
-| Pollen (Claude/DeepSeek) | ✅ Gratuit Seed tier | [enter.pollinations.ai](https://enter.pollinations.ai) |
-| GPT-4o, GPT-4o Large | ✅ Sans clé | Via [Pollinations](https://pollinations.ai) |
+| **Groq** (Llama 3.3, Qwen3, Llama 4) | 14 400 req/jour | [console.groq.com](https://console.groq.com/keys) |
+| **Mistral Small** | Tier gratuit | [console.mistral.ai](https://console.mistral.ai) |
+| **Cohere Command R+** | 1 000 req/mois | [dashboard.cohere.com](https://dashboard.cohere.com/api-keys) |
+| **Cerebras** | Gratuit | [cloud.cerebras.ai](https://cloud.cerebras.ai) |
+| **SambaNova** | Gratuit | [cloud.sambanova.ai](https://cloud.sambanova.ai) |
+| **GPT-4o via Pollinations** | Sans clé | Automatique |
+| **Pollen** (Claude/DeepSeek via Pollinations) | Gratuit Seed tier | [enter.pollinations.ai](https://enter.pollinations.ai) |
 
-## 🔒 Sécurité
+> ⚠️ Les clés sont stockées **uniquement dans ton navigateur** (localStorage). Aucune donnée n'est envoyée à un serveur tiers.
 
-- **Aucune clé stockée côté serveur** — tout reste dans ton `localStorage`
-- **Pas de backend** sauf le proxy Vercel (optionnel) pour Claude
-- **Pas de tracking, pas de télémétrie**
-- **Proxy Vercel** : la clé Anthropic est lue depuis `process.env` (variable d'environnement Vercel), jamais exposée au client
-- Les clés API exportées (`multiia-keys.json`) sont dans le `.gitignore` — ne les commite jamais
+---
 
-### ⚠️ Avertissements
-
-- Les clés dans `localStorage` sont lisibles via DevTools du navigateur — n'utilise pas l'app sur un ordinateur partagé
-- Si tu forks et déploies publiquement, les utilisateurs saisissent leurs propres clés — c'est leur responsabilité
-- Ne commite **jamais** un fichier `.env` ou `multiia-keys.json`
-
-## 🗂 Structure du projet
+## 🏗 Structure du projet
 
 ```
 multiia-hub/
 ├── src/
-│   └── App.jsx          # Application React complète (single-file)
-├── public/
-│   ├── manifest.json    # PWA manifest
-│   └── sw.js            # Service Worker
+│   ├── App.jsx              ← Interface + composants + logique (~6500L)
+│   ├── config/
+│   │   └── models.js        ← Modèles IA, constantes, données UI
+│   ├── api/
+│   │   └── ai-service.js    ← Appels API (callModel, truncate, etc.)
+│   └── main.jsx             ← Point d'entrée React
 ├── api/
-│   └── claude.js        # Proxy Vercel pour Claude (optionnel)
+│   └── claude.js            ← Proxy Vercel sécurisé (optionnel)
 ├── index.html
 ├── vite.config.js
+├── vercel.json
 ├── package.json
-└── .gitignore           # ← multiia-keys.json exclu
+├── CHANGELOG.md             ← Historique complet des versions
+└── .gitignore
 ```
 
-## 📋 Historique des versions
+---
 
-| Version | Nouveautés majeures |
-|---|---|
-| v16 | Jury visuel podium + Vue diff + Tableau récap + Onglet Comparer |
-| v15 | Fix Pollinations · 4 IAs gratuites · Clé Pollen |
-| v14 | Jury IA · Raccourcis clavier · RAG · Ollama · Workflow · Personas |
-| v13 | 37 IAs Web en 8 catégories · Découverte automatique |
-| v12 | Refonte nav · Thème clair/sombre · TTS · Dictée vocale · Personas |
-| v11 | Chaînes YouTube personnalisées |
-| v10 | Sidebar historique · Sauvegarde auto · Mode Solo |
-| v9 | Onglet YouTube · Vidéos dynamiques |
-| v8 | Actualités IA avec fallback automatique |
-| v7 | Arène comparatif · Onglet Images |
-| v6 | Responsive mobile · 12 IAs Web · Blocage rate-limit |
-| v5 | Groq/Mistral/DeepSeek · Correcteur orthographique |
-| v4 | Config complète · Export/Import clés · Mode Débat |
-| v1 | Lancement Multi-IA Hub |
+## 🔧 Workflow de développement
 
-## 🤝 Contribution
+```powershell
+# Après modification de App.jsx
+copy C:\Users\...\Downloads\multi-ai-hub.jsx src\App.jsx
+git add src\
+git commit -m "vX.X description"
+git push
+# Vercel déploie automatiquement
+```
 
-Les PRs sont bienvenues ! Pour les bugs ou suggestions, ouvre une Issue.
+---
+
+## 🔒 Sécurité
+
+- ✅ Aucune clé API stockée côté serveur
+- ✅ Proxy Vercel optionnel pour Claude (`api/claude.js`) lit depuis `process.env`
+- ✅ Rate limiting sur le proxy (20 req/min/IP)
+- ✅ `node_modules/` et `dist/` exclus du repo
+- ⚠️ Les clés dans `localStorage` sont lisibles via DevTools — ne pas utiliser sur PC partagé
+
+---
+
+## 📋 Changelog
+
+Voir [CHANGELOG.md](CHANGELOG.md) pour l'historique complet des versions.
+
+---
 
 ## 📄 Licence
 
