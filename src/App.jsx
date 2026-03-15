@@ -2542,33 +2542,29 @@ function YouTubeTab({ apiKeys = {} }) {
   const [ytPlayer, setYtPlayer] = useState(null); // {videoId, title, channel}
   const [ytSearching, setYtSearching] = useState(null); // index de la carte en cours de recherche
 
-  const searchAndPlay = (v, idx) => {
-  setYtSearching(idx);
-  // Construire l'URL de recherche YouTube immédiatement
-  const query = encodeURIComponent(`${v.title} ${v.channel}`);
-  const url = `https://www.youtube.com/results?search_query=${query}`;
-  
-  // Ouvrir l'onglet tout de suite (synchrone)
-  window.open(url, '_blank');
-  
-  // Marquer la vidéo comme vue (ne bloque pas l'ouverture)
-  markWatched(v);
-  
-  // Optionnel : si une clé YouTube est configurée, on peut tenter d'obtenir l'ID exact
-  // mais on ne bloque pas l'ouverture
-  if (apiKeys.youtube_data) {
-    fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=1&key=${apiKeys.youtube_data}`)
-      .then(r => r.json())
-      .then(d => {
+  const searchAndPlay = async (v, idx) => {
+    setYtSearching(idx);
+    markWatched(v);
+
+    // Avec clé YouTube Data API → recherche le vrai videoId → player intégré
+    if (apiKeys.youtube_data) {
+      try {
+        const q = encodeURIComponent(`${v.title} ${v.channel}`);
+        const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=1&key=${apiKeys.youtube_data}`);
+        const d = await r.json();
         if (d.items?.[0]?.id?.videoId) {
-          // On pourrait afficher une notification, mais l'utilisateur est déjà sur la page de recherche
+          setYtPlayer({ videoId: d.items[0].id.videoId, title: v.title, channel: v.channel });
+          setYtSearching(null);
+          return;
         }
-      })
-      .catch(() => {});
-  }
-  
-  setYtSearching(null);
-};
+      } catch {}
+    }
+
+    // Sans clé → ouvre YouTube search dans un nouvel onglet
+    const q = encodeURIComponent(`${v.title} ${v.channel}`);
+    window.open(`https://www.youtube.com/results?search_query=${q}`, '_blank');
+    setYtSearching(null);
+  };
   const [vidProvider, setVidProvider] = useState(null);
   const [vidFallback, setVidFallback] = useState(false);
   const [vidCache, setVidCache] = useState({});
@@ -2936,6 +2932,34 @@ function YouTubeTab({ apiKeys = {} }) {
         ))}
       </div>
     
+    {/* ── YouTube Player Modal ── */}
+    {ytPlayer && (
+      <div onClick={()=>setYtPlayer(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(8px)"}}>
+        <div onClick={e=>e.stopPropagation()} style={{width:"min(900px,96vw)",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:10,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,.8)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
+            <span style={{fontSize:14}}>▶</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",fontFamily:"'Syne',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ytPlayer.title}</div>
+              <div style={{fontSize:9,color:"var(--mu)"}}>{ytPlayer.channel}</div>
+            </div>
+            <a href={`https://www.youtube.com/watch?v=${ytPlayer.videoId}`} target="_blank" rel="noreferrer"
+              style={{fontSize:8,padding:"4px 10px",background:"rgba(255,80,80,.12)",border:"1px solid rgba(255,80,80,.3)",borderRadius:4,color:"#FF5555",textDecoration:"none",whiteSpace:"nowrap",fontFamily:"'IBM Plex Mono',monospace"}}>
+              ↗ Ouvrir YouTube
+            </a>
+            <button onClick={()=>setYtPlayer(null)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:14,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+          </div>
+          <div style={{position:"relative",paddingBottom:"56.25%",height:0,background:"#000"}}>
+            <iframe
+              src={`https://www.youtube.com/embed/${ytPlayer.videoId}?autoplay=1&rel=0`}
+              title={ytPlayer.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}}
+            />
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
