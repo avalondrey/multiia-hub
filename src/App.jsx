@@ -4216,11 +4216,10 @@ ${analyseFile.content}
     if (!ids.length) { setDashLoadingNews(false); return; }
     const id = ids.find(i=>i==="groq")||ids[0];
     try {
-      const r = await callModel(id, [{role:"user",content:`Liste 6 actualités importantes en IA de mars 2026. Format JSON:
-[{"titre":"...","desc":"2 phrases max","cat":"Modèles|Outils|Recherche|Business","hot":true/false}]
-Réponds UNIQUEMENT en JSON valide.`}], apiKeys, "Tu es un veilleur technologique. Réponds uniquement en JSON.");
+      const newsP = "Génère 8 actualités IA importantes de mars 2026. JSON uniquement, tableau de 8 objets : [{\"titre\":\"max 80 chars\",\"desc\":\"3 phrases détaillées sur l'actualité et son impact\",\"cat\":\"Modèles|Outils|Recherche|Business|Sécurité|Open-source\",\"hot\":true,\"imgQuery\":\"2 mots anglais pour illustrer\"}]. Exactement 3 hot:true. Variété de catégories obligatoire.";
+      const r = await callModel(id, [{role:"user",content:newsP}], apiKeys, "Expert veille IA. Réponds uniquement en JSON valide, sans texte avant ou après.");
       const d = JSON.parse(r.replace(/```json|```/g,"").trim());
-      setDashNews(Array.isArray(d)?d:[]);
+      setDashNews(Array.isArray(d)?d.slice(0,8):[]);
     } catch { setDashNews([]); }
     setDashLoadingNews(false);
   };
@@ -4276,6 +4275,7 @@ Réponds UNIQUEMENT en JSON valide.`}], apiKeys, "Tu es un veilleur technologiqu
   };
 
   useEffect(() => { IDS.forEach(id => { const el = msgRefs.current[id]; if(el) el.scrollTop = el.scrollHeight; }); }, [conversations, loading]);
+  useEffect(() => { if (tab === "dashboard" && !dashWeather) fetchDashWeather(); }, [tab]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2800); };
 
@@ -5966,7 +5966,7 @@ Réponds UNIQUEMENT en JSON valide.`}], apiKeys, "Tu es un veilleur technologiqu
               {/* Météo */}
               <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"14px 16px"}}>
                 <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>MÉTÉO LOCALE</div>
-                {!dashWeather&&fetchDashWeather()&&null}
+                {!dashWeather&&<span style={{color:"var(--mu)",fontSize:9}}>⏳ Chargement météo…</span>}
                 {dashWeather ? (
                   <>
                     <div style={{fontSize:26,marginBottom:4}}>{dashWeather.label?.split(" ")[0]||"🌡"}</div>
@@ -6027,18 +6027,40 @@ Réponds UNIQUEMENT en JSON valide.`}], apiKeys, "Tu es un veilleur technologiqu
                 {!dashNews.length&&!dashLoadingNews&&<span style={{fontSize:8,color:"var(--mu)"}}>— Clique "Actualiser news IA" pour charger</span>}
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:10}}>
-                {dashNews.map((n,i)=>(
-                  <div key={i} style={{background:"var(--s1)",border:`1px solid ${n.hot?"rgba(212,168,83,.4)":"var(--bd)"}`,borderRadius:8,padding:"12px 14px",position:"relative"}}>
-                    {n.hot&&<span style={{position:"absolute",top:8,right:10,fontSize:12}}>🔥</span>}
-                    <div style={{fontSize:7,padding:"1px 5px",background:"rgba(96,165,250,.1)",color:"var(--blue)",borderRadius:3,display:"inline-block",marginBottom:6,fontWeight:700,letterSpacing:.5}}>{n.cat}</div>
-                    <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:5,lineHeight:1.4,paddingRight:20}}>{n.titre}</div>
-                    <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5}}>{n.desc}</div>
-                    <button onClick={()=>addDashPopup(n.titre,n.hot?"hot":"info")}
-                      style={{marginTop:8,fontSize:7,padding:"2px 6px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                      🔔 Notifier
-                    </button>
-                  </div>
-                ))}
+                {dashNews.map((n,i)=>{
+                  const catColor = {Modèles:"#A78BFA",Outils:"#60A5FA",Recherche:"#34D399",Business:"#F59E0B",Sécurité:"#F87171","Open-source":"#4ADE80"}[n.cat]||"#60A5FA";
+                  const imgUrl = n.imgQuery ? `https://image.pollinations.ai/prompt/${encodeURIComponent(n.imgQuery+" artificial intelligence digital abstract")}&model=turbo&width=400&height=200&nologo=true&seed=${i+42}` : null;
+                  return (
+                    <div key={i} style={{background:"var(--s1)",border:`1px solid ${n.hot?"rgba(212,168,83,.4)":"var(--bd)"}`,borderRadius:10,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+                      {imgUrl && (
+                        <div style={{height:110,overflow:"hidden",flexShrink:0,background:"var(--s2)",position:"relative"}}>
+                          <img src={imgUrl} alt={n.titre} loading="lazy"
+                            style={{width:"100%",height:"100%",objectFit:"cover",opacity:.85}}
+                            onError={e=>{e.target.style.display="none";}}/>
+                          {n.hot&&<span style={{position:"absolute",top:6,right:8,fontSize:14,filter:"drop-shadow(0 1px 3px rgba(0,0,0,.8))"}}>🔥</span>}
+                        </div>
+                      )}
+                      <div style={{padding:"10px 12px",flex:1,display:"flex",flexDirection:"column",gap:5}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:7,padding:"1px 5px",background:catColor+"18",color:catColor,borderRadius:3,fontWeight:700,letterSpacing:.5,border:`1px solid ${catColor}30`}}>{n.cat}</span>
+                          {!imgUrl&&n.hot&&<span style={{fontSize:10}}>🔥</span>}
+                        </div>
+                        <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",lineHeight:1.4}}>{n.titre}</div>
+                        <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.55,flex:1}}>{n.desc}</div>
+                        <div style={{display:"flex",gap:6,marginTop:4}}>
+                          <button onClick={()=>addDashPopup(n.titre,n.hot?"hot":"info")}
+                            style={{fontSize:7,padding:"2px 7px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                            🔔 Notifier
+                          </button>
+                          <button onClick={()=>{setChatInput("Parle-moi de : "+n.titre);navigateTab("chat");}}
+                            style={{fontSize:7,padding:"2px 7px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                            💬 En savoir plus
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -7189,6 +7211,21 @@ Réponds UNIQUEMENT en JSON valide.`}], apiKeys, "Tu es un veilleur technologiqu
         </div>
       )}
 
+      {/* ══ DASHBOARD POPUPS ══ */}
+      {dashPopups.length > 0 && (
+        <div style={{position:"fixed",bottom:70,right:16,zIndex:9500,display:"flex",flexDirection:"column-reverse",gap:8,maxWidth:320,pointerEvents:"none"}}>
+          {dashPopups.map(popup=>(
+            <div key={popup.id} style={{pointerEvents:"all",background:"var(--s2)",border:`1px solid ${popup.type==="hot"?"rgba(212,168,83,.6)":popup.type==="warn"?"rgba(251,146,60,.6)":"var(--bd)"}`,borderRadius:10,padding:"10px 14px",boxShadow:"0 4px 24px rgba(0,0,0,.5)",display:"flex",alignItems:"flex-start",gap:9,animation:"tin .3s ease"}}>
+              <span style={{fontSize:16,flexShrink:0,marginTop:1}}>{popup.type==="hot"?"🔥":popup.type==="warn"?"⚠️":"💡"}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.5}}>{popup.msg}</div>
+                <div style={{fontSize:8,color:"var(--mu)",marginTop:3}}>{popup.ts.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
+              </div>
+              <button onClick={()=>dismissPopup(popup.id)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:14,padding:"0 2px",flexShrink:0,lineHeight:1}}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
       {toast && <div className="toast">{toast}</div>}
     </>
   );
