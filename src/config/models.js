@@ -92,7 +92,7 @@ export function saveDiscoveredAIs(list) {
 }
 
 // Sources de découverte automatique (flux RSS / JSON publics)
-const DISCOVERY_SOURCES = [
+export const DISCOVERY_SOURCES = [
   { name:"There's An AI For That", url:"https://theresanaiforthat.com/", hint:"Répertoire d'outils IA" },
   { name:"Futurepedia", url:"https://www.futurepedia.io/", hint:"Directory IA mis à jour quotidiennement" },
   { name:"AI Valley", url:"https://aivalley.ai/", hint:"Nouvelles IAs chaque jour" },
