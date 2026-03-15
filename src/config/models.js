@@ -245,11 +245,11 @@ export const IMAGE_GENERATORS = [
 
 // ╔══════════════════════════════════════════════════════════════╝
 export const IDS = Object.keys(MODEL_DEFS);
-const RATE_LIMIT_COOLDOWN = 60;
-const CREDIT_COOLDOWN = 300;
+export const RATE_LIMIT_COOLDOWN = 60;
+export const CREDIT_COOLDOWN = 300;
 
 // ── Prix API ($ / 1M tokens input·output) ────────────────────────
-const PRICING = {
+export const PRICING = {
   groq:       { in:0.00, out:0.00, label:"Llama 3.3 (Groq) — GRATUIT" },
   mistral:    { in:0.00, out:0.00, label:"Mistral Small 3 — GRATUIT" },
   cohere:     { in:0.00, out:0.00, label:"Command R+ (Cohere) — GRATUIT" },
