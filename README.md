@@ -1,4 +1,4 @@
-# 🤖 Multi-IA Hub 
+# 🤖 Multi-IA Hub
 
 > Interface web parallèle pour comparer et utiliser plusieurs IAs simultanément — gratuit, open source, déployable en 1 clic.
 
