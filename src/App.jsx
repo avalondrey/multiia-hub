@@ -4348,7 +4348,7 @@ ${allMsgs.map(m=>`
   };
 
   // ── Zoom / Échelle UI ──
-  PLACEHOLDER_ZEN_MODE
+  const [zenMode, setZenMode] = React.useState(false);
   const [canvasContent, setCanvasContent] = React.useState(null); // {code, lang, title}
   // Expose to window so CodeBlock (non-child) can trigger canvas
   React.useEffect(() => { window.__openCanvas = (code, lang, title) => setCanvasContent({code, lang, title}); return () => { delete window.__openCanvas; }; }, []);
@@ -7140,4 +7140,3 @@ ${allMsgs.map(m=>`
 }
 
 export default App;
-
