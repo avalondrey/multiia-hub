@@ -3525,13 +3525,31 @@ function App() {
   };
   const getRagContext = (query) => {
     if (!ragChunks.length) return null;
-    const words = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    const scored = ragChunks.map((chunk, i) => ({
-      chunk, i,
-      score: words.reduce((acc, w) => acc + (chunk.toLowerCase().split(w).length - 1), 0)
-    })).sort((a,b) => b.score - a.score);
-    const top = scored.slice(0, 2).map(s => s.chunk).join("\n\n---\n\n");
-    return `[Contexte du document]\n${top}\n\n[Question de l'utilisateur]\n${query}`;
+    // TF-IDF inspired scoring: term frequency × inverse doc frequency
+    const queryWords = query.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+    const N = ragChunks.length;
+    // IDF: how rare is each word across all chunks
+    const idf = {};
+    queryWords.forEach(w=>{
+      const docsWithW = ragChunks.filter(c=>c.toLowerCase().includes(w)).length;
+      idf[w] = docsWithW>0 ? Math.log((N+1)/(docsWithW+1))+1 : 1;
+    });
+    const scored = ragChunks.map((chunk, i) => {
+      const lower = chunk.toLowerCase();
+      const chunkWords = lower.split(/\s+/).length||1;
+      // TF-IDF score
+      const score = queryWords.reduce((acc,w)=>{
+        const tf = (lower.split(w).length-1)/chunkWords;
+        return acc + tf*(idf[w]||1);
+      },0);
+      // Bonus for exact phrase match
+      const phraseBonus = lower.includes(query.toLowerCase().slice(0,30))?2:0;
+      return { chunk, i, score: score+phraseBonus };
+    }).sort((a,b)=>b.score-a.score);
+    // Return top 3 chunks (instead of 2) for better coverage
+    const top = scored.slice(0,3).filter(s=>s.score>0).map(s=>s.chunk).join("\n\n---\n\n");
+    if (!top) return `[Document chargé]\n[Question]\n${query}`;
+    return `[Contexte pertinent du document (${ragChunks.length} sections indexées)]\n\n${top}\n\n[Question de l'utilisateur]\n${query}`;
   };
 
   // ── Ollama local ────────────────────────────────────────────────
@@ -3616,6 +3634,29 @@ function App() {
   const [workflowRunning, setWorkflowRunning] = useState(false);
   const [workflowResults, setWorkflowResults] = useState([]); // [{nodeId,label,ia,output,ok,duration}]
   const [workflowRunStep, setWorkflowRunStep] = useState(null); // id of currently running step
+  const WF_BUILTIN_TEMPLATES = [
+    { name:"📰 News → LinkedIn Post", nodes:[
+      {id:"n1",name:"news",label:"Récupère 5 news IA récentes",type:"prompt",ia:"groq",prompt:"Liste 5 actualités importantes en IA de cette semaine. Pour chacune : titre, 2 phrases de contexte.",parallel_ias:[],usePrevOutput:false},
+      {id:"n2",name:"translate",label:"Traduit en français",type:"prompt",ia:"mistral",prompt:"Traduis et adapte ces news en français courant, sans jargon :\n{INPUT}",parallel_ias:[],usePrevOutput:true},
+      {id:"n3",name:"linkedin",label:"Rédige post LinkedIn",type:"prompt",ia:"groq",prompt:"Rédige un post LinkedIn engageant (300 mots max) basé sur ces actualités. Ton professionnel, 3 hashtags, émojis moderés :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
+      {id:"n4",name:"image",label:"Génère illustration",type:"prompt",ia:"groq",prompt:"Génère une description d'image en 10 mots anglais pour illustrer ce post LinkedIn sur l'IA. Juste la description, rien d'autre :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
+    ]},
+    { name:"📄 Analyse → Rapport exécutif", nodes:[
+      {id:"n1",name:"analyse",label:"Analyse le sujet",type:"prompt",ia:"cohere",prompt:"Analyse en profondeur : {INPUT}\nPoints clés, données factuelles, tendances.",parallel_ias:[],usePrevOutput:false},
+      {id:"n2",name:"critique",label:"Identifie les risques",type:"prompt",ia:"groq",prompt:"Sur la base de cette analyse, identifie les risques, incertitudes et points faibles :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
+      {id:"n3",name:"rapport",label:"Rapport exécutif",type:"prompt",ia:"mistral",prompt:"Rédige un rapport exécutif synthétisant l'analyse et les risques. Format : Résumé (5 lignes) / Analyse / Risques / Recommandations :\nAnalyse : {n1}\nRisques : {n2}",parallel_ias:[],usePrevOutput:false},
+    ]},
+    { name:"💻 Idée → Code → Tests", nodes:[
+      {id:"n1",name:"spec",label:"Spécifications techniques",type:"prompt",ia:"groq",prompt:"Génère les spécifications techniques détaillées pour : {INPUT}\nArchitecture, technologies, structures de données.",parallel_ias:[],usePrevOutput:false},
+      {id:"n2",name:"code",label:"Implémentation",type:"prompt",ia:"groq",prompt:"Implémente cette spec en code complet, propre et commenté :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
+      {id:"n3",name:"tests",label:"Tests unitaires",type:"prompt",ia:"mistral",prompt:"Écris des tests unitaires complets pour ce code (edge cases inclus) :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
+    ]},
+    { name:"🌍 Contenu multilingue", nodes:[
+      {id:"n1",name:"fr",label:"Rédige en français",type:"prompt",ia:"mistral",prompt:"Rédige un contenu professionnel sur : {INPUT}\n500 mots, ton engageant.",parallel_ias:[],usePrevOutput:false},
+      {id:"n2",name:"en",label:"Traduit en anglais",type:"prompt",ia:"groq",prompt:"Translate this French content to professional English, keeping the tone :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
+      {id:"n3",name:"adapt",label:"Adapte pour réseaux sociaux",type:"prompt",ia:"groq",prompt:"Create 3 social media versions (Twitter/X 280 chars, LinkedIn 300 words, Instagram caption) from :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
+    ]},
+  ];
   const [workflowSavedTpls, setWorkflowSavedTpls] = useState(() => {
     try { return JSON.parse(localStorage.getItem("multiia_wf_templates")||"[]"); } catch { return []; }
   });
@@ -4043,6 +4084,26 @@ ${allMsgs.map(m=>`
   // ── Zoom / Échelle UI ──
   const [zenMode, setZenMode] = React.useState(false);
   const [canvasContent, setCanvasContent] = React.useState(null); // {code, lang, title}
+  const [canvasEditInput, setCanvasEditInput] = React.useState("");
+  const [canvasEditing, setCanvasEditing] = React.useState(false);
+  const editCanvas = async () => {
+    if (!canvasEditInput.trim() || !canvasContent) return;
+    setCanvasEditing(true);
+    const ids = IDS.filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial);
+    const id = ids.find(i=>["groq","mistral","claude"].includes(i)) || ids[0];
+    if (!id) { setCanvasEditing(false); return; }
+    try {
+      const sys = "Tu es un expert développeur. Réponds UNIQUEMENT avec le code modifié complet, sans explication, sans balises markdown.";
+      const prompt = `Voici du code ${canvasContent.lang}. Modifie-le selon cette demande : "${canvasEditInput}"\n\nCode actuel :\n${canvasContent.code}`;
+      const reply = await callModel(id, [{role:"user",content:prompt}], apiKeys, sys);
+      // Strip markdown fences if any
+      const cleaned = reply.replace(/^```[\w]*\n?/,'').replace(/\n?```$/,'').trim();
+      setCanvasContent(prev=>({...prev, code:cleaned}));
+      setCanvasEditInput("");
+      showToast("✓ Canvas mis à jour");
+    } catch(e) { showToast("❌ "+e.message); }
+    setCanvasEditing(false);
+  };
   // Expose to window so CodeBlock (non-child) can trigger canvas
   React.useEffect(() => { window.__openCanvas = (code, lang, title) => setCanvasContent({code, lang, title}); return () => { delete window.__openCanvas; }; }, []);
   const [sessionTokens, setSessionTokens] = React.useState({}); // {id: {in:N, out:N}}
@@ -4477,6 +4538,54 @@ ${analyseFile.content}
   const availableIds = enabledIds.filter(id => !isLimited(id));
   const isLoadingAny = Object.values(loading).some(Boolean);
 
+
+  // ── Multi-Model Consensus (Mixture of Agents) ───────────────────
+  const [consensusModal, setConsensusModal] = React.useState(false);
+  const [consensusQuery, setConsensusQuery] = React.useState("");
+  const [consensusResults, setConsensusResults] = React.useState({}); // {iaId: response}
+  const [consensusSynth, setConsensusSynth] = React.useState("");
+  const [consensusRunning, setConsensusRunning] = React.useState(false);
+  const [consensusSynthIA, setConsensusSynthIA] = React.useState("");
+
+  const runConsensus = async () => {
+    const q = consensusQuery.trim(); if (!q) return;
+    const ids = IDS.filter(id=>enabled[id]&&!isLimited(id)&&!MODEL_DEFS[id]?.serial);
+    if (ids.length < 2) { showToast("Active au moins 2 IAs"); return; }
+    // Use at most 4 IAs for parallel answers
+    const panelIds = ids.slice(0,4);
+    // Best IA for synthesis (most capable)
+    const synthPriority = ["groq","cohere","mistral","sambanova","qwen3"];
+    const synthId = synthPriority.find(id=>enabled[id]&&!isLimited(id)) || panelIds[0];
+
+    setConsensusRunning(true); setConsensusResults({}); setConsensusSynth(""); setConsensusSynthIA("");
+
+    // Step 1: All IAs answer in parallel
+    const answers = {};
+    await Promise.all(panelIds.map(async(id,idx)=>{
+      if (idx>0) await new Promise(r=>setTimeout(r,idx*600));
+      try {
+        const r = await callModel(id,[{role:"user",content:q}],apiKeys,"Tu es un expert. Réponds avec précision et exhaustivité.");
+        answers[id]=r;
+        setConsensusResults(prev=>({...prev,[id]:r}));
+      } catch(e) { answers[id]="❌ "+e.message; setConsensusResults(prev=>({...prev,[id]:"❌ "+e.message})); }
+    }));
+
+    // Step 2: Synthesis IA analyzes all answers
+    setConsensusSynthIA(synthId);
+    const validAnswers = panelIds.filter(id=>answers[id]&&!answers[id].startsWith("❌"));
+    if (validAnswers.length === 0) { setConsensusRunning(false); return; }
+
+    const answerBlocks = validAnswers.map(id=>"**"+MODEL_DEFS[id].short+"**: "+answers[id].slice(0,600)).join("\n\n---\n\n");
+    const synthPrompt = "Question posée : \""+q+"\"\n\n"+validAnswers.length+" IAs ont répondu :\n\n"+answerBlocks+"\n\n---\n\nTu es un arbitre expert. Analyse ces réponses et génère :\n1. RÉPONSE CONSENSUS — la réponse la plus correcte et complète\n2. ERREURS DÉTECTÉES — erreurs factuelles dans les réponses individuelles\n3. POINTS DE DIVERGENCE — là où les IAs ne s'accordent pas\n\nSois précis et factuel.";
+    try {
+      const synth = await callModel(synthId,[{role:"user",content:synthPrompt}],apiKeys,"Tu es un arbitre expert en vérification factuelle. Synthèse claire et structurée.");
+      setConsensusSynth(synth);
+    } catch(e) { setConsensusSynth("❌ Synthèse impossible : "+e.message); }
+
+    setConsensusRunning(false);
+    playBeep();
+    showToast("✓ Consensus généré !");
+  };
 
   // ── Slash Commands (/code /seo /mail etc.) ───────────────────────
   const SLASH_COMMANDS = {
@@ -5472,6 +5581,10 @@ ${analyseFile.content}
                 style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🔗 Partager
               </button>
+              <button onClick={()=>{setConsensusQuery(chatInput.trim()||"");setConsensusResults({});setConsensusSynth("");setConsensusModal(true);}} title="Consensus multi-IAs — Mixture of Agents, réduit les hallucinations"
+                style={{background:"rgba(167,139,250,.08)",border:"1px solid rgba(167,139,250,.25)",borderRadius:4,color:"#A78BFA",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                ✦ Consensus
+              </button>
               <button onClick={()=>{setBattlePrompts([chatInput.trim(),"","",""]);setBattleResults({});setBattleJury(null);setBattleModal(true);}} title="Prompt Battle — compare plusieurs variantes de prompt"
                 style={{background:"rgba(251,146,60,.08)",border:"1px solid rgba(251,146,60,.25)",borderRadius:4,color:"var(--orange)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 ⚔ Battle
@@ -5657,6 +5770,15 @@ ${analyseFile.content}
                   onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
                   onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}
                 >{tpl.name}</button>
+              ))}
+              {/* Built-in templates */}
+              {WF_BUILTIN_TEMPLATES.map((tpl,ti) => (
+                <div key={"bi"+ti} onClick={()=>setWorkflowNodes(tpl.nodes.map(n=>({...n,output:"",status:"pending",duration:null})))}
+                  style={{padding:"7px 10px",background:"rgba(96,165,250,.06)",border:"1px solid rgba(96,165,250,.2)",borderRadius:6,cursor:"pointer",fontSize:9,color:"var(--blue)",transition:"all .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(96,165,250,.6)"}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(96,165,250,.2)"}>
+                  {tpl.name}
+                </div>
               ))}
               {workflowSavedTpls.map((tpl,ti) => (
                 <button key={"s"+ti} onClick={()=>{saveWorkflow(tpl.nodes.map(n=>({...n,id:Date.now().toString()+Math.random()})));setWorkflowResults([]);}}
@@ -7301,6 +7423,139 @@ ${analyseFile.content}
           </div>
           {pwaPrompt && <button className="pwa-install-btn" onClick={installPwa}>Installer</button>}
           <button className="pwa-dismiss-btn" onClick={dismissPwaBanner}>✕</button>
+        </div>
+      )}
+
+      {/* ══ CANVAS PANEL ══ */}
+      {canvasContent && (
+        <div className="canvas-panel">
+          <div className="canvas-hdr">
+            <span style={{fontSize:11}}>🎨</span>
+            <span style={{flex:1,fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{canvasContent.title||"Aperçu"}</span>
+            <span style={{fontSize:8,color:"var(--mu)",padding:"2px 6px",background:"var(--s2)",borderRadius:3}}>{canvasContent.lang}</span>
+            <button onClick={()=>{const b=new Blob([canvasContent.code],{type:"text/html"});const u=URL.createObjectURL(b);window.open(u,"_blank");}}
+              style={{fontSize:8,padding:"3px 8px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:4,color:"var(--blue)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>↗ Onglet</button>
+            <button onClick={()=>setCanvasContent(null)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:12,width:24,height:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          </div>
+          <iframe className="canvas-iframe" sandbox="allow-scripts allow-same-origin" srcDoc={canvasContent.code} title="Canvas preview"/>
+          {/* ── Modifier avec IA ── */}
+          <div style={{padding:"8px 12px",borderTop:"1px solid var(--bd)",background:"var(--s1)",flexShrink:0}}>
+            <div style={{fontSize:8,color:"var(--mu)",marginBottom:5}}>✦ Modifier avec l'IA</div>
+            <div style={{display:"flex",gap:7}}>
+              <input value={canvasEditInput} onChange={e=>setCanvasEditInput(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"&&canvasEditInput.trim())editCanvas();}}
+                placeholder='Ex: "Ajoute un bouton bleu", "Change le fond en noir"...'
+                style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"6px 10px",fontFamily:"var(--font-ui)",outline:"none"}}
+                onFocus={e=>e.target.style.borderColor="var(--ac)"}
+                onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
+              <button onClick={editCanvas} disabled={canvasEditing||!canvasEditInput.trim()}
+                style={{padding:"0 12px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"var(--font-mono)",opacity:canvasEditing||!canvasEditInput.trim()?.4:1}}>
+                {canvasEditing?"⟳":"✦ OK"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ CONSENSUS MODAL ══ */}
+      {consensusModal && (
+        <div onClick={()=>setConsensusModal(false)} style={{position:"fixed",inset:0,zIndex:9100,background:"rgba(0,0,0,.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(8px)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{width:"min(920px,96vw)",maxHeight:"90vh",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:12,overflow:"auto",display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,position:"sticky",top:0,zIndex:2}}>
+              <span style={{fontSize:16}}>✦</span>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:13,color:"var(--tx)"}}>Consensus Multi-IAs</div>
+                <div style={{fontSize:8,color:"var(--mu)"}}>Mixture of Agents — les IAs répondent en parallèle, une quatrième synthétise et détecte les erreurs factuelles</div>
+              </div>
+              <button onClick={()=>setConsensusModal(false)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:14,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            </div>
+
+            {/* Query input */}
+            <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)"}}>
+              <div style={{display:"flex",gap:8}}>
+                <input value={consensusQuery} onChange={e=>setConsensusQuery(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&consensusQuery.trim()&&!consensusRunning)runConsensus();}}
+                  placeholder="Question factuelle ou complexe à poser à toutes les IAs…"
+                  style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:11,padding:"8px 12px",fontFamily:"var(--font-ui)",outline:"none"}}
+                  onFocus={e=>e.target.style.borderColor="rgba(167,139,250,.6)"}
+                  onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
+                <button onClick={runConsensus} disabled={consensusRunning||!consensusQuery.trim()}
+                  style={{padding:"0 18px",background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.4)",borderRadius:7,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:700,fontFamily:"var(--font-mono)",opacity:consensusRunning||!consensusQuery.trim()?.4:1,whiteSpace:"nowrap"}}>
+                  {consensusRunning?"⟳ Analyse en cours…":"✦ Lancer le Consensus"}
+                </button>
+              </div>
+              <div style={{marginTop:5,fontSize:8,color:"var(--mu)",display:"flex",gap:8,flexWrap:"wrap"}}>
+                <span>IAs du panel : {IDS.filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial).slice(0,4).map(id=>MODEL_DEFS[id]?.icon+" "+MODEL_DEFS[id]?.short).join(" · ")}</span>
+                {consensusSynthIA&&<span style={{color:"var(--ac)"}}>Arbitre : {MODEL_DEFS[consensusSynthIA]?.icon} {MODEL_DEFS[consensusSynthIA]?.short}</span>}
+              </div>
+            </div>
+
+            {/* Individual responses */}
+            {Object.keys(consensusResults).length > 0 && (
+              <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)"}}>
+                <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10}}>RÉPONSES INDIVIDUELLES</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:10}}>
+                  {Object.entries(consensusResults).map(([id,resp])=>{
+                    const m=MODEL_DEFS[id];
+                    return (
+                      <div key={id} style={{border:`1px solid ${m.color}33`,borderRadius:8,overflow:"hidden"}}>
+                        <div style={{padding:"6px 10px",borderBottom:"1px solid var(--bd)",background:m.color+"10",display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:11,color:m.color}}>{m.icon}</span>
+                          <span style={{fontSize:9,fontWeight:700,color:m.color}}>{m.short}</span>
+                          {consensusRunning&&!resp&&<span className="dots" style={{marginLeft:"auto"}}><span>·</span><span>·</span><span>·</span></span>}
+                        </div>
+                        <div style={{padding:"8px 10px",maxHeight:200,overflow:"auto"}}>
+                          {resp?<MarkdownRenderer text={resp}/>:<span style={{color:"var(--mu)",fontSize:9}}>En attente…</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Synthesis */}
+            {(consensusSynth || (consensusRunning && Object.keys(consensusResults).length>0)) && (
+              <div style={{padding:"12px 16px"}}>
+                <div style={{fontSize:9,color:"var(--ac)",fontWeight:700,letterSpacing:1,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+                  ✦ SYNTHÈSE CONSENSUS
+                  {consensusSynthIA&&<span style={{color:"var(--mu)",fontWeight:400}}>— arbitrage par {MODEL_DEFS[consensusSynthIA]?.icon} {MODEL_DEFS[consensusSynthIA]?.short}</span>}
+                </div>
+                <div style={{background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:9,padding:"12px 14px",minHeight:60}}>
+                  {consensusSynth
+                    ? <MarkdownRenderer text={consensusSynth}/>
+                    : <span className="dots"><span>·</span><span>·</span><span>·</span></span>}
+                </div>
+                {consensusSynth && (
+                  <div style={{display:"flex",gap:7,marginTop:10,flexWrap:"wrap"}}>
+                    <button onClick={()=>{setChatInput(consensusSynth.slice(0,3000));navigateTab("chat");setConsensusModal(false);showToast("✓ Synthèse envoyée dans le Chat");}}
+                      style={{fontSize:9,padding:"5px 12px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
+                      💬 → Chat
+                    </button>
+                    <button onClick={()=>{navigator.clipboard.writeText(consensusSynth);showToast("✓ Copié");}}
+                      style={{fontSize:9,padding:"5px 12px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                      ⎘ Copier
+                    </button>
+                    <button onClick={()=>{setConsensusResults({});setConsensusSynth("");setConsensusQuery("");}}
+                      style={{fontSize:9,padding:"5px 12px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                      ↺ Nouveau
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!consensusRunning && Object.keys(consensusResults).length===0 && (
+              <div style={{padding:"40px",textAlign:"center",color:"var(--mu)"}}>
+                <div style={{fontSize:36,marginBottom:10,opacity:.3}}>✦</div>
+                <div style={{fontSize:11,marginBottom:6}}>Mixture of Agents</div>
+                <div style={{fontSize:9,maxWidth:400,margin:"0 auto",lineHeight:1.6}}>
+                  Plusieurs IAs répondent en parallèle à ta question, puis une IA arbitre analyse toutes les réponses pour produire la meilleure synthèse possible — en détectant les erreurs et divergences.
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
