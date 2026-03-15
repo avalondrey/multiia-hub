@@ -244,7 +244,7 @@ export const IMAGE_GENERATORS = [
 ];
 
 // ╔══════════════════════════════════════════════════════════════╝
-const IDS = Object.keys(MODEL_DEFS);
+export const IDS = Object.keys(MODEL_DEFS);
 const RATE_LIMIT_COOLDOWN = 60;
 const CREDIT_COOLDOWN = 300;
 
