@@ -8,7 +8,7 @@ import {
   getDiscoveredAIs, saveDiscoveredAIs, fetchYTVideos, DISCOVERY_SOURCES,
 } from "./config/models.js";
 import {
-  fmt, classifyError, truncateForModel,
+  fmt, classifyError, truncateForModel, compressContext,
   callModel, callClaude, callGemini, callCompat, callCohere,
   callPollinations, callPollinationsPaid, correctGrammar,
 } from "./api/ai-service.js";
@@ -158,6 +158,11 @@ function CodeBlock({ code, lang }) {
   );
 }
 
+// ── YouTube link detection in messages ──────────────────────────
+function extractYouTubeId(url) {
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+  return m?.[1] || null;
+}
 function parseInline(text) {
   if (!text) return [];
   const re = /\*\*(.+?)\*\*|\*(.+?)\*|__(.+?)__|~~(.+?)~~|`([^`\n]+)`|\[([^\]]+)\]\(([^)]+)\)/g;
@@ -169,14 +174,24 @@ function parseInline(text) {
     else if (m[3]!==undefined) parts.push(<u key={k++} style={{textDecorationColor:"var(--ac)",textUnderlineOffset:"3px"}}>{m[3]}</u>);
     else if (m[4]!==undefined) parts.push(<del key={k++} style={{color:"var(--mu)"}}>{m[4]}</del>);
     else if (m[5]!==undefined) parts.push(<code key={k++} className="md-ic">{m[5]}</code>);
-    else if (m[6]!==undefined) parts.push(<a key={k++} href={m[7]} target="_blank" rel="noopener noreferrer" className="md-link">{m[6]}</a>);
+    else if (m[6]!==undefined) {
+      const ytId = extractYouTubeId(m[7]);
+      if (ytId) {
+        parts.push(<span key={k++} style={{display:"inline-flex",alignItems:"center",gap:5}}>
+          <a href={m[7]} target="_blank" rel="noopener noreferrer" className="md-link">{m[6]}</a>
+          <span className="yt-play-btn" data-ytid={ytId} data-yturl={m[7]} style={{fontSize:8,padding:"1px 6px",background:"rgba(248,113,113,.15)",border:"1px solid rgba(248,113,113,.35)",borderRadius:4,color:"#F87171",cursor:"pointer"}}>▶ Play</span>
+        </span>);
+      } else {
+        parts.push(<a key={k++} href={m[7]} target="_blank" rel="noopener noreferrer" className="md-link">{m[6]}</a>);
+      }
+    }
     last=m.index+m[0].length;
   }
   if (last<text.length) parts.push(text.slice(last));
   return parts;
 }
 
-function MarkdownRenderer({ text }) {
+function MarkdownRenderer({ text, onYtPlay }) {
   if (!text) return null;
   // Split code blocks from text
   const segs=[];
@@ -2949,7 +2964,7 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
 // ── WORKFLOWS TAB ─────────────────────────────────────────────────
 
 // ── STATS TAB ─────────────────────────────────────────────────────
-function StatsTab({ stats, onReset }) {
+function StatsTab({ stats, onReset, sessionTokens = {} }) {
   const totalMsgs = Object.values(stats.msgs||{}).reduce((a,b)=>a+b,0);
   const totalTok = Object.values(stats.tokens||{}).reduce((a,b)=>a+b,0);
   const totalConvs = stats.convs || 0;
@@ -2973,6 +2988,38 @@ function StatsTab({ stats, onReset }) {
         <button style={{marginLeft:"auto",padding:"5px 12px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:9}}
           onClick={()=>{ if(window.confirm("Réinitialiser les statistiques ?")) onReset(); }}>↺ Réinitialiser</button>
       </div>
+      {/* ── Session en cours (temps réel) ── */}
+      {Object.keys(sessionTokens).length > 0 && (
+        <div style={{marginBottom:16,padding:"10px 14px",background:"rgba(212,168,83,.07)",border:"1px solid rgba(212,168,83,.3)",borderRadius:9}}>
+          <div style={{fontSize:9,fontWeight:700,color:"var(--ac)",letterSpacing:1,marginBottom:8}}>⚡ SESSION EN COURS — TEMPS RÉEL</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
+            {Object.entries(sessionTokens).filter(([,t])=>(t.in+t.out)>0).sort(([,a],[,b])=>(b.in+b.out)-(a.in+a.out)).map(([id,t])=>{
+              const m=MODEL_DEFS[id]; const p=PRICING[id];
+              const totalTok=t.in+t.out;
+              const cost=p?(t.in/1e6*p.in)+(t.out/1e6*p.out):0;
+              return (
+                <div key={id} style={{background:"var(--s2)",borderRadius:7,padding:"8px 10px",border:`1px solid ${m.color}30`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}>
+                    <span style={{color:m.color,fontSize:11}}>{m.icon}</span>
+                    <span style={{fontSize:9,fontWeight:700,color:m.color}}>{m.short}</span>
+                    <span style={{marginLeft:"auto",fontSize:7,padding:"1px 4px",background:cost===0?"rgba(74,222,128,.12)":"rgba(212,168,83,.12)",color:cost===0?"var(--green)":"var(--ac)",borderRadius:3,fontWeight:700}}>{cost===0?"FREE":"$"+cost.toFixed(5)}</span>
+                  </div>
+                  <div style={{fontSize:8,color:"var(--mu)"}}>
+                    <span style={{color:"var(--blue)"}}>↓ {(t.in/1000).toFixed(1)}k</span> · <span style={{color:"var(--green)"}}>↑ {(t.out/1000).toFixed(1)}k</span>
+                  </div>
+                  <div style={{marginTop:4,height:3,background:"var(--bd)",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:Math.min(100,(totalTok/5000)*100)+"%",background:m.color,borderRadius:2,transition:"width .4s"}}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{marginTop:8,fontSize:8,color:"var(--mu)"}}>
+            Total session : {Object.values(sessionTokens).reduce((a,t)=>a+t.in+t.out,0).toLocaleString()} tokens · 
+            Coût estimé : ${Object.entries(sessionTokens).reduce((a,[id,t])=>{const p=PRICING[id];return a+(p?(t.in/1e6*p.in)+(t.out/1e6*p.out):0);},0).toFixed(5)}
+          </div>
+        </div>
+      )}
       <div className="stats-grid">
         <div className="stat-card"><div className="stat-val">{totalConvs}</div><div className="stat-lbl">Conversations</div></div>
         <div className="stat-card"><div className="stat-val">{fmtN(totalMsgs)}</div><div className="stat-lbl">Messages envoyés</div></div>
@@ -4430,8 +4477,40 @@ ${analyseFile.content}
   const availableIds = enabledIds.filter(id => !isLimited(id));
   const isLoadingAny = Object.values(loading).some(Boolean);
 
+
+  // ── Slash Commands (/code /seo /mail etc.) ───────────────────────
+  const SLASH_COMMANDS = {
+    "/code":    { system:"Tu es un expert développeur senior. Génère du code propre, commenté, avec gestion d'erreurs. Privilégie les bonnes pratiques.", toast:"💻 Mode Code activé" },
+    "/seo":     { system:"Tu es un expert SEO. Optimise le contenu pour les moteurs de recherche : mots-clés, structure, méta-descriptions, lisibilité.", toast:"🔍 Mode SEO activé" },
+    "/mail":    { system:"Tu es un expert en communication professionnelle. Rédige des emails clairs, professionnels, avec objet, corps et formule de politesse.", toast:"📧 Mode Email activé" },
+    "/resume":  { system:"Tu es un expert en synthèse. Résume en 5 points clés essentiels, structure claire, langage simple.", toast:"📋 Mode Résumé activé" },
+    "/traduit": { system:"Tu es un traducteur expert. Traduis avec précision en gardant le ton et le style original. Propose des alternatives si pertinent.", toast:"🌍 Mode Traduction activé" },
+    "/critique":{ system:"Tu es un expert critique constructif. Analyse les points forts, points faibles, incohérences et propose des améliorations concrètes.", toast:"🧐 Mode Critique activé" },
+    "/simple":  { system:"Tu expliques tout comme à un débutant complet. Zéro jargon, analogies du quotidien, étapes courtes et claires.", toast:"🎯 Mode Simplifié activé" },
+    "/pro":     { system:"Tu reformules dans un style professionnel et formel, impeccable, adapté au monde des affaires.", toast:"👔 Mode Pro activé" },
+    "/debug":   { system:"Tu es un expert en débogage. Identifie les bugs, explique la cause racine, propose le correctif exact avec le code corrigé.", toast:"🐛 Mode Debug activé" },
+    "/idea":    { system:"Tu es un générateur d'idées créatives. Propose 5-10 idées originales et inattendues, avec pour chacune un angle unique.", toast:"💡 Mode Idées activé" },
+  };
+  const parseSlashCommand = (text) => {
+    const words = text.trim().split(/\s+/);
+    const cmd = words[0]?.toLowerCase();
+    if (SLASH_COMMANDS[cmd]) {
+      return { system: SLASH_COMMANDS[cmd].system, text: words.slice(1).join(" ") || text, toast: SLASH_COMMANDS[cmd].toast, cmd };
+    }
+    return null;
+  };
+
   const sendChat = async () => {
     let text = applyPromptVars(chatInput.trim()); if (!text) return;
+    // Slash command detection
+    let slashSystem = null;
+    const slashResult = parseSlashCommand(text);
+    if (slashResult && slashResult.text.trim()) {
+      slashSystem = slashResult.system;
+      text = slashResult.text;
+      showToast(slashResult.toast);
+    }
+
     // Auto-translate to English if enabled
     if (autoTranslateEN && text.length > 3) {
       const translated = await translateToEN(text);
@@ -4469,8 +4548,11 @@ ${analyseFile.content}
         if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
           reply = await callOllama(ollamaModel, hist, buildSystem());
         } else {
-          const safeHist = truncateForModel(hist, id, buildSystem());
-          reply = await callModel(id, safeHist, apiKeys, buildSystem(), file);
+          const activeSystem = slashSystem || buildSystem();
+          // Smart context: compress if conversation is long
+          const compressedHist = hist.length > 14 ? await compressContext(hist, apiKeys, 12) : hist;
+          const safeHist = truncateForModel(compressedHist, id, activeSystem);
+          reply = await callModel(id, safeHist, apiKeys, activeSystem, file);
         }
         const thinkContent = extractThink(reply);
         const cleanReply = stripThink(reply);
@@ -5243,12 +5325,12 @@ ${analyseFile.content}
                       </button>
                     </div>
                   </div>
-                  <div className="msgs" style={{position:"relative"}} ref={el => msgRefs.current[id] = el}>
+                  <div className="msgs" onClick={e=>{const btn=e.target.closest(".yt-play-btn");if(btn){const id=btn.dataset.ytid,url=btn.dataset.yturl;if(id)setYtPlayer({videoId:id,title:url,channel:"YouTube"});}}} style={{position:"relative"}} ref={el => msgRefs.current[id] = el}>
                     {conversations[id].length === 0 && !loading[id] && <div className="empty">{enabled[id]?lim?`⏳ Bloqué — ${fmtCd(id)}`:"En attente…":"Désactivé"}</div>}
                     {conversations[id].map((msg, i) => (
                       <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative",animation:"fadeInUp .3s ease-out"}:{animation:"fadeInUp .25s ease-out"}}>
                         {msg.think && <CoTBlock think={msg.think}/>}
-                        <MarkdownRenderer text={msg.displayContent || msg.content} />
+                        <MarkdownRenderer text={msg.displayContent || msg.content} onYtPlay={(id,url)=>setYtPlayer({videoId:id,title:url,channel:""})} />
                         {msg.displayContent && <span style={{fontSize:8,color:"var(--mu)",marginLeft:6,verticalAlign:"middle"}}>📄 RAG</span>}
                         {msg.role==="blocked" && (
                           <button onClick={()=>setLimited(prev=>{const n={...prev};delete n[id];return n;})}
@@ -5337,6 +5419,17 @@ ${analyseFile.content}
         })()}
         <div className="foot">
             {/* Prompt variables hint */}
+            {chatInput.startsWith("/") && !chatInput.includes(" ") && (
+              <div style={{padding:"4px 10px",borderBottom:"1px solid var(--bd)",display:"flex",gap:4,flexWrap:"wrap",alignItems:"center",background:"rgba(96,165,250,.04)"}}>
+                <span style={{fontSize:8,color:"var(--blue)",fontWeight:700,marginRight:4}}>⚡ Commandes :</span>
+                {Object.entries(SLASH_COMMANDS).filter(([k])=>k.startsWith(chatInput.toLowerCase())||chatInput==="/").map(([k,v])=>(
+                  <button key={k} onClick={()=>setChatInput(k+" ")}
+                    style={{fontSize:8,padding:"2px 7px",borderRadius:4,border:"1px solid rgba(96,165,250,.3)",background:"rgba(96,165,250,.1)",color:"var(--blue)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    {k} <span style={{opacity:.6}}>{v.toast.split(" ").slice(1).join(" ")}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {chatInput.includes("{{") && (
               <div className="pvar-hint">
                 <span style={{color:"var(--ac)",fontWeight:700,marginRight:4}}>📋 Vars :</span>
@@ -6029,7 +6122,7 @@ ${analyseFile.content}
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:10}}>
                 {dashNews.map((n,i)=>{
                   const catColor = {Modèles:"#A78BFA",Outils:"#60A5FA",Recherche:"#34D399",Business:"#F59E0B",Sécurité:"#F87171","Open-source":"#4ADE80"}[n.cat]||"#60A5FA";
-                  const imgUrl = n.imgQuery ? `https://image.pollinations.ai/prompt/${encodeURIComponent(n.imgQuery+" artificial intelligence digital abstract")}&model=turbo&width=400&height=200&nologo=true&seed=${i+42}` : null;
+                  const imgUrl = n.imgQuery ? `https://image.pollinations.ai/prompt/${encodeURIComponent(n.imgQuery+" ai technology futuristic")}?model=turbo&width=400&height=200&nologo=true&seed=${i*7+1}` : null;
                   return (
                     <div key={i} style={{background:"var(--s1)",border:`1px solid ${n.hot?"rgba(212,168,83,.4)":"var(--bd)"}`,borderRadius:10,overflow:"hidden",display:"flex",flexDirection:"column"}}>
                       {imgUrl && (
@@ -6278,7 +6371,7 @@ ${analyseFile.content}
         {/* ── STATS TAB ── */}
         {tab === "stats" && (
           <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <StatsTab stats={usageStats} onReset={resetStats}/>
+            <StatsTab stats={usageStats} onReset={resetStats} sessionTokens={sessionTokens}/>
           </div>
         )}
 
