@@ -2,11 +2,7 @@
 
 > Interface web parallèle pour comparer et utiliser plusieurs IAs simultanément — gratuit, open source, déployable en 1 clic.
 
-<<<<<<< HEAD
 ![Version](https://img.shields.io/badge/version-16.1-blue)
-=======
-![Version](https://img.shields.io/badge/version-17.1-blue)
->>>>>>> b85463dbe97d6d29eeca393081c1d8fc92d6111f
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Deploy](https://img.shields.io/badge/deploy-Vercel-black)
 
