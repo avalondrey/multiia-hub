@@ -217,3 +217,50 @@ export async function correctGrammar(text, keys) {
 }
 
 // ── Personas par défaut ───────────────────────────────────────────
+
+// ── Smart Context Compression ────────────────────────────────────
+// Quand l'historique dépasse N messages, résume les anciens avec Groq
+export async function compressContext(messages, keys, threshold=12) {
+  // Only compress if we have enough old messages
+  if (messages.length <= threshold) return messages;
+
+  // Keep the last 4 messages as-is (recent context)
+  const recentMsgs = messages.slice(-4);
+  const oldMsgs = messages.slice(0, -4);
+
+  // Only user+assistant messages to summarize
+  const toSummarize = oldMsgs.filter(m=>m.role==="user"||m.role==="assistant");
+  if (toSummarize.length < 4) return messages;
+
+  // Build summary prompt
+  const conv = toSummarize.map(m=>`${m.role==="user"?"Utilisateur":"IA"}: ${m.content.slice(0,300)}`).join("\n");
+  const summaryPrompt = `Résume cette conversation en 3 points clés maximum (50 mots max par point). Format bullet points :\n\n${conv}`;
+
+  try {
+    // Use Groq (fast + free) for summarization
+    const groqKey = keys?.groq_inf;
+    if (!groqKey) return messages; // No key → skip compression
+
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+groqKey},
+      body:JSON.stringify({
+        model:"llama-3.3-70b-versatile",
+        max_tokens:200,
+        messages:[{role:"user",content:summaryPrompt}]
+      })
+    });
+    const d = await r.json();
+    const summary = d.choices?.[0]?.message?.content;
+    if (!summary) return messages;
+
+    // Replace old messages with a single summary message
+    const summaryMsg = {
+      role:"system",
+      content:`[📋 Résumé des ${toSummarize.length} messages précédents]\n${summary}`
+    };
+    return [summaryMsg, ...recentMsgs];
+  } catch {
+    return messages; // Fallback: no compression
+  }
+}
