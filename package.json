@@ -1,1 +1,1 @@
-{"name":"multiia-portable","version":"7.0.0","main":"server.cjs","dependencies":{"express":"4.21.2","react":"^19.2.4","react-dom":"^19.2.4"},"devDependencies":{"@vitejs/plugin-react":"^5.1.4","vite":"^7.3.1","vite-plugin-pwa":"^1.2.0"},"scripts":{"build":"npx vite build"}}
+{"name":"multiia-portable","version":"7.0.0","main":"server.cjs","dependencies":{"express":"^4.22.1","react":"^19.2.4","react-dom":"^19.2.4"},"devDependencies":{"@vitejs/plugin-react":"^5.1.4","vite":"^7.3.1","vite-plugin-pwa":"^0.19.8"},"scripts":{"build":"npx vite build"}}
