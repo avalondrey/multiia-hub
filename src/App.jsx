@@ -5,7 +5,7 @@ import {
   YT_VIDEO_THEMES, YT_VIDEO_PROMPT, ARENA_MODELS, ARENA_NEWS,
   IMAGE_GENERATORS, DEFAULT_PROMPTS, DEFAULT_PERSONAS,
   REDACTION_ACTIONS, IDS, PRICING, RATE_LIMIT_COOLDOWN, CREDIT_COOLDOWN,
-  getDiscoveredAIs, saveDiscoveredAIs, fetchYTVideos,
+  getDiscoveredAIs, saveDiscoveredAIs, fetchYTVideos, DISCOVERY_SOURCES,
 } from "./config/models.js";
 import {
   fmt, classifyError, truncateForModel,
