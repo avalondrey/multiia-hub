@@ -2624,6 +2624,11 @@ function PromptsTab({ onInject }) {
             <div className="prom-preview">{p.text}</div>
             <div className="prom-btns">
               <button className="prom-inject" onClick={() => onInject(p.text)}>↗ Injecter dans Chat</button>
+              <button className="prom-del" title="Partager ce prompt par lien" onClick={()=>{
+                try{const b64=btoa(unescape(encodeURIComponent(JSON.stringify({type:"prompt",text:p.text,title:p.title}))));
+                navigator.clipboard.writeText(window.location.origin+window.location.pathname+"?prompt="+encodeURIComponent(b64));
+                }catch(e){navigator.clipboard.writeText(p.text);}
+              }} style={{color:"var(--blue)",borderColor:"rgba(96,165,250,.3)"}}>🔗</button>
               {p.custom && <button className="prom-del" onClick={() => delPrompt(p.id)}>✕</button>}
             </div>
           </div>
@@ -3419,11 +3424,86 @@ function ProjectsTab({ conversations, setChatInput, navigateTab, apiKeys, enable
 }
 
 
+// ── PromptBuilderModal ──────────────────────────────────────────
+function PromptBuilderModal({ onInsert, onClose, enabled, apiKeys }) {
+  const BLOCKS = [
+    { key:"role",    label:"🎭 Rôle",      placeholder:"Tu es un expert en...",      examples:["développeur senior React","copywriter professionnel","analyste financier","coach de vie"] },
+    { key:"context", label:"📋 Contexte",  placeholder:"Voici le contexte...",       examples:["Je travaille sur une app web","Mon audience est débutante","C'est pour un usage professionnel"] },
+    { key:"task",    label:"✅ Tâche",     placeholder:"Ta mission est de...",       examples:["Rédige un article","Analyse ce code","Génère 5 idées","Explique simplement"] },
+    { key:"format",  label:"📐 Format",    placeholder:"Réponds avec...",            examples:["bullet points","tableau markdown","JSON","3 paragraphes max","étapes numérotées"] },
+    { key:"rules",   label:"⚠️ Contraintes", placeholder:"Contraintes : ...",       examples:["sans jargon technique","en français uniquement","max 200 mots","avec des exemples concrets"] },
+  ];
+  const [blocks, setBlocks] = React.useState({role:"",context:"",task:"",format:"",rules:""});
+  const [optimizing, setOptimizing] = React.useState(false);
+
+  const assembled = BLOCKS.filter(b=>blocks[b.key]?.trim()).map(b=>blocks[b.key].trim()).join("\n\n");
+
+  const optimizePrompt = async () => {
+    if (!assembled.trim()) return;
+    setOptimizing(true);
+    const activeIds = Object.keys(MODEL_DEFS).filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial);
+    const id = activeIds.find(i=>["groq","mistral"].includes(i))||activeIds[0];
+    if (!id) { setOptimizing(false); return; }
+    try {
+      const r = await callModel(id,[{role:"user",content:"Améliore et optimise ce prompt pour obtenir les meilleures réponses IA. Garde la même structure mais rends-le plus précis et efficace. Réponds uniquement avec le prompt amélioré:\n\n"+assembled}],apiKeys,"Expert prompt engineering.");
+      onInsert(r.trim());
+      onClose();
+    } catch(e) { onInsert(assembled); onClose(); }
+    setOptimizing(false);
+  };
+
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:9200,background:"rgba(0,0,0,.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(8px)"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"min(680px,96vw)",maxHeight:"90vh",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:12,overflow:"auto",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,position:"sticky",top:0,zIndex:2}}>
+          <span style={{fontSize:14}}>🧱</span>
+          <div style={{flex:1,fontFamily:"var(--font-display)",fontWeight:800,fontSize:13,color:"var(--tx)"}}>Prompt Builder</div>
+          <button onClick={onClose} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:14,width:28,height:28,cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{padding:"12px 16px",display:"flex",flexDirection:"column",gap:10}}>
+          {BLOCKS.map(block=>(
+            <div key={block.key}>
+              <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:4}}>{block.label}</div>
+              <textarea value={blocks[block.key]} onChange={e=>setBlocks(p=>({...p,[block.key]:e.target.value}))}
+                placeholder={block.placeholder} rows={2}
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+              <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                {block.examples.map(ex=>(
+                  <button key={ex} onClick={()=>setBlocks(p=>({...p,[block.key]:p[block.key]?(p[block.key]+", "+ex):ex}))}
+                    style={{fontSize:7,padding:"1px 7px",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,color:"var(--blue)",cursor:"pointer"}}>
+                    + {ex}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        {assembled&&(
+          <div style={{padding:"10px 16px",borderTop:"1px solid var(--bd)",background:"var(--s2)"}}>
+            <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>APERÇU</div>
+            <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.6,maxHeight:100,overflow:"auto",fontStyle:"italic"}}>{assembled.slice(0,300)}{assembled.length>300?"…":""}</div>
+          </div>
+        )}
+        <div style={{padding:"12px 16px",borderTop:"1px solid var(--bd)",display:"flex",gap:8}}>
+          <button onClick={()=>{onInsert(assembled);onClose();}} disabled={!assembled.trim()}
+            style={{flex:1,padding:"8px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:7,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,opacity:assembled.trim()?.4:1}}>
+            ↗ Insérer dans le Chat
+          </button>
+          <button onClick={optimizePrompt} disabled={optimizing||!assembled.trim()}
+            style={{flex:1,padding:"8px",background:"rgba(167,139,250,.1)",border:"1px solid rgba(167,139,250,.3)",borderRadius:7,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>
+            {optimizing?"⟳ Optimisation…":"✦ Optimiser avec l'IA"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
-  const TAB_ORDER = ["chat","prompts","redaction","recherche","workflows","medias","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","config"];
+  const TAB_ORDER = ["router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
   const navigateTab = (newTab) => {
     const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
     const newIdx = TAB_ORDER.indexOf(newTab);
@@ -3437,7 +3517,15 @@ function App() {
     // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    const VALID_TABS = ["chat","prompts","redaction","recherche","workflows","workflow","web","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
+    const VALID_TABS = ["router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
+    // Import shared prompt from URL
+    const promptParam = sp.get("prompt");
+    if (promptParam) {
+      try {
+        const d = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(promptParam)))));
+        if (d.text) { setChatInput(d.text); }
+      } catch {}
+    }
     return VALID_TABS.includes(t) ? t : "chat";
   });
   const [mobileCol, setMobileCol] = useState("groq");
@@ -3663,6 +3751,175 @@ function App() {
     return d.message?.content || "";
   };
 
+
+  // ══════════════════════════════════════════════════════════════
+  // ComfyUI local integration
+  // ══════════════════════════════════════════════════════════════
+  const COMFY_DEFAULT_URL = "http://127.0.0.1:8188";
+  const [comfyUrl, setComfyUrl] = useState(() => {
+    try { return localStorage.getItem("multiia_comfy_url")||COMFY_DEFAULT_URL; } catch { return COMFY_DEFAULT_URL; }
+  });
+  const [comfyConnected, setComfyConnected]     = useState(false);
+  const [comfyNodes, setComfyNodes]             = useState({});   // object_info
+  const [showComfyPanel, setShowComfyPanel]     = useState(false);
+  const [comfyPrompt, setComfyPrompt]           = useState("");
+  const [comfyNegPrompt, setComfyNegPrompt]     = useState("blurry, ugly, low quality, watermark");
+  const [comfySteps, setComfySteps]             = useState(20);
+  const [comfyCfg, setComfyCfg]                 = useState(7);
+  const [comfyWidth, setComfyWidth]             = useState(512);
+  const [comfyHeight, setComfyHeight]           = useState(512);
+  const [comfyModel, setComfyModel]             = useState("");
+  const [comfyModels, setComfyModels]           = useState([]);
+  const [comfyGenerating, setComfyGenerating]   = useState(false);
+  const [comfyProgress, setComfyProgress]       = useState(0);   // 0-100
+  const [comfyResult, setComfyResult]           = useState(null); // {url, filename}
+  const [comfyError, setComfyError]             = useState("");
+  const [comfyWorkflows, setComfyWorkflows]     = useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_comfy_workflows")||"[]"); } catch { return []; }
+  });
+  const [comfyActiveWf, setComfyActiveWf]       = useState(null); // loaded workflow JSON
+  const [comfyWfName, setComfyWfName]           = useState("");
+  const [comfyHistory, setComfyHistory]         = useState([]);  // [{url,prompt,ts}]
+  const [comfySubTab, setComfySubTab]           = useState("generate"); // generate|workflows|history|settings
+  const [comfyLoras, setComfyLoras]             = useState([]);
+  const [comfyActiveLoras, setComfyActiveLoras] = useState([]); // [{name,strength}]
+  const [comfySampler, setComfySampler]         = useState("euler");
+  const [comfySeed, setComfySeed]               = useState(-1); // -1 = random
+
+  const checkComfy = async (url) => {
+    const base = (url||comfyUrl).replace(/\/$/, "");
+    try {
+      const r = await fetch(base+"/system_stats", { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        setComfyConnected(true);
+        localStorage.setItem("multiia_comfy_url", base);
+        // Load available checkpoints
+        try {
+          const ni = await fetch(base+"/object_info/CheckpointLoaderSimple").then(r=>r.json());
+          const models = ni?.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
+          setComfyModels(models);
+          if (models.length && !comfyModel) setComfyModel(models[0]);
+          setComfyNodes(prev=>({...prev, checkpoints:models}));
+        } catch {}
+        // Load LoRAs
+        try {
+          const li = await fetch(base+"/object_info/LoraLoader").then(r=>r.json());
+          const loras = li?.LoraLoader?.input?.required?.lora_name?.[0] || [];
+          setComfyLoras(loras);
+        } catch {}
+        showToast("✓ ComfyUI connecté !");
+        return true;
+      }
+    } catch {}
+    setComfyConnected(false);
+    setComfyModels([]);
+    showToast("✗ ComfyUI non trouvé — Lance ComfyUI sur ton PC");
+    return false;
+  };
+
+  // Build a standard txt2img workflow JSON
+  const buildComfyWorkflow = (prompt, negPrompt, opts={}) => {
+    const { steps=20, cfg=7, width=512, height=512, model="", sampler="euler", seed=-1, loras=[] } = opts;
+    const realSeed = seed < 0 ? Math.floor(Math.random()*2**32) : seed;
+    let workflow = {
+      "1": { class_type:"CheckpointLoaderSimple", inputs:{ ckpt_name: model||comfyModel||"v1-5-pruned-emaonly.ckpt" }},
+      "2": { class_type:"CLIPTextEncode", inputs:{ text: prompt, clip:["1",1] }},
+      "3": { class_type:"CLIPTextEncode", inputs:{ text: negPrompt||"blurry, ugly, low quality", clip:["1",1] }},
+      "4": { class_type:"EmptyLatentImage", inputs:{ width, height, batch_size:1 }},
+      "5": { class_type:"KSampler", inputs:{ model:["1",0], positive:["2",0], negative:["3",0], latent_image:["4",0], seed:realSeed, steps, cfg, sampler_name:sampler, scheduler:"karras", denoise:1.0 }},
+      "6": { class_type:"VAEDecode", inputs:{ samples:["5",0], vae:["1",2] }},
+      "7": { class_type:"SaveImage", inputs:{ images:["6",0], filename_prefix:"multiia" }}
+    };
+    // Inject LoRAs as a chain
+    if (loras.length > 0) {
+      loras.forEach((lora, i) => {
+        const nodeId = String(10+i);
+        const prevModel = i===0 ? ["1",0] : [String(9+i),0];
+        const prevClip  = i===0 ? ["1",1] : [String(9+i),1];
+        workflow[nodeId] = { class_type:"LoraLoader", inputs:{ model:prevModel, clip:prevClip, lora_name:lora.name, strength_model:lora.strength||1, strength_clip:lora.strength||1 }};
+        // Redirect KSampler and CLIPs to use LoRA chain output
+        workflow["5"].inputs.model = [nodeId,0];
+        workflow["2"].inputs.clip  = [nodeId,1];
+        workflow["3"].inputs.clip  = [nodeId,1];
+      });
+    }
+    return workflow;
+  };
+
+  // Submit workflow and poll for result
+  const generateComfy = async (customWorkflow=null, customPrompt=null) => {
+    const base = comfyUrl.replace(/\/$/, "");
+    const promptText = customPrompt || comfyPrompt;
+    if (!promptText.trim() && !customWorkflow) { showToast("Écris un prompt d'abord"); return; }
+    if (!comfyConnected) { await checkComfy(); return; }
+    setComfyGenerating(true); setComfyProgress(0); setComfyResult(null); setComfyError("");
+    try {
+      const wf = customWorkflow || buildComfyWorkflow(promptText, comfyNegPrompt, {
+        steps:comfySteps, cfg:comfyCfg, width:comfyWidth, height:comfyHeight,
+        model:comfyModel, sampler:comfySampler, seed:comfySeed, loras:comfyActiveLoras
+      });
+      const body = { prompt: wf, client_id: "multiia-"+Date.now() };
+      const qr = await fetch(base+"/prompt", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+      if (!qr.ok) throw new Error("Erreur soumission : "+qr.status);
+      const { prompt_id } = await qr.json();
+
+      // Poll history for completion
+      let attempts = 0;
+      while (attempts < 120) {
+        await new Promise(r=>setTimeout(r,1000));
+        attempts++;
+        const hr = await fetch(base+"/history/"+prompt_id);
+        if (!hr.ok) continue;
+        const hist = await hr.json();
+        if (hist[prompt_id]) {
+          const outputs = hist[prompt_id].outputs;
+          // Find SaveImage output
+          for (const nodeId of Object.keys(outputs)) {
+            const images = outputs[nodeId]?.images;
+            if (images?.length) {
+              const img = images[0];
+              const imgUrl = base+"/view?filename="+encodeURIComponent(img.filename)+"&subfolder="+encodeURIComponent(img.subfolder||"")+"&type="+encodeURIComponent(img.type||"output");
+              setComfyResult({ url:imgUrl, filename:img.filename, prompt:promptText });
+              setComfyHistory(prev=>[{url:imgUrl,prompt:promptText,ts:new Date().toISOString(),filename:img.filename},...prev].slice(0,50));
+              setComfyGenerating(false);
+              setComfyProgress(100);
+              showToast("✓ Image générée !");
+              return;
+            }
+          }
+        }
+        setComfyProgress(Math.min(95, attempts*2));
+      }
+      throw new Error("Timeout — génération trop longue");
+    } catch(e) {
+      setComfyError(e.message);
+      setComfyGenerating(false);
+    }
+  };
+
+  // Send generated image to chat
+  const sendComfyToChat = (result) => {
+    const r = result || comfyResult;
+    if (!r) return;
+    setChatInput(prev=>(prev?"\n":"")+`![Image ComfyUI](${r.url})\n> Prompt : ${r.prompt}`);
+    navigateTab("chat");
+    showToast("✓ Image envoyée dans le Chat");
+  };
+
+  // Save/load workflow
+  const saveComfyWorkflow = (name, wfJson) => {
+    const entry = { id:Date.now().toString(), name:name||"Workflow "+comfyWorkflows.length, json:wfJson, ts:new Date().toISOString() };
+    const updated = [...comfyWorkflows, entry];
+    setComfyWorkflows(updated);
+    localStorage.setItem("multiia_comfy_workflows", JSON.stringify(updated));
+    showToast("✓ Workflow sauvegardé");
+  };
+  const deleteComfyWorkflow = (id) => {
+    const updated = comfyWorkflows.filter(w=>w.id!==id);
+    setComfyWorkflows(updated);
+    localStorage.setItem("multiia_comfy_workflows", JSON.stringify(updated));
+  };
+
   // ── Vote automatique "Meilleure réponse" ────────────────────────
   const [bestVote, setBestVote] = useState(null); // { winner, scores:{id:{precision,clarte,completude,utilite,total}}, reason, points:{id:[]} }
   const [voteLoading, setVoteLoading] = useState(false);
@@ -3859,36 +4116,74 @@ function App() {
     const a = document.createElement("a"); a.href=url; a.download=`conversation-${Date.now()}.md`; a.click();
     URL.revokeObjectURL(url); showToast("✓ Export Markdown téléchargé");
   };
-  const exportPDF = (id) => {
+  const exportPDF = async (id) => {
     const ids = id ? [id] : IDS.filter(i => enabled[i]);
     const allMsgs = ids.flatMap(cid =>
       (conversations[cid]||[]).filter(m=>m.role==="user"||m.role==="assistant")
-        .map(m=>({...m, ia:MODEL_DEFS[cid]?.short||cid, color:MODEL_DEFS[cid]?.color||"#888"}))
+        .map(m=>({...m, ia:MODEL_DEFS[cid]?.short||cid, color:MODEL_DEFS[cid]?.color||"#888", icon:MODEL_DEFS[cid]?.icon||"🤖"}))
     );
     if (!allMsgs.length) { showToast("Aucun message à exporter"); return; }
+
+    // Try jsPDF first (available via plugins), fallback to print window
+    try {
+      if (window.jsPDF || window.jspdf) {
+        const { jsPDF } = window.jspdf || { jsPDF: window.jsPDF };
+        const doc = new jsPDF({ unit:"mm", format:"a4" });
+        const pageW = doc.internal.pageSize.getWidth();
+        const margin = 14; const usableW = pageW - margin*2;
+        let y = 20;
+
+        // Header
+        doc.setFillColor(26,26,28); doc.rect(0,0,pageW,16,'F');
+        doc.setTextColor(212,168,83); doc.setFontSize(11); doc.setFont("helvetica","bold");
+        doc.text("Multi-IA Hub — Conversation", margin, 10);
+        doc.setTextColor(150,150,150); doc.setFontSize(8); doc.setFont("helvetica","normal");
+        doc.text(new Date().toLocaleString("fr-FR"), pageW-margin, 10, {align:"right"});
+        y = 24;
+
+        allMsgs.forEach(msg => {
+          if (y > 270) { doc.addPage(); y = 14; }
+          const isUser = msg.role === "user";
+          // Label
+          doc.setFontSize(7); doc.setFont("helvetica","bold");
+          doc.setTextColor(isUser ? 100 : 180, isUser ? 100 : 130, isUser ? 100 : 60);
+          doc.text((isUser ? "👤 Vous" : msg.icon+" "+msg.ia).replace(/[^-~]/g,""), margin, y);
+          y += 4;
+          // Content
+          doc.setFontSize(9); doc.setFont("helvetica","normal");
+          doc.setTextColor(isUser ? 60 : 30, isUser ? 60 : 30, isUser ? 60 : 30);
+          const clean = msg.content.replace(/[#*`>_~]/g,"").replace(/\n{3,}/g,"\n\n");
+          const lines = doc.splitTextToSize(clean, usableW);
+          const blockH = lines.length * 4 + 8;
+          if (y + blockH > 275) { doc.addPage(); y = 14; }
+          doc.setFillColor(isUser ? 245 : 255, isUser ? 245 : 249, isUser ? 245 : 240);
+          doc.roundedRect(margin, y-2, usableW, blockH, 2, 2, "F");
+          doc.setDrawColor(isUser ? 200 : 212, isUser ? 200 : 168, isUser ? 200 : 83);
+          doc.line(margin, y-2, margin, y-2+blockH);
+          doc.text(lines, margin+3, y+3);
+          y += blockH + 4;
+        });
+
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for(let i=1;i<=pageCount;i++){
+          doc.setPage(i);
+          doc.setFontSize(7); doc.setTextColor(150,150,150);
+          doc.text("Multi-IA Hub v"+APP_VERSION+" — p."+i+"/"+pageCount, pageW/2, 290, {align:"center"});
+        }
+        doc.save("conversation-multiia-"+Date.now()+".pdf");
+        showToast("✓ PDF téléchargé !");
+        return;
+      }
+    } catch(e) { console.warn("jsPDF unavailable, fallback:", e); }
+
+    // Fallback: print window
     const win = window.open("","_blank");
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Conversation Multi-IA Hub</title><style>
-body{font-family:Georgia,serif;max-width:800px;margin:40px auto;color:#222;line-height:1.7}
-h1{font-size:22px;border-bottom:2px solid #D4A853;padding-bottom:8px}
-.msg{margin:16px 0;padding:14px 18px;border-radius:8px}
-.user{background:#F3F4F6;border-left:4px solid #6B7280}
-.assistant{background:#FFF9F0;border-left:4px solid #D4A853}
-.ia-label{font-size:11px;font-weight:bold;color:#888;margin-bottom:6px;text-transform:uppercase}
-.content{font-size:14px;white-space:pre-wrap}
-.footer{margin-top:40px;font-size:11px;color:#AAA;text-align:center}
-</style></head><body>
-<h1>🤖 Conversation Multi-IA Hub</h1>
-<p style="color:#888;font-size:12px">Exporté le ${new Date().toLocaleString("fr-FR")}</p>
-${allMsgs.map(m=>`
-<div class="msg ${m.role}">
-  <div class="ia-label">${m.role==="user"?"👤 Vous":("🤖 "+m.ia)}</div>
-  <div class="content">${m.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
-</div>`).join("")}
-<div class="footer">Généré par Multi-IA Hub v${APP_VERSION}</div>
-</body></html>`;
-    win.document.write(html); win.document.close();
-    setTimeout(()=>win.print(), 500);
-    showToast("✓ Fenêtre impression ouverte → Enregistrer en PDF");
+    const escHtml = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    win.document.write("<!DOCTYPE html><html><head><meta charset=utf-8><title>Conversation</title><style>body{font-family:system-ui;max-width:800px;margin:32px auto;color:#222}.msg{margin:14px 0;padding:12px 16px;border-radius:6px;border-left:4px solid #ccc}.user{background:#f5f5f5;border-color:#888}.assistant{background:#fffbf0;border-color:#D4A853}.lbl{font-size:10px;font-weight:700;color:#888;margin-bottom:5px}.body{font-size:13px;white-space:pre-wrap;line-height:1.6}</style></head><body><h2>Multi-IA Hub v"+APP_VERSION+"</h2><p style='color:#888;font-size:11px'>"+new Date().toLocaleString("fr-FR")+"</p>"+allMsgs.map(m=>"<div class='msg "+m.role+"'><div class='lbl'>"+(m.role==="user"?"👤 Vous":"🤖 "+m.ia)+"</div><div class='body'>"+escHtml(m.content)+"</div></div>").join("")+"</body></html>");
+    win.document.close();
+    setTimeout(()=>win.print(),400);
+    showToast("✓ Fenêtre impression → Enregistrer en PDF");
   };
 
   // ── Persona actif ──
@@ -4168,7 +4463,13 @@ ${allMsgs.map(m=>`
   // Expose to window so CodeBlock (non-child) can trigger canvas
   React.useEffect(() => {
     window.__openCanvas = (code, lang, title) => { setCanvasContent({code, lang, title}); setCanvasError(null); setCanvasHealCount(0); };
-    return () => { delete window.__openCanvas; };
+    return () => {
+      delete window.__openCanvas;
+      // cleanup any stray canvas message listeners
+      document.querySelectorAll('iframe.__canvas').forEach(el => {
+        if(el.__msgHandler) window.removeEventListener('message',el.__msgHandler);
+      });
+    };
   }, []);
   const [sessionTokens, setSessionTokens] = React.useState({}); // {id: {in:N, out:N}}
   const estimateCost = (id, inTok, outTok) => {
@@ -4268,6 +4569,312 @@ ${allMsgs.map(m=>`
     } catch(e) { setExpertSynthesis("❌ Synthèse impossible : "+e.message); }
     setExpertRunning(false);
     showToast("✓ Panel d'experts terminé !");
+  };
+
+  // ── Prompt Builder ───────────────────────────────────────────────
+  const [showPromptBuilder, setShowPromptBuilder] = React.useState(false);
+
+  // ── Auto-Memory (feature 10) ──────────────────────────────────────
+  const [autoMemSuggestions, setAutoMemSuggestions] = React.useState([]);
+  const [showMemSuggest, setShowMemSuggest] = React.useState(false);
+  const extractAutoMemory = async (convHistory) => {
+    if (convHistory.length < 4) return;
+    const activeIds = IDS.filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial);
+    const id = activeIds.find(i=>i==="groq")||activeIds[0];
+    if (!id) return;
+    const snippet = convHistory.slice(-6).filter(m=>m.role==="user"||m.role==="assistant").map(m=>(m.role==="user"?"U:":"A:")+m.content.slice(0,200)).join("\n");
+    try {
+      const r = await callModel(id,[{role:"user",content:"Extrais 2 faits importants sur l'utilisateur de cette conversation. Format JSON: [{fact:string}]. Si rien d'important, retourne []. JSON uniquement:\n"+snippet}],apiKeys,"Expert extraction de faits. JSON uniquement.");
+      const d = JSON.parse(r.replace(/```json|```/g,"").trim());
+      if(Array.isArray(d)&&d.length>0) {
+        setAutoMemSuggestions(d.map(x=>x.fact||x).filter(Boolean));
+        setShowMemSuggest(true);
+      }
+    } catch {}
+  };
+
+  // ── Advanced Settings ──────────────────────────────────────────
+  const [customProviders, setCustomProviders] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_custom_providers")||"[]"); } catch { return []; }
+  });
+  const [modelTemps, setModelTemps] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_temps")||"{}"); } catch { return {}; }
+  });
+  const [globalSysPrompt, setGlobalSysPrompt] = React.useState(() => {
+    try { return localStorage.getItem("multiia_global_sys")||""; } catch { return ""; }
+  });
+  const saveAdvSettings = () => {
+    try {
+      localStorage.setItem("multiia_custom_providers", JSON.stringify(customProviders));
+      localStorage.setItem("multiia_temps", JSON.stringify(modelTemps));
+      localStorage.setItem("multiia_global_sys", globalSysPrompt);
+      showToast("✓ Paramètres avancés sauvegardés");
+    } catch(e) { showToast("❌ "+e.message); }
+  };
+
+  // ── Response Diff ────────────────────────────────────────────────
+  const [diffModal, setDiffModal] = React.useState(false);
+  const [diffIA1, setDiffIA1] = React.useState("");
+  const [diffIA2, setDiffIA2] = React.useState("");
+
+  const computeDiff = (text1, text2) => {
+    const words1 = text1.split(/\s+/);
+    const words2 = text2.split(/\s+/);
+    // Simple LCS-based word diff
+    const m = words1.length, n = words2.length;
+    const dp = Array.from({length:m+1}, ()=>new Array(n+1).fill(0));
+    for(let i=m-1;i>=0;i--) for(let j=n-1;j>=0;j--)
+      dp[i][j] = words1[i]===words2[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j],dp[i][j+1]);
+    const result = []; let i=0, j=0;
+    while(i<m || j<n) {
+      if(i<m && j<n && words1[i]===words2[j]) { result.push({t:"eq",v:words1[i]}); i++;j++; }
+      else if(j<n && (i>=m || dp[i+1]?.[j]<=dp[i]?.[j+1])) { result.push({t:"add",v:words2[j]}); j++; }
+      else { result.push({t:"del",v:words1[i]}); i++; }
+    }
+    return result;
+  };
+
+
+  // ══════════════════════════════════════════════════════════════
+  // 🧭 Smart Router — analyse fichier + propose onglet + lance
+  // ══════════════════════════════════════════════════════════════
+  const ROUTER_ROUTES = [
+    { id:"chat",       icon:"◈", label:"Chat IA",          desc:"Poser des questions, discuter du contenu",      color:"#74C98C" },
+    { id:"debate",     icon:"⚡", label:"Débat / Analyse",  desc:"Analyse multi-IAs sous plusieurs angles",       color:"#F59E0B" },
+    { id:"redaction",  icon:"✍️", label:"Rédaction",         desc:"Réécrire, corriger, améliorer le texte",        color:"#60A5FA" },
+    { id:"recherche",  icon:"🔎", label:"Recherche",         desc:"Questions de recherche sur ce contenu",         color:"#34D399" },
+    { id:"workflows",  icon:"🔀", label:"Workflow",          desc:"Chaîner des traitements automatiques",          color:"#F97316" },
+    { id:"comfyui",    icon:"⬡", label:"ComfyUI",           desc:"Générer/modifier des images avec ComfyUI",      color:"#A78BFA" },
+    { id:"rag",        icon:"📄", label:"RAG Contextuel",   desc:"Indexer le document pour Q&A intelligent",      color:"#D4A853" },
+    { id:"canvas",     icon:"🎨", label:"Canvas Exécution", desc:"Exécuter/visualiser le code HTML/SVG/JS",       color:"#F472B6" },
+  ];
+
+  const [routerFile, setRouterFile]           = useState(null);  // {name,type,content,base64,mimeType,icon,size}
+  const [routerAnalysis, setRouterAnalysis]   = useState(null);  // {summary, suggestions:[{route,reason,confidence,params}], raw}
+  const [routerAnalyzing, setRouterAnalyzing] = useState(false);
+  const [routerSelected, setRouterSelected]   = useState(null);  // chosen route id
+  const [routerLaunching, setRouterLaunching] = useState(false);
+  const [routerDone, setRouterDone]           = useState(false);
+  const [routerQuestion, setRouterQuestion]   = useState("");    // optional user question
+  const routerFileRef = useRef(null);
+
+  const ROUTER_MAX_SIZE = 15 * 1024 * 1024; // 15MB
+
+  const loadRouterFile = async (file) => {
+    if (!file) return;
+    if (file.size > ROUTER_MAX_SIZE) { showToast("Fichier trop volumineux (max 15 MB)"); return; }
+    const ext = file.name.split(".").pop()?.toLowerCase()||"";
+    const ALLOWED = new Set(["pdf","txt","md","csv","json","js","jsx","ts","tsx","py","html","css","sql","xml","jpg","jpeg","png","gif","webp","svg","docx","doc","zip"]);
+    if (!ALLOWED.has(ext)) { showToast("Format non supporté : ."+ext); return; }
+
+    setRouterFile(null); setRouterAnalysis(null); setRouterSelected(null); setRouterDone(false);
+    showToast("⏳ Chargement…");
+
+    const isImage = file.type.startsWith("image/");
+    const sizeKB = Math.round(file.size/1024);
+    let content = "";
+    let base64 = "";
+    let icon = "📄";
+
+    if (isImage) {
+      icon = "🖼";
+      base64 = await new Promise((res,rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(",")[1]);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+    } else if (ext === "pdf") {
+      icon = "📕";
+      const raw = await new Promise((res,rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsBinaryString(file);
+      });
+      try {
+        const matches = raw.match(/[ -~À-ÿ]{4,}/g)||[];
+        content = matches.filter(s=>/[a-zA-ZÀ-ÿ]{3,}/.test(s)).join(" ").slice(0,10000);
+      } catch { content = "[PDF — extraction basique]"; }
+    } else {
+      try {
+        content = (await file.text()).slice(0,12000);
+        if (ext==="js"||ext==="jsx"||ext==="ts"||ext==="tsx"||ext==="py"||ext==="html"||ext==="css"||ext==="sql") icon="💻";
+        if (ext==="json"||ext==="csv") icon="📊";
+        if (ext==="md") icon="📝";
+      } catch { content = "[Fichier binaire]"; }
+    }
+
+    setRouterFile({ name:file.name, type:isImage?"image":"text", ext, content, base64, mimeType:file.type, icon, sizeKB });
+    showToast("✓ Fichier chargé — clique Analyser");
+  };
+
+  const analyzeRouterFile = async () => {
+    if (!routerFile) return;
+    setRouterAnalyzing(true); setRouterAnalysis(null); setRouterSelected(null);
+
+    // Pick best available AI (prefer Groq for speed)
+    const activeIds = IDS.filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial&&!isLimited(id));
+    const id = activeIds.find(i=>["groq","mistral","cohere"].includes(i))||activeIds[0];
+
+    if (!id) {
+      // Fallback: static heuristic routing without AI
+      const fallback = heuristicRoute(routerFile);
+      setRouterAnalysis(fallback);
+      setRouterAnalyzing(false);
+      return;
+    }
+
+    const preview = routerFile.type==="image"
+      ? "[Image: "+routerFile.name+" ("+routerFile.sizeKB+"KB)]"
+      : routerFile.content.slice(0,2000);
+
+    const userQ = routerQuestion.trim() ? "Question de l'utilisateur : \""+routerQuestion.trim()+"\". " : "";
+    const prompt = userQ+"Analyse ce fichier et propose les 3 meilleurs onglets pour le traiter. "+
+      "Fichier : "+routerFile.name+" ("+routerFile.ext.toUpperCase()+", "+routerFile.sizeKB+"KB).\n"+
+      "Aperçu : "+preview+"\n\n"+
+      "Onglets disponibles : chat (questions générales), debate (analyse multi-angles), redaction (réécriture/correction), "+
+      "recherche (Q&A recherche), workflows (automatisation), comfyui (images locales GPU), rag (Q&A sur long document), canvas (exécution code HTML/JS).\n\n"+
+      "Réponds UNIQUEMENT en JSON valide :\n"+
+      "{\"summary\":\"1-2 phrases sur le contenu\",\"suggestions\":[{\"route\":\"id_onglet\",\"reason\":\"1 phrase\",\"confidence\":0.95,\"params\":{\"prompt\":\"suggestion de prompt adapté au fichier\",\"action\":\"description courte action\"}}]}\n"+
+      "3 suggestions max, triées par pertinence décroissante. JSON uniquement.";
+
+    try {
+      const r = await callModel(id, [{role:"user",content:prompt}], apiKeys, "Tu es un assistant qui analyse des fichiers et propose des actions. Réponds uniquement en JSON valide.");
+      const d = JSON.parse(r.replace(/```json|```/g,"").trim());
+      // Validate routes exist
+      d.suggestions = (d.suggestions||[]).filter(s=>ROUTER_ROUTES.find(r=>r.id===s.route)).slice(0,3);
+      if (!d.suggestions.length) d.suggestions = heuristicRoute(routerFile).suggestions;
+      setRouterAnalysis(d);
+      if (d.suggestions.length) setRouterSelected(d.suggestions[0].route);
+    } catch(e) {
+      const fallback = heuristicRoute(routerFile);
+      setRouterAnalysis(fallback);
+      if (fallback.suggestions.length) setRouterSelected(fallback.suggestions[0].route);
+    }
+    setRouterAnalyzing(false);
+  };
+
+  // Heuristic routing without AI
+  const heuristicRoute = (file) => {
+    const ext = file.ext||"";
+    const name = file.name.toLowerCase();
+    let suggestions = [];
+    if (["jpg","jpeg","png","gif","webp"].includes(ext)) {
+      suggestions = [
+        {route:"comfyui",reason:"Image détectée — ComfyUI peut la traiter ou générer des variantes",confidence:.9,params:{prompt:"analyze and describe this image",action:"Ouvrir dans ComfyUI"}},
+        {route:"chat",reason:"Poser des questions sur l'image",confidence:.7,params:{prompt:"Décris en détail cette image",action:"Analyser dans le Chat"}},
+        {route:"canvas",reason:"Afficher l'image dans le Canvas",confidence:.5,params:{prompt:"",action:"Visualiser"}},
+      ];
+    } else if (ext==="pdf"||ext==="docx") {
+      suggestions = [
+        {route:"rag",reason:"Long document — RAG pour Q&A intelligent sans saturer le contexte",confidence:.95,params:{prompt:"",action:"Indexer pour Q&A"}},
+        {route:"debate",reason:"Analyse multi-IAs sous plusieurs angles",confidence:.8,params:{prompt:"Analyse ce document",action:"Analyser"}},
+        {route:"redaction",reason:"Réécrire ou améliorer le contenu",confidence:.6,params:{prompt:"Résume ce document",action:"Synthétiser"}},
+      ];
+    } else if (["js","jsx","ts","tsx","py","html","css"].includes(ext)) {
+      suggestions = [
+        {route:"canvas",reason:"Code exécutable — aperçu live dans le Canvas",confidence:.9,params:{prompt:"",action:"Exécuter dans le Canvas"}},
+        {route:"chat",reason:"Poser des questions sur le code",confidence:.8,params:{prompt:"Explique ce code",action:"Analyser le code"}},
+        {route:"redaction",reason:"Refactorer ou optimiser le code",confidence:.7,params:{prompt:"Améliore et optimise ce code",action:"Refactorer"}},
+      ];
+    } else if (["csv","json"].includes(ext)) {
+      suggestions = [
+        {route:"recherche",reason:"Données structurées — questions analytiques",confidence:.85,params:{prompt:"Analyse ces données et donne les insights principaux",action:"Analyser les données"}},
+        {route:"workflows",reason:"Traitement automatisé des données",confidence:.7,params:{prompt:"",action:"Lancer un workflow"}},
+        {route:"chat",reason:"Explorer les données en discussion",confidence:.6,params:{prompt:"Décris la structure de ces données",action:"Explorer"}},
+      ];
+    } else {
+      suggestions = [
+        {route:"debate",reason:"Analyse multi-IAs du contenu",confidence:.8,params:{prompt:"Analyse ce document",action:"Analyser"}},
+        {route:"rag",reason:"Document textuel — Q&A intelligent",confidence:.75,params:{prompt:"",action:"Indexer"}},
+        {route:"redaction",reason:"Améliorer ou adapter le texte",confidence:.6,params:{prompt:"Améliore ce texte",action:"Rédiger"}},
+      ];
+    }
+    return { summary:"Fichier "+file.ext.toUpperCase()+" détecté ("+file.sizeKB+"KB) — routage automatique.", suggestions };
+  };
+
+  const launchRouterAction = async () => {
+    if (!routerSelected || !routerFile || !routerAnalysis) return;
+    setRouterLaunching(true);
+    const suggestion = routerAnalysis.suggestions.find(s=>s.route===routerSelected);
+    const params = suggestion?.params||{};
+    const fileContent = routerFile.type==="image" ? null : routerFile.content;
+    const userQ = routerQuestion.trim();
+    const basePrompt = userQ || params.prompt || "";
+
+    try {
+      switch(routerSelected) {
+        case "chat": {
+          const msg = basePrompt + (fileContent ? "\n\n📎 Fichier : "+routerFile.name+"\n```\n"+fileContent.slice(0,8000)+"\n```" : "");
+          setChatInput(msg);
+          navigateTab("chat");
+          break;
+        }
+        case "debate": {
+          setDebInput(basePrompt + (fileContent?"\n\n"+fileContent.slice(0,6000):""));
+          if (routerFile.type==="image") {
+            setDebFile({name:routerFile.name,type:"image",base64:routerFile.base64,mimeType:routerFile.mimeType,icon:"🖼"});
+          } else if (fileContent) {
+            setDebFile({name:routerFile.name,type:"text",content:fileContent.slice(0,10000),icon:routerFile.icon});
+          }
+          navigateTab("debate");
+          break;
+        }
+        case "redaction": {
+          setRedInput&&setRedInput(fileContent?.slice(0,8000)||basePrompt);
+          navigateTab("redaction");
+          break;
+        }
+        case "recherche": {
+          setRechercheInput&&setRechercheInput(basePrompt||(fileContent?"Analyse ce contenu : "+fileContent.slice(0,4000):""));
+          navigateTab("recherche");
+          break;
+        }
+        case "workflows": {
+          navigateTab("workflows");
+          break;
+        }
+        case "comfyui": {
+          if (routerFile.type==="image") {
+            setComfyPrompt("style transfer from: "+routerFile.name+", "+basePrompt);
+          } else {
+            setComfyPrompt(basePrompt||"illustration of: "+routerFile.name);
+          }
+          setComfySubTab("generate");
+          navigateTab("comfyui");
+          if (comfyConnected) setTimeout(()=>generateComfy(), 500);
+          break;
+        }
+        case "rag": {
+          if (fileContent) {
+            processRagText(fileContent);
+            showToast("✓ Document indexé dans le RAG — "+ragChunks.length+" morceaux");
+          }
+          setChatInput(basePrompt||"Que dit ce document ?");
+          navigateTab("chat");
+          setShowRagPanel(true);
+          break;
+        }
+        case "canvas": {
+          const code = fileContent||"";
+          const isHtml = routerFile.ext==="html"||code.includes("<!DOCTYPE")||code.includes("<html");
+          const isSvg = routerFile.ext==="svg"||code.includes("<svg");
+          if ((isHtml||isSvg)&&window.__openCanvas) {
+            window.__openCanvas(code, isHtml?"html":"svg", routerFile.name);
+          } else if (routerFile.type==="image"&&window.__openCanvas) {
+            window.__openCanvas('<img src="data:'+routerFile.mimeType+';base64,'+routerFile.base64+'" style="max-width:100%;max-height:100vh;"/>', "html", routerFile.name);
+          } else {
+            window.__openCanvas&&window.__openCanvas("<pre style='padding:20px;font-size:12px;overflow:auto;'>"+code.replace(/</g,"&lt;")+"</pre>","html",routerFile.name);
+          }
+          navigateTab("chat");
+          break;
+        }
+      }
+      setRouterDone(true);
+      showToast("✓ Lancé dans l'onglet "+ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label);
+    } catch(e) { showToast("❌ "+e.message); }
+    setRouterLaunching(false);
   };
 
   const [debInput, setDebInput] = useState("");
@@ -4538,6 +5145,10 @@ ${allMsgs.map(m=>`
       // Vote automatique si 2+ IAs actives
       const activeCount = IDS.filter(id => enabled[id]).length;
       if (activeCount >= 2) setTimeout(()=>runAutoVote(prev), 500);
+      // Auto-memory: extract facts every 6 messages
+      const firstId = IDS.find(id=>enabled[id]);
+      const hist = firstId ? (prev[firstId]||[]) : [];
+      if (hist.length > 0 && hist.length % 6 === 0) setTimeout(()=>extractAutoMemory(hist), 2000);
       return prev;
     });
   };
@@ -4858,6 +5469,165 @@ ${allMsgs.map(m=>`
           <span className="mobile-header-title">
             multi<span style={{color:"var(--mu)",fontWeight:400}}>IA</span>
           </span>
+
+        {/* ══ SMART ROUTER TAB ══ */}
+        {tab === "router" && (
+          <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"clamp(14px,3vw,32px)",gap:0}}>
+            {/* Header */}
+            <div style={{width:"100%",maxWidth:700,marginBottom:24}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(18px,3vw,24px)",color:"var(--ac)",marginBottom:4}}>🧭 Smart Router</div>
+              <div style={{fontSize:10,color:"var(--mu)"}}>Dépose un fichier → l'IA l'analyse → propose l'onglet optimal → lance automatiquement la procédure</div>
+            </div>
+
+            {/* DROP ZONE */}
+            {!routerFile && (
+              <div style={{width:"100%",maxWidth:700}}
+                onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="var(--ac)";}}
+                onDragLeave={e=>{e.currentTarget.style.borderColor="rgba(212,168,83,.25)";}}
+                onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="rgba(212,168,83,.25)";const f=e.dataTransfer.files?.[0];if(f)loadRouterFile(f);}}>
+                <input type="file" ref={routerFileRef} style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)loadRouterFile(f);e.target.value="";}}/>
+                <div onClick={()=>routerFileRef.current?.click()}
+                  style={{border:"2px dashed rgba(212,168,83,.25)",borderRadius:16,padding:"60px 24px",textAlign:"center",cursor:"pointer",transition:"all .2s",background:"rgba(212,168,83,.03)"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(212,168,83,.25)"}>
+                  <div style={{fontSize:48,marginBottom:14,opacity:.4}}>🧭</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Dépose ton fichier ici</div>
+                  <div style={{fontSize:10,color:"var(--mu)",marginBottom:16}}>ou clique pour choisir</div>
+                  <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
+                    {["📕 PDF","📊 CSV/JSON","💻 Code","🖼 Image","📝 Texte","📄 Docx"].map(t=>(
+                      <span key={t} style={{fontSize:8,padding:"2px 8px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:10,color:"var(--mu)"}}>{t}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FILE LOADED */}
+            {routerFile && (
+              <div style={{width:"100%",maxWidth:700}}>
+                {/* File card */}
+                <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:10,marginBottom:14}}>
+                  <span style={{fontSize:28}}>{routerFile.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{routerFile.name}</div>
+                    <div style={{fontSize:9,color:"var(--mu)"}}>{routerFile.ext.toUpperCase()} · {routerFile.sizeKB} KB · {routerFile.type==="image"?"Image":"Texte"}</div>
+                  </div>
+                  <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);}}
+                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:5,color:"var(--red)",fontSize:9,padding:"3px 9px",cursor:"pointer"}}>
+                    ✕ Changer
+                  </button>
+                </div>
+
+                {/* Optional question */}
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:5}}>QUESTION OPTIONNELLE <span style={{fontWeight:400}}>(guide le routage et la procédure)</span></div>
+                  <input value={routerQuestion} onChange={e=>setRouterQuestion(e.target.value)}
+                    placeholder='Ex: "Résume ce PDF", "Génère une variante de cette image", "Corrige le code"…'
+                    style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 12px",fontFamily:"var(--font-ui)",outline:"none",boxSizing:"border-box"}}
+                    onFocus={e=>e.target.style.borderColor="var(--ac)"}
+                    onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
+                </div>
+
+                {/* Analyze button */}
+                {!routerAnalysis && (
+                  <button onClick={analyzeRouterFile} disabled={routerAnalyzing}
+                    style={{width:"100%",padding:"12px",background:"rgba(212,168,83,.15)",border:"2px solid rgba(212,168,83,.4)",borderRadius:9,color:"var(--ac)",fontSize:13,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerAnalyzing?.6:1}}>
+                    {routerAnalyzing?"⟳ Analyse en cours…":"🔍 Analyser et proposer un routage"}
+                  </button>
+                )}
+
+                {/* Analysis result */}
+                {routerAnalysis && !routerDone && (
+                  <div>
+                    {/* Summary */}
+                    <div style={{padding:"10px 14px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:16,fontStyle:"italic"}}>
+                      💡 {routerAnalysis.summary}
+                    </div>
+
+                    {/* Route suggestions */}
+                    <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10}}>ONGLETS RECOMMANDÉS — Clique pour sélectionner</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+                      {routerAnalysis.suggestions.map((sug,i)=>{
+                        const route = ROUTER_ROUTES.find(r=>r.id===sug.route);
+                        if(!route) return null;
+                        const isSelected = routerSelected===sug.route;
+                        const conf = Math.round((sug.confidence||0.8)*100);
+                        return (
+                          <div key={sug.route} onClick={()=>setRouterSelected(sug.route)}
+                            style={{padding:"14px 16px",background:isSelected?"rgba(212,168,83,.08)":"var(--s1)",border:`2px solid ${isSelected?"var(--ac)":"var(--bd)"}`,borderRadius:10,cursor:"pointer",transition:"all .15s",position:"relative"}}
+                            onMouseEnter={e=>{if(!isSelected)e.currentTarget.style.borderColor="rgba(212,168,83,.4)";}}
+                            onMouseLeave={e=>{if(!isSelected)e.currentTarget.style.borderColor="var(--bd)";}}>
+                            {i===0&&<div style={{position:"absolute",top:10,right:12,fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.15)",color:"var(--ac)",borderRadius:4,fontWeight:700}}>⭐ RECOMMANDÉ</div>}
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:36,height:36,borderRadius:8,background:route.color+"18",border:"1px solid "+route.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+                                {route.icon}
+                              </div>
+                              <div style={{flex:1,minWidth:0,paddingRight:60}}>
+                                <div style={{fontSize:11,fontWeight:700,color:isSelected?"var(--ac)":"var(--tx)",marginBottom:2}}>{route.label}</div>
+                                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4}}>{sug.reason}</div>
+                                {sug.params?.prompt&&<div style={{fontSize:8,color:"var(--ac)",marginTop:4,fontStyle:"italic"}}>Prompt : «{sug.params.prompt.slice(0,60)}{sug.params.prompt.length>60?"…":""}»</div>}
+                              </div>
+                              <div style={{flexShrink:0,textAlign:"right"}}>
+                                <div style={{fontSize:10,fontWeight:700,color:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)"}}>{conf}%</div>
+                                <div style={{fontSize:7,color:"var(--mu)"}}>confiance</div>
+                                <div style={{width:40,height:3,background:"var(--bd)",borderRadius:2,marginTop:4,overflow:"hidden"}}>
+                                  <div style={{height:"100%",width:conf+"%",background:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)",borderRadius:2}}/>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* All routes quick-pick */}
+                    <div style={{marginBottom:16}}>
+                      <div style={{fontSize:9,color:"var(--mu)",marginBottom:6}}>Ou choisir manuellement :</div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                        {ROUTER_ROUTES.map(route=>(
+                          <button key={route.id} onClick={()=>setRouterSelected(route.id)}
+                            style={{fontSize:9,padding:"4px 10px",borderRadius:6,border:"1px solid "+(routerSelected===route.id?route.color:"var(--bd)"),background:routerSelected===route.id?route.color+"18":"transparent",color:routerSelected===route.id?route.color:"var(--mu)",cursor:"pointer",transition:"all .15s"}}>
+                            {route.icon} {route.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* LAUNCH button */}
+                    {routerSelected && (
+                      <button onClick={launchRouterAction} disabled={routerLaunching}
+                        style={{width:"100%",padding:"14px",background:"rgba(212,168,83,.2)",border:"2px solid var(--ac)",borderRadius:10,color:"var(--ac)",fontSize:14,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerLaunching?.6:1,transition:"all .2s"}}
+                        onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,168,83,.3)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,168,83,.2)";}}>
+                        {routerLaunching?"⟳ Lancement…":"▶ Lancer dans " + (ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label||routerSelected)}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Done state */}
+                {routerDone && (
+                  <div style={{textAlign:"center",padding:"32px 16px"}}>
+                    <div style={{fontSize:40,marginBottom:12}}>✓</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--green)",marginBottom:6}}>Procédure lancée !</div>
+                    <div style={{fontSize:10,color:"var(--mu)",marginBottom:20}}>L'onglet <strong style={{color:"var(--ac)"}}>{ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label}</strong> a été activé avec ton fichier.</div>
+                    <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+                      <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);setRouterQuestion("");}}
+                        style={{padding:"8px 18px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>
+                        🔄 Nouveau fichier
+                      </button>
+                      <button onClick={()=>navigateTab(routerSelected||"chat")}
+                        style={{padding:"8px 18px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                        → Aller à l'onglet
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
           {tab === "chat" && (
             <button className="mh-btn" title="Historique" onClick={()=>setShowHist(h=>!h)}>📋</button>
           )}
@@ -4916,12 +5686,14 @@ ${allMsgs.map(m=>`
 </div>
           <div className="nav-tabs">
             {[
+              ["router","🧭 Router"],
               ["chat","◈ Chat"],
               ["prompts","📋 Prompts"],
               ["redaction","✍️ Rédaction"],
               ["recherche","🔎 Recherche"],
               ["workflows","🔀 Workflows"],
               ["medias","🎬 Médias"],
+              ["comfyui","⬡ ComfyUI"],
               ["arena","⚔ Arène"],
               ["debate","⚡ Débat"],
               ["expert","🧠 Experts"],
@@ -4935,6 +5707,7 @@ ${allMsgs.map(m=>`
               ["veille","📰 Veille"],
               ["voice","🎙 Voice"],
               ["projects","📁 Projets"],
+              ["advanced","🔬 Avancé"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
               <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>navigateTab(t)}>{l}</button>
@@ -5392,6 +6165,10 @@ ${allMsgs.map(m=>`
                 style={{background:showRagPanel?"rgba(96,165,250,.2)":"transparent",border:"1px solid "+(showRagPanel?"rgba(96,165,250,.6)":"var(--bd)"),borderRadius:4,color:showRagPanel?"var(--blue)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 📄 RAG{ragChunks.length>0&&<span style={{color:"var(--green)",marginLeft:3}}>●</span>}
               </button>
+              <button onClick={()=>setShowComfyPanel(r=>!r)} title="ComfyUI local — génération d'images"
+                style={{background:comfyConnected?"rgba(124,58,237,.15)":"transparent",border:"1px solid "+(comfyConnected?"rgba(124,58,237,.5)":"var(--bd)"),borderRadius:4,color:comfyConnected?"#A78BFA":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                ⬡ ComfyUI{comfyConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
+              </button>
               <button onClick={()=>setShowOllamaPanel(r=>!r)} title="Ollama local"
                 style={{background:ollamaConnected?"rgba(74,222,128,.12)":"transparent",border:"1px solid "+(ollamaConnected?"rgba(74,222,128,.4)":"var(--bd)"),borderRadius:4,color:ollamaConnected?"var(--green)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🖥 Ollama{ollamaConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
@@ -5407,6 +6184,14 @@ ${allMsgs.map(m=>`
               <button onClick={()=>exportPDF(null)} title="Exporter en PDF / Imprimer"
                 style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🖨 PDF
+              </button>
+              <button onClick={()=>setShowPromptBuilder(true)} title="Prompt Builder — construire un prompt en blocs"
+                style={{background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.25)",borderRadius:4,color:"var(--ac)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                🧱 Builder
+              </button>
+              <button onClick={()=>{const ids=IDS.filter(id=>enabled[id]);if(ids.length>=2){setDiffIA1(ids[0]);setDiffIA2(ids[1]);setDiffModal(true);}else showToast("Active 2 IAs pour comparer");}} title="Diff — comparer mot à mot les dernières réponses"
+                style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                ⚡ Diff
               </button>
               {focusId && <span style={{fontSize:9,color:"var(--ac)",marginLeft:"auto"}}>⛶ Plein écran : {MODEL_DEFS[focusId]?.short} — <button onClick={()=>setFocusId(null)} style={{background:"none",border:"none",color:"var(--ac)",cursor:"pointer",fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>Esc pour quitter</button></span>}
             </div>
@@ -5435,6 +6220,54 @@ ${allMsgs.map(m=>`
                   )}
                   {!ollamaConnected && <span style={{fontSize:9,color:"var(--mu)"}}>Installe Ollama + lance <code style={{color:"var(--ac)"}}>ollama serve</code></span>}
                 </div>
+              </div>
+            )}
+            {/* ComfyUI mini-panel */}
+            {showComfyPanel && (
+              <div style={{padding:"8px 14px",background:"rgba(124,58,237,.06)",borderBottom:"1px solid rgba(124,58,237,.2)",flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:comfyConnected?6:0}}>
+                  <span style={{fontSize:10,color:"#A78BFA",fontWeight:700}}>⬡ ComfyUI local</span>
+                  <input value={comfyUrl} onChange={e=>setComfyUrl(e.target.value)}
+                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 8px",fontFamily:"var(--font-mono)",flex:1,minWidth:140,outline:"none"}} placeholder="http://127.0.0.1:8188"/>
+                  <button onClick={()=>checkComfy(comfyUrl)}
+                    style={{background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:4,color:"#A78BFA",fontSize:9,padding:"3px 8px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    {comfyConnected?"↺ Refresh":"🔌 Connecter"}
+                  </button>
+                  <button onClick={()=>navigateTab("comfyui")} style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"3px 8px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    ↗ Onglet complet
+                  </button>
+                  {!comfyConnected&&<span style={{fontSize:8,color:"var(--mu)"}}>Lance ComfyUI puis clique Connecter</span>}
+                </div>
+                {comfyConnected&&(
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"flex-end"}}>
+                    <div style={{flex:2,minWidth:160}}>
+                      <div style={{fontSize:7,color:"var(--mu)",marginBottom:2}}>PROMPT IMAGE</div>
+                      <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
+                        onKeyDown={e=>{if(e.key==="Enter"&&comfyPrompt.trim())generateComfy();}}
+                        placeholder="Décris l'image à générer (en anglais)…"
+                        style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",fontFamily:"var(--font-ui)",outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                    {comfyModels.length>0&&(
+                      <select value={comfyModel} onChange={e=>setComfyModel(e.target.value)}
+                        style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:8,padding:"3px 6px",fontFamily:"var(--font-mono)",outline:"none",maxWidth:120}}>
+                        {comfyModels.map(m=><option key={m} value={m}>{m.replace(".safetensors","").replace(".ckpt","").slice(0,20)}</option>)}
+                      </select>
+                    )}
+                    <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyPrompt.trim()}
+                      style={{padding:"4px 12px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:9,cursor:"pointer",fontWeight:700,opacity:comfyGenerating||!comfyPrompt.trim()?.5:1,whiteSpace:"nowrap"}}>
+                      {comfyGenerating?"⟳ "+comfyProgress+"%":"⬡ Générer"}
+                    </button>
+                  </div>
+                )}
+                {comfyResult&&(
+                  <div style={{marginTop:6,display:"flex",alignItems:"center",gap:8}}>
+                    <img src={comfyResult.url} alt="ComfyUI result" style={{height:48,width:48,objectFit:"cover",borderRadius:4,border:"1px solid var(--bd)"}}/>
+                    <button onClick={()=>sendComfyToChat()} style={{fontSize:8,padding:"3px 8px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>→ Chat</button>
+                    <button onClick={()=>{window.__openCanvas&&window.__openCanvas('<img src="'+comfyResult.url+'" style="max-width:100%;border-radius:8px;"/>','html','Résultat ComfyUI');}} style={{fontSize:8,padding:"3px 8px",background:"rgba(124,58,237,.1)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>▶ Canvas</button>
+                    <a href={comfyResult.url} download style={{fontSize:8,padding:"3px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",textDecoration:"none"}}>⬇ Sauver</a>
+                  </div>
+                )}
+                {comfyError&&<div style={{marginTop:4,fontSize:8,color:"var(--red)"}}>{comfyError}</div>}
               </div>
             )}
             <div className="ir">
@@ -5894,12 +6727,61 @@ ${allMsgs.map(m=>`
         {tab === "medias" && (
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",paddingBottom:isMobile?"64px":"0"}}>
             <div className="media-subtabs">
-              {[["youtube","▶ YouTube"],["images","🎨 Images IA"],["webia","🌐 IAs Web"]].map(([k,l])=>(
+              {[["youtube","▶ YouTube"],["images","🎨 Images IA"],["comfy","⬡ ComfyUI Local"],["webia","🌐 IAs Web"]].map(([k,l])=>(
                 <button key={k} className={"media-stab "+(mediaSubTab===k?"on":"")} onClick={()=>setMediaSubTab(k)}>{l}</button>
               ))}
             </div>
             <div className="media-content">
               {mediaSubTab==="youtube" && <YouTubeTab apiKeys={apiKeys} />}
+              {mediaSubTab==="comfy" && (
+                <div style={{flex:1,overflow:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"#A78BFA"}}>⬡ ComfyUI Local</div>
+                    <div style={{fontSize:9,color:comfyConnected?"var(--green)":"var(--red)"}}>
+                      {comfyConnected?"● Connecté":"○ Non connecté"}
+                    </div>
+                    {!comfyConnected&&<button onClick={()=>checkComfy()} style={{fontSize:9,padding:"3px 10px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.35)",borderRadius:5,color:"#A78BFA",cursor:"pointer"}}>🔌 Connecter</button>}
+                    <button onClick={()=>navigateTab("comfyui")} style={{marginLeft:"auto",fontSize:9,padding:"3px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>↗ Onglet complet</button>
+                  </div>
+                  {/* Quick generate */}
+                  <div style={{background:"var(--s1)",border:"1px solid rgba(124,58,237,.2)",borderRadius:8,padding:"12px 14px"}}>
+                    <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>GÉNÉRATION RAPIDE</div>
+                    <div style={{display:"flex",gap:7,marginBottom:8}}>
+                      <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
+                        placeholder="Décris l'image à générer (en anglais)…"
+                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 9px",fontFamily:"var(--font-ui)",outline:"none"}}
+                        onKeyDown={e=>{if(e.key==="Enter")generateComfy();}}/>
+                      <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
+                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity:!comfyConnected?.4:1}}>
+                        {comfyGenerating?comfyProgress+"%":"⬡ Go"}
+                      </button>
+                    </div>
+                    {comfyGenerating&&<div style={{height:3,background:"var(--bd)",borderRadius:2}}><div style={{height:"100%",width:comfyProgress+"%",background:"#A78BFA",transition:"width .5s",borderRadius:2}}/></div>}
+                    {comfyResult&&(
+                      <div style={{marginTop:8,display:"flex",gap:8,alignItems:"center"}}>
+                        <img src={comfyResult.url} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid var(--bd)"}}/>
+                        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                          <button onClick={()=>sendComfyToChat()} style={{fontSize:8,padding:"3px 9px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>💬 → Chat</button>
+                          <a href={comfyResult.url} download style={{fontSize:8,padding:"3px 9px",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:4,color:"var(--blue)",textDecoration:"none",textAlign:"center"}}>⬇ Sauver</a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* History grid */}
+                  {comfyHistory.length>0&&(
+                    <div>
+                      <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>HISTORIQUE ({comfyHistory.length})</div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
+                        {comfyHistory.slice(0,12).map((h,i)=>(
+                          <div key={i} style={{borderRadius:6,overflow:"hidden",border:"1px solid var(--bd)",cursor:"pointer"}} onClick={()=>setComfyResult(h)}>
+                            <img src={h.url} alt={h.prompt} style={{width:"100%",height:90,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.opacity=".3";}}/>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {mediaSubTab==="webia" && (
                 <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
                   <div style={{padding:"8px 12px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -6529,6 +7411,400 @@ ${allMsgs.map(m=>`
           <ProjectsTab conversations={conversations} setChatInput={setChatInput} navigateTab={navigateTab} apiKeys={apiKeys} enabled={enabled}/>
         )}
 
+
+        {/* ══ ADVANCED SETTINGS TAB ══ */}
+        {tab === "advanced" && (
+          <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)"}}>🔬 Paramètres Avancés</div>
+              <button onClick={saveAdvSettings} style={{marginLeft:"auto",padding:"5px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",cursor:"pointer",fontSize:9,fontFamily:"var(--font-mono)",fontWeight:700}}>💾 Sauvegarder</button>
+            </div>
+
+            {/* Global system prompt */}
+            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>SYSTEM PROMPT GLOBAL</div>
+              <div style={{fontSize:8,color:"var(--mu)",marginBottom:6}}>Ajouté à toutes les requêtes, en plus du persona actif.</div>
+              <textarea value={globalSysPrompt} onChange={e=>setGlobalSysPrompt(e.target.value)}
+                placeholder="Ex: Réponds toujours en français. Sois concis. Utilise des bullet points..."
+                rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+
+            {/* Temperature per model */}
+            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>TEMPÉRATURE PAR MODÈLE</div>
+              <div style={{fontSize:8,color:"var(--mu)",marginBottom:10}}>0 = déterministe / 1 = créatif. Défaut : 0.7</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+                {IDS.filter(id=>enabled[id]).map(id=>{
+                  const m=MODEL_DEFS[id];
+                  const val=modelTemps[id]!==undefined?modelTemps[id]:0.7;
+                  return (
+                    <div key={id} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{color:m.color,fontSize:10,width:20}}>{m.icon}</span>
+                      <span style={{fontSize:9,color:"var(--tx)",flex:1}}>{m.short}</span>
+                      <input type="range" min="0" max="1" step="0.05" value={val}
+                        onChange={e=>setModelTemps(prev=>({...prev,[id]:parseFloat(e.target.value)}))}
+                        style={{width:80}}/>
+                      <span style={{fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)",width:26}}>{val.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom providers */}
+            <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>PROVIDERS CUSTOM (OpenAI-compatible)</div>
+              <div style={{fontSize:8,color:"var(--mu)",marginBottom:10}}>LM Studio, Jan, Ollama API, ou tout provider compatible OpenAI.</div>
+              {customProviders.map((prov,i)=>(
+                <div key={i} style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
+                  <input value={prov.name||""} placeholder="Nom" onChange={e=>{const np=[...customProviders];np[i]={...np[i],name:e.target.value};setCustomProviders(np);}}
+                    style={{flex:"0 0 100px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
+                  <input value={prov.baseUrl||""} placeholder="http://localhost:1234/v1" onChange={e=>{const np=[...customProviders];np[i]={...np[i],baseUrl:e.target.value};setCustomProviders(np);}}
+                    style={{flex:1,minWidth:180,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
+                  <input value={prov.model||""} placeholder="model-name" onChange={e=>{const np=[...customProviders];np[i]={...np[i],model:e.target.value};setCustomProviders(np);}}
+                    style={{flex:"0 0 130px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
+                  <button onClick={()=>setCustomProviders(prev=>prev.filter((_,j)=>j!==i))} style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:10,padding:"2px 8px",cursor:"pointer"}}>✕</button>
+                </div>
+              ))}
+              <button onClick={()=>setCustomProviders(prev=>[...prev,{name:"",baseUrl:"",model:"",apiKey:""}])}
+                style={{fontSize:9,padding:"4px 12px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",cursor:"pointer",marginTop:4}}>
+                ＋ Ajouter un provider
+              </button>
+            </div>
+          </div>
+        )}
+
+
+        {/* ══ COMFYUI TAB ══ */}
+        {tab === "comfyui" && (
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            {/* Header */}
+            <div style={{padding:"8px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",flexShrink:0}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"#A78BFA"}}>⬡ ComfyUI Studio</div>
+              <div style={{fontSize:9,color:comfyConnected?"var(--green)":"var(--mu)"}}>
+                {comfyConnected?"● Connecté — "+comfyUrl:"○ Non connecté"}
+              </div>
+              {/* Sub-tabs */}
+              <div style={{marginLeft:"auto",display:"flex",gap:3}}>
+                {[["generate","🎨 Générer"],["workflows","🔀 Workflows"],["history","🕐 Historique"],["settings","⚙ Config"]].map(([k,l])=>(
+                  <button key={k} onClick={()=>setComfySubTab(k)}
+                    style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+(comfySubTab===k?"#A78BFA":"var(--bd)"),background:comfySubTab===k?"rgba(124,58,237,.15)":"transparent",color:comfySubTab===k?"#A78BFA":"var(--mu)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── GENERATE SUB-TAB ── */}
+            {comfySubTab==="generate"&&(
+              <div style={{flex:1,overflow:"auto",display:"flex",gap:0,minHeight:0}}>
+                {/* Left: controls */}
+                <div style={{width:"min(300px,45%)",flexShrink:0,borderRight:"1px solid var(--bd)",overflow:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
+                  {!comfyConnected&&(
+                    <div style={{padding:"10px 12px",background:"rgba(124,58,237,.06)",border:"1px solid rgba(124,58,237,.2)",borderRadius:7,fontSize:9,color:"var(--mu)"}}>
+                      <div style={{fontWeight:700,color:"#A78BFA",marginBottom:4}}>⬡ ComfyUI non connecté</div>
+                      Lance ComfyUI sur ton PC (port 8188), puis va dans l'onglet ⚙ Config pour connecter.
+                      <button onClick={()=>setComfySubTab("settings")} style={{marginTop:6,display:"block",fontSize:8,padding:"3px 8px",background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>→ Config</button>
+                    </div>
+                  )}
+
+                  {/* Positive prompt */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>PROMPT POSITIF</div>
+                    <textarea value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
+                      placeholder="masterpiece, best quality, detailed, a beautiful landscape at sunset, photorealistic…"
+                      rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"7px 9px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                    <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                      {["masterpiece","photorealistic","8k","anime style","oil painting","cinematic lighting"].map(tag=>(
+                        <button key={tag} onClick={()=>setComfyPrompt(p=>p?(p+", "+tag):tag)}
+                          style={{fontSize:7,padding:"1px 6px",background:"rgba(124,58,237,.08)",border:"1px solid rgba(124,58,237,.2)",borderRadius:3,color:"#A78BFA",cursor:"pointer"}}>
+                          +{tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Negative prompt */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>PROMPT NÉGATIF</div>
+                    <textarea value={comfyNegPrompt} onChange={e=>setComfyNegPrompt(e.target.value)}
+                      rows={2} style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(248,113,113,.2)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"7px 9px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                  </div>
+
+                  {/* Model selector */}
+                  {comfyModels.length>0&&(
+                    <div>
+                      <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>MODÈLE (CHECKPOINT)</div>
+                      <select value={comfyModel} onChange={e=>setComfyModel(e.target.value)}
+                        style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,padding:"5px 7px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                        {comfyModels.map(m=><option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Size */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>DIMENSIONS</div>
+                    <div style={{display:"flex",gap:6}}>
+                      {[["W",comfyWidth,setComfyWidth],[" H",comfyHeight,setComfyHeight]].map(([lbl,val,setter])=>(
+                        <div key={lbl} style={{flex:1}}>
+                          <div style={{fontSize:7,color:"var(--mu)",marginBottom:2}}>{lbl}</div>
+                          <select value={val} onChange={e=>setter(Number(e.target.value))}
+                            style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 5px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                            {[256,512,640,768,1024].map(v=><option key={v} value={v}>{v}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Steps + CFG */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {[["STEPS",comfySteps,setComfySteps,1,50],["CFG",comfyCfg,setComfyCfg,1,20]].map(([lbl,val,setter,min,max])=>(
+                      <div key={lbl}>
+                        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:3}}>{lbl} <span style={{color:"var(--tx)",fontFamily:"var(--font-mono)"}}>{val}</span></div>
+                        <input type="range" min={min} max={max} step={1} value={val} onChange={e=>setter(Number(e.target.value))} style={{width:"100%"}}/>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Sampler */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>SAMPLER</div>
+                    <select value={comfySampler} onChange={e=>setComfySampler(e.target.value)}
+                      style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 6px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                      {["euler","euler_ancestral","dpm_2","dpm_2_ancestral","dpmpp_2m","dpmpp_sde","ddim","lcm"].map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Seed */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>SEED <span style={{fontWeight:400}}>(-1 = aléatoire)</span></div>
+                    <div style={{display:"flex",gap:5}}>
+                      <input type="number" value={comfySeed} onChange={e=>setComfySeed(Number(e.target.value))}
+                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 7px",fontFamily:"var(--font-mono)",outline:"none"}}/>
+                      <button onClick={()=>setComfySeed(Math.floor(Math.random()*2**32))}
+                        style={{fontSize:9,padding:"4px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>🎲</button>
+                    </div>
+                  </div>
+
+                  {/* LoRAs */}
+                  {comfyLoras.length>0&&(
+                    <div>
+                      <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>LORAS ({comfyActiveLoras.length} actif{comfyActiveLoras.length!==1?"s":""})</div>
+                      {comfyActiveLoras.map((lora,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+                          <span style={{fontSize:8,flex:1,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lora.name.slice(0,20)}</span>
+                          <input type="range" min={0} max={2} step={0.1} value={lora.strength}
+                            onChange={e=>{const nl=[...comfyActiveLoras];nl[i]={...nl[i],strength:parseFloat(e.target.value)};setComfyActiveLoras(nl);}}
+                            style={{width:60}}/>
+                          <span style={{fontSize:7,color:"var(--mu)",fontFamily:"var(--font-mono)",width:22}}>{lora.strength.toFixed(1)}</span>
+                          <button onClick={()=>setComfyActiveLoras(prev=>prev.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:10}}>✕</button>
+                        </div>
+                      ))}
+                      <select onChange={e=>{if(e.target.value)setComfyActiveLoras(p=>[...p,{name:e.target.value,strength:1.0}]);e.target.value="";}}
+                        style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",fontSize:8,padding:"3px 5px",fontFamily:"var(--font-mono)",outline:"none",marginTop:3}}>
+                        <option value="">＋ Ajouter un LoRA…</option>
+                        {comfyLoras.filter(l=>!comfyActiveLoras.find(a=>a.name===l)).map(l=><option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Generate button */}
+                  <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
+                    style={{padding:"10px",background:"rgba(124,58,237,.2)",border:"2px solid rgba(124,58,237,.5)",borderRadius:8,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-mono)",opacity:!comfyConnected?.4:1}}>
+                    {comfyGenerating?"⟳ Génération… "+comfyProgress+"%":"⬡ Générer l'image"}
+                  </button>
+
+                  {/* Progress bar */}
+                  {comfyGenerating&&(
+                    <div style={{height:4,background:"var(--bd)",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:comfyProgress+"%",background:"#A78BFA",borderRadius:2,transition:"width .5s"}}/>
+                    </div>
+                  )}
+                  {comfyError&&<div style={{fontSize:9,color:"var(--red)",padding:"6px 8px",background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.2)",borderRadius:5}}>{comfyError}</div>}
+                </div>
+
+                {/* Right: result */}
+                <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16,overflow:"auto"}}>
+                  {!comfyResult&&!comfyGenerating&&(
+                    <div style={{textAlign:"center",color:"var(--mu)"}}>
+                      <div style={{fontSize:48,opacity:.15,marginBottom:12}}>⬡</div>
+                      <div style={{fontSize:11}}>Configure et génère ton image</div>
+                      <div style={{fontSize:9,marginTop:6}}>FLUX · Stable Diffusion · SDXL · Toute checkpoint installée</div>
+                    </div>
+                  )}
+                  {comfyGenerating&&!comfyResult&&(
+                    <div style={{textAlign:"center",color:"var(--mu)"}}>
+                      <div style={{fontSize:36,animation:"spin 2s linear infinite",display:"inline-block",marginBottom:12}}>⬡</div>
+                      <div style={{fontSize:11,color:"#A78BFA"}}>Génération en cours… {comfyProgress}%</div>
+                      <div style={{fontSize:9,marginTop:4}}>ComfyUI traite le workflow</div>
+                    </div>
+                  )}
+                  {comfyResult&&(
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,maxWidth:600,width:"100%"}}>
+                      <img src={comfyResult.url} alt="résultat"
+                        style={{maxWidth:"100%",maxHeight:"60vh",objectFit:"contain",borderRadius:10,border:"1px solid var(--bd)",boxShadow:"0 8px 32px rgba(0,0,0,.3)"}}/>
+                      <div style={{fontSize:9,color:"var(--mu)",textAlign:"center",fontStyle:"italic"}}>
+                        {comfyResult.prompt?.slice(0,100)}{(comfyResult.prompt?.length||0)>100?"…":""}
+                      </div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+                        <button onClick={()=>sendComfyToChat()} style={{padding:"7px 16px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,color:"var(--green)",fontSize:10,cursor:"pointer",fontWeight:700}}>💬 → Chat</button>
+                        <button onClick={()=>{window.__openCanvas&&window.__openCanvas('<img src="'+comfyResult.url+'" style="max-width:100%;max-height:100vh;object-fit:contain;display:block;margin:auto;"/>','html','Image ComfyUI');}} style={{padding:"7px 16px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.3)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>▶ Canvas</button>
+                        <a href={comfyResult.url} download={comfyResult.filename||"image.png"} style={{padding:"7px 16px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--blue)",fontSize:10,textDecoration:"none",fontWeight:700}}>⬇ Télécharger</a>
+                        <button onClick={()=>{setComfyPrompt(p=>p);generateComfy();}} disabled={comfyGenerating} style={{padding:"7px 16px",background:"transparent",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>↺ Régénérer</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── WORKFLOWS SUB-TAB ── */}
+            {comfySubTab==="workflows"&&(
+              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+                <div style={{fontSize:9,color:"var(--mu)",marginBottom:12}}>
+                  Charge un fichier <code style={{color:"var(--ac)"}}>workflow_api.json</code> exporté depuis ComfyUI (menu Save → Save (API Format)).
+                </div>
+                {/* Upload workflow */}
+                <div style={{marginBottom:14}}>
+                  <input type="file" accept=".json" id="wf-upload" style={{display:"none"}}
+                    onChange={async e=>{
+                      const f=e.target.files?.[0]; if(!f) return;
+                      try{
+                        const txt=await f.text();
+                        const json=JSON.parse(txt);
+                        setComfyActiveWf(json);
+                        setComfyWfName(f.name.replace(".json",""));
+                        showToast("✓ Workflow chargé : "+f.name);
+                      }catch{showToast("❌ JSON invalide");}
+                      e.target.value="";
+                    }}/>
+                  <label htmlFor="wf-upload" style={{display:"inline-flex",alignItems:"center",gap:7,padding:"8px 16px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.35)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
+                    📂 Charger un workflow .json
+                  </label>
+                  {comfyActiveWf&&(
+                    <span style={{marginLeft:10,fontSize:9,color:"var(--green)"}}>
+                      ✓ {comfyWfName} — {Object.keys(comfyActiveWf).length} nœuds
+                    </span>
+                  )}
+                </div>
+
+                {/* Workflow prompt injection */}
+                {comfyActiveWf&&(
+                  <div style={{marginBottom:14,padding:"10px 12px",background:"var(--s1)",border:"1px solid rgba(124,58,237,.2)",borderRadius:7}}>
+                    <div style={{fontSize:9,fontWeight:700,color:"#A78BFA",marginBottom:7}}>Prompt à injecter dans le workflow</div>
+                    <div style={{fontSize:8,color:"var(--mu)",marginBottom:7}}>L'app remplace automatiquement le premier nœud CLIPTextEncode (positif) par ce texte.</div>
+                    <div style={{display:"flex",gap:7}}>
+                      <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)} placeholder="Ton prompt ici…"
+                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"7px 9px",fontFamily:"var(--font-ui)",outline:"none"}}/>
+                      <button onClick={()=>{
+                        if(!comfyActiveWf) return;
+                        // Inject prompt into first CLIPTextEncode node
+                        const wf=JSON.parse(JSON.stringify(comfyActiveWf));
+                        for(const id of Object.keys(wf)){
+                          if(wf[id].class_type==="CLIPTextEncode"&&wf[id].inputs?.text!==undefined){
+                            wf[id].inputs.text=comfyPrompt||wf[id].inputs.text;
+                            break;
+                          }
+                        }
+                        generateComfy(wf, comfyPrompt);
+                      }} disabled={comfyGenerating||!comfyConnected}
+                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity:!comfyConnected?.4:1}}>
+                        {comfyGenerating?"⟳":"⬡ Lancer"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Saved workflows */}
+                <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>WORKFLOWS SAUVEGARDÉS ({comfyWorkflows.length})</div>
+                {comfyWorkflows.length===0&&<div style={{color:"var(--mu)",fontSize:9}}>Charge un workflow puis clique "Sauvegarder" pour le retrouver ici.</div>}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+                  {comfyWorkflows.map(wf=>(
+                    <div key={wf.id} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,padding:"10px 12px"}}>
+                      <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:3}}>{wf.name}</div>
+                      <div style={{fontSize:8,color:"var(--mu)",marginBottom:8}}>{new Date(wf.ts).toLocaleDateString("fr-FR")} · {Object.keys(wf.json||{}).length} nœuds</div>
+                      <div style={{display:"flex",gap:5}}>
+                        <button onClick={()=>{setComfyActiveWf(wf.json);setComfyWfName(wf.name);setComfySubTab("workflows");showToast("✓ "+wf.name+" chargé");}}
+                          style={{flex:1,fontSize:8,padding:"3px 0",background:"rgba(124,58,237,.1)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>Charger</button>
+                        <button onClick={()=>deleteComfyWorkflow(wf.id)} style={{fontSize:8,padding:"3px 7px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:4,color:"var(--red)",cursor:"pointer"}}>✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {comfyActiveWf&&(
+                  <button onClick={()=>{const name=prompt("Nom du workflow :",comfyWfName||"Mon workflow");if(name)saveComfyWorkflow(name,comfyActiveWf);}}
+                    style={{marginTop:12,padding:"6px 14px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    💾 Sauvegarder le workflow actuel
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ── HISTORY SUB-TAB ── */}
+            {comfySubTab==="history"&&(
+              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                  <div style={{fontSize:9,color:"var(--mu)"}}>{comfyHistory.length} image{comfyHistory.length!==1?"s":""} générée{comfyHistory.length!==1?"s":""}</div>
+                  {comfyHistory.length>0&&<button onClick={()=>setComfyHistory([])} style={{fontSize:8,padding:"2px 8px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:4,color:"var(--red)",cursor:"pointer",marginLeft:"auto"}}>🗑 Tout effacer</button>}
+                </div>
+                {comfyHistory.length===0&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Aucune génération encore.</div>}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
+                  {comfyHistory.map((h,i)=>(
+                    <div key={i} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,overflow:"hidden"}}>
+                      <img src={h.url} alt={h.prompt} style={{width:"100%",height:140,objectFit:"cover",display:"block"}}
+                        onError={e=>{e.target.style.display="none";}}/>
+                      <div style={{padding:"7px 9px"}}>
+                        <div style={{fontSize:8,color:"var(--mu)",marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.prompt?.slice(0,50)}</div>
+                        <div style={{fontSize:7,color:"var(--mu)",marginBottom:6}}>{new Date(h.ts).toLocaleString("fr-FR")}</div>
+                        <div style={{display:"flex",gap:4}}>
+                          <button onClick={()=>sendComfyToChat(h)} style={{flex:1,fontSize:7,padding:"2px 0",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.25)",borderRadius:3,color:"var(--green)",cursor:"pointer"}}>→ Chat</button>
+                          <a href={h.url} download style={{flex:1,fontSize:7,padding:"2px 0",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,color:"var(--blue)",textDecoration:"none",textAlign:"center"}}>⬇</a>
+                          <button onClick={()=>{setComfyPrompt(h.prompt||"");setComfySubTab("generate");}} style={{flex:1,fontSize:7,padding:"2px 0",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>↺</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── SETTINGS SUB-TAB ── */}
+            {comfySubTab==="settings"&&(
+              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+                <div style={{maxWidth:500}}>
+                  <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>CONNEXION COMFYUI</div>
+                  <div style={{display:"flex",gap:7,marginBottom:10}}>
+                    <input value={comfyUrl} onChange={e=>setComfyUrl(e.target.value)}
+                      placeholder="http://127.0.0.1:8188"
+                      style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",fontFamily:"var(--font-mono)",outline:"none"}}/>
+                    <button onClick={()=>checkComfy(comfyUrl)}
+                      style={{padding:"0 16px",background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                      🔌 Connecter
+                    </button>
+                  </div>
+                  <div style={{padding:"10px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,fontSize:9,lineHeight:1.7}}>
+                    <div style={{fontWeight:700,color:"var(--tx)",marginBottom:6}}>📖 Guide rapide</div>
+                    <div style={{color:"var(--mu)"}}>1. Installe ComfyUI : <code style={{color:"var(--ac)"}}>git clone https://github.com/comfyanonymous/ComfyUI</code></div>
+                    <div style={{color:"var(--mu)"}}>2. Lance : <code style={{color:"var(--ac)"}}>python main.py --listen</code></div>
+                    <div style={{color:"var(--mu)"}}>3. ComfyUI démarre sur <code style={{color:"var(--ac)"}}>http://127.0.0.1:8188</code></div>
+                    <div style={{color:"var(--mu)"}}>4. Clique Connecter ci-dessus</div>
+                    <div style={{marginTop:6,color:"var(--mu)"}}>Modèles : place tes <code style={{color:"var(--ac)"}}>.safetensors</code> dans <code style={{color:"var(--ac)"}}>ComfyUI/models/checkpoints/</code></div>
+                    <div style={{color:"var(--mu)"}}>LoRAs : dans <code style={{color:"var(--ac)"}}>ComfyUI/models/loras/</code></div>
+                  </div>
+                  {comfyConnected&&(
+                    <div style={{marginTop:10,padding:"8px 12px",background:"rgba(74,222,128,.07)",border:"1px solid rgba(74,222,128,.25)",borderRadius:6,fontSize:9}}>
+                      <div style={{color:"var(--green)",fontWeight:700,marginBottom:4}}>● Connecté à {comfyUrl}</div>
+                      <div style={{color:"var(--mu)"}}>{comfyModels.length} checkpoint{comfyModels.length!==1?"s":""} · {comfyLoras.length} LoRA{comfyLoras.length!==1?"s":""}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === "config" && pwaPrompt && !pwaInstalled && (
           <div style={{padding:"8px 14px",background:"rgba(212,168,83,.08)",borderBottom:"1px solid rgba(212,168,83,.2)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
             <span style={{fontSize:18}}>📲</span>
@@ -6620,6 +7896,12 @@ ${allMsgs.map(m=>`
         {/* ── ONGLET COMPARE ── */}
         {tab === "compare" && (
           <div style={{flex:1,overflow:"auto",padding:16,display:"flex",flexDirection:"column",gap:16}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:2}}>
+              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)",letterSpacing:1}}>⚖ COMPARAISON</div>
+              {IDS.filter(id=>enabled[id]).length>=2&&(
+                <button onClick={()=>{const ids=IDS.filter(id=>enabled[id]);setDiffIA1(ids[0]);setDiffIA2(ids[1]);setDiffModal(true);}} style={{marginLeft:"auto",fontSize:8,padding:"3px 10px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",cursor:"pointer"}}>⚡ Diff dernières réponses</button>
+              )}
+            </div>
             <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)",letterSpacing:1}}>📊 HISTORIQUE DES COMPARAISONS</div>
             {voteHistory.length === 0 ? (
               <div style={{textAlign:"center",color:"var(--mu)",fontSize:11,padding:40}}>
@@ -7177,21 +8459,15 @@ ${allMsgs.map(m=>`
             </div>
             <iframe className="canvas-iframe" sandbox="allow-scripts"
               srcDoc={srcDoc} title="Canvas preview"
-              ref={el=>{
+              ref={React.useCallback(el=>{
                 if(el){
-                  const handler=(e)=>{
-                    if(e.data?.type==='canvas-error'){
-                      setCanvasError(e.data.error);
-                    }
-                  };
-                  window.addEventListener('message',handler);
-                  el._cleanup=()=>window.removeEventListener('message',handler);
+                  if(el.__msgHandler) window.removeEventListener('message',el.__msgHandler);
+                  el.__msgHandler=(e)=>{ if(e.data?.type==='canvas-error') setCanvasError(e.data.error); };
+                  window.addEventListener('message',el.__msgHandler);
+                } else if(el===null){
+                  // unmount — handled by effect cleanup
                 }
-              }}
-              onLoad={e=>{
-                const el=e.target;
-                if(el._cleanup){el._cleanup();delete el._cleanup;}
-              }}
+              },[])}
             />
             {/* Error banner with auto-heal */}
             {canvasError && (
@@ -7205,7 +8481,16 @@ ${allMsgs.map(m=>`
             )}
             {/* Edit bar */}
             <div style={{padding:"8px 12px",borderTop:"1px solid var(--bd)",background:"var(--s1)",flexShrink:0}}>
-              <div style={{fontSize:8,color:"var(--mu)",marginBottom:5}}>✦ Modifier avec l'IA</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                <div style={{fontSize:8,color:"var(--mu)"}}>✦ Modifier avec l'IA</div>
+                {comfyConnected&&<button onClick={()=>{
+                  const promptAI = "illustration for: "+canvasContent?.title;
+                  setComfyPrompt(promptAI);
+                  generateComfy(null, promptAI);
+                }} style={{marginLeft:"auto",fontSize:7,padding:"2px 7px",background:"rgba(124,58,237,.1)",border:"1px solid rgba(124,58,237,.3)",borderRadius:3,color:"#A78BFA",cursor:"pointer"}}>
+                  ⬡ Générer image
+                </button>}
+              </div>
               <div style={{display:"flex",gap:7}}>
                 <input value={canvasEditInput} onChange={e=>setCanvasEditInput(e.target.value)}
                   onKeyDown={e=>{if(e.key==="Enter"&&canvasEditInput.trim())editCanvas();}}
@@ -7220,6 +8505,99 @@ ${allMsgs.map(m=>`
           </div>
         );
       })()}
+
+      {/* ══ DIFF MODAL ══ */}
+      {diffModal && (() => {
+        const activeIAs = IDS.filter(id=>enabled[id]);
+        const ia1 = diffIA1 || activeIAs[0] || "";
+        const ia2 = diffIA2 || activeIAs[1] || "";
+        const msgs1 = (conversations[ia1]||[]).filter(m=>m.role==="assistant");
+        const msgs2 = (conversations[ia2]||[]).filter(m=>m.role==="assistant");
+        const lastMsg1 = msgs1[msgs1.length-1]?.content||"";
+        const lastMsg2 = msgs2[msgs2.length-1]?.content||"";
+        const diff = lastMsg1&&lastMsg2 ? computeDiff(lastMsg1,lastMsg2) : [];
+        const added = diff.filter(d=>d.t==="add").length;
+        const deleted = diff.filter(d=>d.t==="del").length;
+        const similar = diff.filter(d=>d.t==="eq").length;
+        const pct = diff.length>0?Math.round(similar/diff.length*100):0;
+        return (
+          <div onClick={()=>setDiffModal(false)} style={{position:"fixed",inset:0,zIndex:9100,background:"rgba(0,0,0,.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(8px)"}}>
+            <div onClick={e=>e.stopPropagation()} style={{width:"min(860px,96vw)",maxHeight:"90vh",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:12,overflow:"auto",display:"flex",flexDirection:"column"}}>
+              <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,position:"sticky",top:0,zIndex:2}}>
+                <span style={{fontSize:14}}>⚡</span>
+                <div style={{flex:1,fontFamily:"var(--font-display)",fontWeight:800,fontSize:13,color:"var(--tx)"}}>Diff de réponses</div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  {[ia1,ia2].map((ia,idx)=>(
+                    <select key={idx} value={ia} onChange={e=>{idx===0?setDiffIA1(e.target.value):setDiffIA2(e.target.value);}}
+                      style={{fontSize:9,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:MODEL_DEFS[ia]?.color||"var(--tx)",padding:"3px 7px",fontFamily:"var(--font-mono)"}}>
+                      {activeIAs.map(id=><option key={id} value={id}>{MODEL_DEFS[id]?.icon} {MODEL_DEFS[id]?.short}</option>)}
+                    </select>
+                  ))}
+                </div>
+                <button onClick={()=>setDiffModal(false)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:14,width:28,height:28,cursor:"pointer"}}>✕</button>
+              </div>
+              {/* Stats */}
+              <div style={{padding:"8px 16px",borderBottom:"1px solid var(--bd)",display:"flex",gap:12,alignItems:"center",background:"var(--s2)"}}>
+                <span style={{fontSize:9,color:"var(--green)",fontFamily:"var(--font-mono)"}}>+{added} mots ajoutés</span>
+                <span style={{fontSize:9,color:"var(--red)",fontFamily:"var(--font-mono)"}}>{deleted} mots supprimés</span>
+                <span style={{fontSize:9,color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{pct}% similaire</span>
+                <div style={{flex:1,height:4,background:"var(--bd)",borderRadius:2,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:pct+"%",background:"var(--green)",borderRadius:2,transition:"width .5s"}}/>
+                </div>
+              </div>
+              {/* Diff text */}
+              <div style={{padding:"14px 16px",fontSize:10,lineHeight:1.9,fontFamily:"var(--font-ui)"}}>
+                {diff.length===0&&<div style={{color:"var(--mu)",textAlign:"center",padding:20}}>Envoie un message d'abord pour comparer les réponses.</div>}
+                {diff.map((d,i)=>(
+                  <span key={i} style={{
+                    background:d.t==="add"?"rgba(74,222,128,.18)":d.t==="del"?"rgba(248,113,113,.18)":"transparent",
+                    color:d.t==="add"?"var(--green)":d.t==="del"?"var(--red)":"var(--tx)",
+                    textDecoration:d.t==="del"?"line-through":"none",
+                    padding:d.t==="eq"?"0":"0 1px",
+                    borderRadius:2,
+                    marginRight:"3px",
+                  }}>{d.v}{" "}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══ PROMPT BUILDER MODAL ══ */}
+      {showPromptBuilder && (
+        <PromptBuilderModal
+          onInsert={(text)=>{setChatInput(text); showToast("✓ Prompt inséré");}}
+          onClose={()=>setShowPromptBuilder(false)}
+          enabled={enabled}
+          apiKeys={apiKeys}
+        />
+      )}
+
+      {/* ══ AUTO-MEMORY SUGGESTIONS ══ */}
+      {showMemSuggest && autoMemSuggestions.length>0 && (
+        <div style={{position:"fixed",bottom:70,left:"50%",transform:"translateX(-50%)",zIndex:9400,background:"var(--s1)",border:"1px solid rgba(212,168,83,.4)",borderRadius:10,padding:"10px 14px",maxWidth:460,boxShadow:"0 4px 24px rgba(0,0,0,.5)"}}>
+          <div style={{fontSize:9,fontWeight:700,color:"var(--ac)",marginBottom:8}}>🧠 Mémoriser ces informations ?</div>
+          {autoMemSuggestions.map((fact,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+              <span style={{fontSize:9,color:"var(--tx)",flex:1}}>• {fact}</span>
+              <button onClick={()=>{
+                const newFact={id:Date.now().toString()+i,text:fact};
+                setMemFacts(p=>[...p,newFact]);
+                try{localStorage.setItem("multiia_mem",JSON.stringify([...memFacts,newFact]));}catch{}
+                setAutoMemSuggestions(p=>p.filter((_,j)=>j!==i));
+                if(autoMemSuggestions.length<=1)setShowMemSuggest(false);
+                showToast("✓ Mémorisé : "+fact.slice(0,40));
+              }} style={{fontSize:8,padding:"2px 8px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer",whiteSpace:"nowrap"}}>
+                ✓ Mémoriser
+              </button>
+            </div>
+          ))}
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            <button onClick={()=>setShowMemSuggest(false)} style={{fontSize:8,padding:"3px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>Ignorer tout</button>
+          </div>
+        </div>
+      )}
 
       {toast && <div className="toast">{toast}</div>}
     </>
