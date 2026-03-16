@@ -2923,16 +2923,17 @@ function WebIAsTab() {
     {id:"image",      label:"Image & Vidéo",   icon:"🎨"},
     {id:"code",       label:"Code & Dev",      icon:"💻"},
     {id:"audio",      label:"Audio & Musique", icon:"🎵"},
+    {id:"local",      label:"Local / Self-hosted", icon:"🖥"},
     {id:"payant",     label:"Premium",         icon:"💳"},
   ];
 
   const catColors = {
     gratuit:"#4ADE80", recherche:"#60A5FA", multimodele:"#F59E0B",
-    image:"#F472B6", code:"#A78BFA", audio:"#34D399", payant:"#FB923C"
+    image:"#F472B6", code:"#A78BFA", audio:"#34D399", local:"#0EA5E9", payant:"#FB923C"
   };
   const catLabels = {
     gratuit:"GRATUIT", recherche:"RECHERCHE", multimodele:"MULTI-MODÈLES",
-    image:"IMAGE", code:"CODE", audio:"AUDIO", payant:"PREMIUM"
+    image:"IMAGE", code:"CODE", audio:"AUDIO", local:"LOCAL", payant:"PREMIUM"
   };
 
   // Tri + filtre
@@ -3706,6 +3707,69 @@ function App() {
 
   // ── Ollama local ────────────────────────────────────────────────
   const [ollamaUrl, setOllamaUrl] = useState(() => { try { return localStorage.getItem("multiia_ollama")||"http://localhost:11434"; } catch { return "http://localhost:11434"; } });
+
+  // ── Open WebUI (OpenAI-compatible API) ──────────────────────────
+  const OPENWEBUI_DEFAULT = "http://localhost:3000";
+  const [owuiUrl, setOwuiUrl]               = useState(() => { try { return localStorage.getItem("multiia_owui_url")||OPENWEBUI_DEFAULT; } catch { return OPENWEBUI_DEFAULT; } });
+  const [owuiKey, setOwuiKey]               = useState(() => { try { return localStorage.getItem("multiia_owui_key")||""; } catch { return ""; } });
+  const [owuiModels, setOwuiModels]         = useState([]);
+  const [owuiConnected, setOwuiConnected]   = useState(false);
+  const [owuiModel, setOwuiModel]           = useState("");
+  const [owuiActive, setOwuiActive]         = useState(false);
+  const [showOwuiPanel, setShowOwuiPanel]   = useState(false);
+
+  const checkOwui = async (url, key) => {
+    const base = (url||owuiUrl).replace(/\/$/, "");
+    const apiKey = key !== undefined ? key : owuiKey;
+    try {
+      const headers = {"Content-Type":"application/json"};
+      if (apiKey) headers["Authorization"] = "Bearer "+apiKey;
+      const r = await fetch(base+"/api/models", { headers, signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        const d = await r.json();
+        // OpenAI-compatible format: {data: [{id:...}]}
+        const models = (d.data||d.models||[]).map(m => m.id||m.name).filter(Boolean);
+        setOwuiModels(models);
+        setOwuiConnected(true);
+        if (models.length && !owuiModel) setOwuiModel(models[0]);
+        localStorage.setItem("multiia_owui_url", base);
+        if (apiKey) localStorage.setItem("multiia_owui_key", apiKey);
+        showToast("✓ Open WebUI connecté — "+models.length+" modèle(s)");
+        return true;
+      }
+    } catch {}
+    // Fallback: try Ollama models endpoint
+    try {
+      const r = await fetch((url||owuiUrl).replace(/\/$/, "")+"/api/tags", { signal: AbortSignal.timeout(2000) });
+      if (r.ok) {
+        const d = await r.json();
+        const models = (d.models||[]).map(m=>m.name);
+        setOwuiModels(models);
+        setOwuiConnected(true);
+        if (models.length && !owuiModel) setOwuiModel(models[0]);
+        showToast("✓ Open WebUI (Ollama compat) connecté — "+models.length+" modèle(s)");
+        return true;
+      }
+    } catch {}
+    setOwuiConnected(false);
+    setOwuiModels([]);
+    showToast("✗ Open WebUI non trouvé — vérifie l'URL et lance Open WebUI");
+    return false;
+  };
+
+  const callOwui = async (model, messages, system) => {
+    const base = owuiUrl.replace(/\/$/, "");
+    const msgs = system ? [{role:"system",content:system},...messages] : messages;
+    const headers = {"Content-Type":"application/json"};
+    if (owuiKey) headers["Authorization"] = "Bearer "+owuiKey;
+    const r = await fetch(base+"/api/chat/completions", {
+      method:"POST", headers,
+      body: JSON.stringify({ model: model||owuiModel, messages: msgs, stream:false })
+    });
+    if (!r.ok) throw new Error("Open WebUI "+r.status+" — modèle disponible ?");
+    const d = await r.json();
+    return d.choices?.[0]?.message?.content || "";
+  };
   const [ollamaModels, setOllamaModels] = useState([]);
   const [ollamaConnected, setOllamaConnected] = useState(false);
   const [ollamaActive, setOllamaActive] = useState(false);
@@ -5113,7 +5177,11 @@ function App() {
       try {
         const hist = [...conversations[id], userMsg];
         let reply;
-        if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
+        if (owuiActive && owuiConnected && owuiModel && id === "__owui__") {
+          reply = await callOwui(owuiModel, hist, buildSystem());
+        } else if (owuiActive && owuiConnected && owuiModel) {
+          reply = await callOwui(owuiModel, hist, buildSystem());
+        } else if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
           reply = await callOllama(ollamaModel, hist, buildSystem());
         } else {
           const safeHist = truncateForModel(hist, id, buildSystem());
@@ -6172,6 +6240,10 @@ function App() {
                 style={{background:comfyConnected?"rgba(124,58,237,.15)":"transparent",border:"1px solid "+(comfyConnected?"rgba(124,58,237,.5)":"var(--bd)"),borderRadius:4,color:comfyConnected?"#A78BFA":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 ⬡ ComfyUI{comfyConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
               </button>
+              <button onClick={()=>setShowOwuiPanel(r=>!r)} title="Open WebUI — tous vos modèles Ollama via interface OpenAI-compatible"
+                style={{background:owuiConnected?"rgba(14,165,233,.15)":"transparent",border:"1px solid "+(owuiConnected?"rgba(14,165,233,.5)":"var(--bd)"),borderRadius:4,color:owuiConnected?"#0EA5E9":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                🖥 WebUI{owuiConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
+              </button>
               <button onClick={()=>setShowOllamaPanel(r=>!r)} title="Ollama local"
                 style={{background:ollamaConnected?"rgba(74,222,128,.12)":"transparent",border:"1px solid "+(ollamaConnected?"rgba(74,222,128,.4)":"var(--bd)"),borderRadius:4,color:ollamaConnected?"var(--green)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🖥 Ollama{ollamaConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
@@ -6223,6 +6295,36 @@ function App() {
                   )}
                   {!ollamaConnected && <span style={{fontSize:9,color:"var(--mu)"}}>Installe Ollama + lance <code style={{color:"var(--ac)"}}>ollama serve</code></span>}
                 </div>
+              </div>
+            )}
+            {/* Open WebUI mini-panel */}
+            {showOwuiPanel && (
+              <div style={{padding:"8px 14px",background:"rgba(14,165,233,.06)",borderBottom:"1px solid rgba(14,165,233,.2)",flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:owuiConnected?5:0}}>
+                  <span style={{fontSize:10,color:"#0EA5E9",fontWeight:700}}>🖥 Open WebUI</span>
+                  <input value={owuiUrl} onChange={e=>setOwuiUrl(e.target.value)}
+                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 8px",fontFamily:"var(--font-mono)",flex:1,minWidth:160,outline:"none"}} placeholder="http://localhost:3000"/>
+                  <input value={owuiKey} onChange={e=>setOwuiKey(e.target.value)}
+                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 8px",fontFamily:"var(--font-mono)",width:90,outline:"none"}} placeholder="API Key (opt.)"/>
+                  <button onClick={()=>checkOwui(owuiUrl,owuiKey)}
+                    style={{background:"rgba(14,165,233,.15)",border:"1px solid rgba(14,165,233,.4)",borderRadius:4,color:"#0EA5E9",fontSize:9,padding:"3px 8px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    {owuiConnected?"↺ Refresh":"🔌 Connecter"}
+                  </button>
+                </div>
+                {owuiConnected&&(
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                    <span style={{fontSize:8,color:"var(--mu)"}}>{owuiModels.length} modèle{owuiModels.length!==1?"s":""} :</span>
+                    <select value={owuiModel} onChange={e=>setOwuiModel(e.target.value)}
+                      style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 6px",fontFamily:"var(--font-mono)",outline:"none",flex:1,maxWidth:200}}>
+                      {owuiModels.map(m=><option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:9,color:"#0EA5E9",cursor:"pointer"}}>
+                      <input type="checkbox" checked={owuiActive} onChange={e=>setOwuiActive(e.target.checked)} style={{accentColor:"#0EA5E9"}}/>
+                      Activer pour le chat
+                    </label>
+                  </div>
+                )}
+                {!owuiConnected&&<span style={{fontSize:8,color:"var(--mu)"}}>Lance Open WebUI sur <code style={{color:"var(--ac)"}}>localhost:3000</code> puis connecte</span>}
               </div>
             )}
             {/* ComfyUI mini-panel */}
