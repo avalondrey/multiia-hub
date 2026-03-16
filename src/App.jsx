@@ -8,7 +8,7 @@ import {
   getDiscoveredAIs, saveDiscoveredAIs, fetchYTVideos, DISCOVERY_SOURCES,
 } from "./config/models.js";
 import {
-  fmt, classifyError, truncateForModel, compressContext,
+  fmt, classifyError, truncateForModel,
   callModel, callClaude, callGemini, callCompat, callCohere,
   callPollinations, callPollinationsPaid, correctGrammar,
 } from "./api/ai-service.js";
@@ -158,11 +158,6 @@ function CodeBlock({ code, lang }) {
   );
 }
 
-// ── YouTube link detection in messages ──────────────────────────
-function extractYouTubeId(url) {
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
-  return m?.[1] || null;
-}
 function parseInline(text) {
   if (!text) return [];
   const re = /\*\*(.+?)\*\*|\*(.+?)\*|__(.+?)__|~~(.+?)~~|`([^`\n]+)`|\[([^\]]+)\]\(([^)]+)\)/g;
@@ -174,24 +169,14 @@ function parseInline(text) {
     else if (m[3]!==undefined) parts.push(<u key={k++} style={{textDecorationColor:"var(--ac)",textUnderlineOffset:"3px"}}>{m[3]}</u>);
     else if (m[4]!==undefined) parts.push(<del key={k++} style={{color:"var(--mu)"}}>{m[4]}</del>);
     else if (m[5]!==undefined) parts.push(<code key={k++} className="md-ic">{m[5]}</code>);
-    else if (m[6]!==undefined) {
-      const ytId = extractYouTubeId(m[7]);
-      if (ytId) {
-        parts.push(<span key={k++} style={{display:"inline-flex",alignItems:"center",gap:5}}>
-          <a href={m[7]} target="_blank" rel="noopener noreferrer" className="md-link">{m[6]}</a>
-          <span className="yt-play-btn" data-ytid={ytId} data-yturl={m[7]} style={{fontSize:8,padding:"1px 6px",background:"rgba(248,113,113,.15)",border:"1px solid rgba(248,113,113,.35)",borderRadius:4,color:"#F87171",cursor:"pointer"}}>▶ Play</span>
-        </span>);
-      } else {
-        parts.push(<a key={k++} href={m[7]} target="_blank" rel="noopener noreferrer" className="md-link">{m[6]}</a>);
-      }
-    }
+    else if (m[6]!==undefined) parts.push(<a key={k++} href={m[7]} target="_blank" rel="noopener noreferrer" className="md-link">{m[6]}</a>);
     last=m.index+m[0].length;
   }
   if (last<text.length) parts.push(text.slice(last));
   return parts;
 }
 
-function MarkdownRenderer({ text, onYtPlay }) {
+function MarkdownRenderer({ text }) {
   if (!text) return null;
   // Split code blocks from text
   const segs=[];
@@ -1829,68 +1814,21 @@ function TraducteurTab({ enabled, apiKeys }) {
 // AGENT AUTONOME TAB
 // ═══════════════════════════════════════════════════════════
 function AgentTab({ enabled, apiKeys }) {
-  const AGENT_PREF = ["groq","mistral","cohere","cerebras","sambanova","llama4s"];
-  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
-  const defaultIA = AGENT_PREF.find(id => enabled[id]) || activeIds[0] || "groq";
-
+  const AGENT_PREFERRED = ["groq","mistral","cohere","cerebras","sambanova","mixtral"];
   const [objective, setObjective] = React.useState("");
   const [steps, setSteps] = React.useState([]);
   const [running, setRunning] = React.useState(false);
   const [currentStep, setCurrentStep] = React.useState(-1);
   const [finalResult, setFinalResult] = React.useState("");
-  const [agentIA, setAgentIA] = React.useState(defaultIA);       // IA pour planifier
-  const [stepIAs, setStepIAs] = React.useState({});              // {stepIdx: iaId}
-  const [agentMode, setAgentMode] = React.useState("auto");      // "auto" | "manual"
-  const [savedTemplates, setSavedTemplates] = React.useState(()=>{
-    try { return JSON.parse(localStorage.getItem("multiia_agent_templates")||"[]"); } catch{ return []; }
-  });
-  const [showSaveModal, setShowSaveModal] = React.useState(false);
-  const [templateName, setTemplateName] = React.useState("");
-
-  // Obtenir l'IA pour une étape donnée
-  const getStepIA = (idx) => {
-    if (agentMode === "auto") {
-      // Rotation automatique entre les IAs disponibles
-      const avail = activeIds.filter(id => !["poll_gpt","poll_gemini","poll_claude","poll_deepseek"].includes(id));
-      return avail[idx % avail.length] || activeIds[0] || defaultIA;
-    }
-    return stepIAs[idx] || agentIA;
-  };
-
-  const saveTemplate = () => {
-    if (!templateName.trim() || steps.length === 0) return;
-    const tpl = {
-      id: Date.now().toString(),
-      name: templateName.trim(),
-      objective,
-      steps: steps.map((s,i) => ({...s, ia: getStepIA(i)})),
-      createdAt: new Date().toISOString()
-    };
-    const updated = [...savedTemplates, tpl];
-    setSavedTemplates(updated);
-    localStorage.setItem("multiia_agent_templates", JSON.stringify(updated));
-    setShowSaveModal(false);
-    setTemplateName("");
-  };
-
-  const loadTemplate = (tpl) => {
-    setObjective(tpl.objective);
-    setSteps(tpl.steps.map(s=>({...s,output:"",status:"pending"})));
-    const newIAs = {};
-    tpl.steps.forEach((s,i) => { newIAs[i] = s.ia; });
-    setStepIAs(newIAs);
-    setAgentMode("manual");
-  };
-
-  const deleteTemplate = (id) => {
-    const updated = savedTemplates.filter(t=>t.id!==id);
-    setSavedTemplates(updated);
-    localStorage.setItem("multiia_agent_templates", JSON.stringify(updated));
-  };
+  const activeAgentIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
+  const AGENT_PREF = ["groq","mistral","cohere","cerebras","sambanova","mixtral"];
+  const defaultAgentIA = AGENT_PREF.find(id => enabled[id]) || "mistral";
+  const [agentIA, setAgentIA] = React.useState(defaultAgentIA);
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id]);
 
   const run = async () => {
     if (!objective.trim()) return;
-    const ia = activeIds.includes(agentIA) ? agentIA : (activeIds[0] || defaultIA);
+    const ia = activeIds.includes(agentIA) ? agentIA : activeIds[0];
     if (!ia) return;
     setRunning(true); setSteps([]); setFinalResult(""); setCurrentStep(0);
     try {
@@ -1971,30 +1909,15 @@ Réalise cette étape de façon concrète et utile. Sois précis et actionnable.
         <textarea style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontFamily:"'IBM Plex Mono',monospace",fontSize:12,padding:"10px 12px",resize:"none",outline:"none",minHeight:64,boxSizing:"border-box"}}
           value={objective} onChange={e=>setObjective(e.target.value)}
           placeholder="Décris ton objectif… Ex: Écris un article complet sur le machine learning, avec exemples de code Python et cas d'usage pratiques"/>
-        <div style={{display:"flex",alignItems:"center",gap:6,marginTop:8,flexWrap:"wrap"}}>
-          {/* Mode */}
-          {[["auto","⚡ Auto"],["manual","🎛 Manuel/étape"]].map(([m,l])=>(
-            <button key={m} onClick={()=>setAgentMode(m)}
-              style={{fontSize:8,padding:"3px 8px",borderRadius:4,border:`1px solid ${agentMode===m?"var(--ac)":"var(--bd)"}`,background:agentMode===m?"rgba(212,168,83,.15)":"transparent",color:agentMode===m?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-              {l}
-            </button>
-          ))}
-          <span style={{fontSize:9,color:"var(--mu)"}}>Planificateur :</span>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
+          <span style={{fontSize:9,color:"var(--mu)"}}>IA :</span>
           <select className="yt-add-inp" style={{flex:"none",width:"auto",padding:"3px 6px",fontSize:10}} value={agentIA} onChange={e=>setAgentIA(e.target.value)}>
             {activeIds.map(id=><option key={id} value={id}>{MODEL_DEFS[id].icon} {MODEL_DEFS[id].short}</option>)}
           </select>
-          <div style={{display:"flex",gap:6,marginLeft:"auto"}}>
-            {steps.length>0 && !running && (
-              <button onClick={()=>setShowSaveModal(true)}
-                style={{padding:"7px 10px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--blue)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                💾 Template
-              </button>
-            )}
-            <button onClick={run} disabled={running||!objective.trim()||!activeIds.length}
-              style={{background:running?"var(--s2)":"var(--ac)",border:"none",borderRadius:7,color:running?"var(--mu)":"#09090B",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:12,padding:"9px 20px",cursor:running?"not-allowed":"pointer"}}>
-              {running?`⏳ ${currentStep+1}/${steps.length||"?"}…`:"▶ Lancer"}
-            </button>
-          </div>
+          <button onClick={run} disabled={running||!objective.trim()||!activeIds.length}
+            style={{marginLeft:"auto",background:running?"var(--s2)":"var(--ac)",border:"none",borderRadius:7,color:running?"var(--mu)":"#09090B",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:12,padding:"9px 20px",cursor:running?"not-allowed":"pointer"}}>
+            {running?"⏳ Exécution...":"▶ Lancer l'agent"}
+          </button>
         </div>
       </div>
       <div className="agent-body">
@@ -2018,63 +1941,11 @@ Réalise cette étape de façon concrète et utile. Sois précis et actionnable.
               </span>
               ÉTAPE {i+1}/{steps.length}
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-              <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",flex:1}}>{s.title}</div>
-              {agentMode==="manual" && !running && (
-                <select value={stepIAs[i]||agentIA} onChange={e=>setStepIAs(prev=>({...prev,[i]:e.target.value}))}
-                  style={{fontSize:8,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",padding:"1px 4px"}}>
-                  {activeIds.map(id=><option key={id} value={id}>{MODEL_DEFS[id].icon} {MODEL_DEFS[id].short}</option>)}
-                </select>
-              )}
-              {agentMode==="auto" && s.ia && (
-                <span style={{fontSize:8,color:MODEL_DEFS[s.ia]?.color||"var(--mu)",opacity:.8}}>
-                  {MODEL_DEFS[s.ia]?.icon} {MODEL_DEFS[s.ia]?.short}
-                </span>
-              )}
-            </div>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",marginBottom:4}}>{s.title}</div>
             <div style={{fontSize:9,color:"var(--mu)",marginBottom:6,fontStyle:"italic"}}>{s.action}</div>
             {s.output && <div className="agent-step-output">{s.output}</div>}
           </div>
         ))}
-        {/* Saved templates list */}
-        {savedTemplates.length > 0 && steps.length === 0 && (
-          <div style={{margin:"12px 14px",padding:"10px 12px",background:"var(--s1)",borderRadius:8,border:"1px solid var(--bd)"}}>
-            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>📂 Mes templates sauvegardés</div>
-            {savedTemplates.map(tpl=>(
-              <div key={tpl.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",marginBottom:4,background:"var(--s2)",borderRadius:5,border:"1px solid var(--bd)"}}>
-                <span style={{fontSize:10}}>🤖</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tpl.name}</div>
-                  <div style={{fontSize:8,color:"var(--mu)"}}>{tpl.steps.length} étapes · {tpl.objective.slice(0,50)}{tpl.objective.length>50?"…":""}</div>
-                </div>
-                <button onClick={()=>loadTemplate(tpl)} style={{fontSize:8,padding:"2px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>▶ Charger</button>
-                <button onClick={()=>deleteTemplate(tpl.id)} style={{fontSize:8,padding:"2px 6px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",cursor:"pointer"}}>✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* Save template modal */}
-        {showSaveModal && (
-          <div onClick={()=>setShowSaveModal(false)} style={{position:"fixed",inset:0,zIndex:8000,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:10,padding:20,width:340}}>
-              <div style={{fontWeight:700,fontSize:12,color:"var(--tx)",marginBottom:10}}>💾 Sauvegarder le template</div>
-              <input value={templateName} onChange={e=>setTemplateName(e.target.value)}
-                placeholder="Nom du template (ex: Analyse concurrentielle)"
-                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",outline:"none",marginBottom:10,boxSizing:"border-box"}}
-                onKeyDown={e=>{if(e.key==="Enter")saveTemplate();}}
-                autoFocus
-              />
-              <div style={{fontSize:9,color:"var(--mu)",marginBottom:12}}>{steps.length} étapes · {objective.slice(0,60)}{objective.length>60?"…":""}</div>
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setShowSaveModal(false)} style={{flex:1,padding:"6px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer",fontSize:9}}>Annuler</button>
-                <button onClick={saveTemplate} disabled={!templateName.trim()}
-                  style={{flex:1,padding:"6px",background:"rgba(212,168,83,.15)",border:"1px solid var(--ac)",borderRadius:5,color:"var(--ac)",cursor:"pointer",fontSize:9,fontWeight:700}}>
-                  💾 Sauvegarder
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
         {finalResult && (
           <div className="agent-final">
             <div style={{fontSize:10,color:"var(--ac)",fontWeight:700,marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
@@ -2964,7 +2835,7 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
 // ── WORKFLOWS TAB ─────────────────────────────────────────────────
 
 // ── STATS TAB ─────────────────────────────────────────────────────
-function StatsTab({ stats, onReset, sessionTokens = {} }) {
+function StatsTab({ stats, onReset }) {
   const totalMsgs = Object.values(stats.msgs||{}).reduce((a,b)=>a+b,0);
   const totalTok = Object.values(stats.tokens||{}).reduce((a,b)=>a+b,0);
   const totalConvs = stats.convs || 0;
@@ -2988,38 +2859,6 @@ function StatsTab({ stats, onReset, sessionTokens = {} }) {
         <button style={{marginLeft:"auto",padding:"5px 12px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:9}}
           onClick={()=>{ if(window.confirm("Réinitialiser les statistiques ?")) onReset(); }}>↺ Réinitialiser</button>
       </div>
-      {/* ── Session en cours (temps réel) ── */}
-      {Object.keys(sessionTokens).length > 0 && (
-        <div style={{marginBottom:16,padding:"10px 14px",background:"rgba(212,168,83,.07)",border:"1px solid rgba(212,168,83,.3)",borderRadius:9}}>
-          <div style={{fontSize:9,fontWeight:700,color:"var(--ac)",letterSpacing:1,marginBottom:8}}>⚡ SESSION EN COURS — TEMPS RÉEL</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
-            {Object.entries(sessionTokens).filter(([,t])=>(t.in+t.out)>0).sort(([,a],[,b])=>(b.in+b.out)-(a.in+a.out)).map(([id,t])=>{
-              const m=MODEL_DEFS[id]; const p=PRICING[id];
-              const totalTok=t.in+t.out;
-              const cost=p?(t.in/1e6*p.in)+(t.out/1e6*p.out):0;
-              return (
-                <div key={id} style={{background:"var(--s2)",borderRadius:7,padding:"8px 10px",border:`1px solid ${m.color}30`}}>
-                  <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}>
-                    <span style={{color:m.color,fontSize:11}}>{m.icon}</span>
-                    <span style={{fontSize:9,fontWeight:700,color:m.color}}>{m.short}</span>
-                    <span style={{marginLeft:"auto",fontSize:7,padding:"1px 4px",background:cost===0?"rgba(74,222,128,.12)":"rgba(212,168,83,.12)",color:cost===0?"var(--green)":"var(--ac)",borderRadius:3,fontWeight:700}}>{cost===0?"FREE":"$"+cost.toFixed(5)}</span>
-                  </div>
-                  <div style={{fontSize:8,color:"var(--mu)"}}>
-                    <span style={{color:"var(--blue)"}}>↓ {(t.in/1000).toFixed(1)}k</span> · <span style={{color:"var(--green)"}}>↑ {(t.out/1000).toFixed(1)}k</span>
-                  </div>
-                  <div style={{marginTop:4,height:3,background:"var(--bd)",borderRadius:2,overflow:"hidden"}}>
-                    <div style={{height:"100%",width:Math.min(100,(totalTok/5000)*100)+"%",background:m.color,borderRadius:2,transition:"width .4s"}}/>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{marginTop:8,fontSize:8,color:"var(--mu)"}}>
-            Total session : {Object.values(sessionTokens).reduce((a,t)=>a+t.in+t.out,0).toLocaleString()} tokens · 
-            Coût estimé : ${Object.entries(sessionTokens).reduce((a,[id,t])=>{const p=PRICING[id];return a+(p?(t.in/1e6*p.in)+(t.out/1e6*p.out):0);},0).toFixed(5)}
-          </div>
-        </div>
-      )}
       <div className="stats-grid">
         <div className="stat-card"><div className="stat-val">{totalConvs}</div><div className="stat-lbl">Conversations</div></div>
         <div className="stat-card"><div className="stat-val">{fmtN(totalMsgs)}</div><div className="stat-lbl">Messages envoyés</div></div>
@@ -3297,7 +3136,7 @@ function App() {
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
-  const TAB_ORDER = ["dashboard","chat","prompts","redaction","recherche","workflows","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
+  const TAB_ORDER = ["chat","prompts","redaction","recherche","workflows","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
   const navigateTab = (newTab) => {
     const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
     const newIdx = TAB_ORDER.indexOf(newTab);
@@ -3311,7 +3150,7 @@ function App() {
     // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    const VALID_TABS = ["dashboard","chat","prompts","redaction","recherche","workflows","workflow","web","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
+    const VALID_TABS = ["chat","prompts","redaction","recherche","workflows","workflow","web","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
     return VALID_TABS.includes(t) ? t : "chat";
   });
   const [mobileCol, setMobileCol] = useState("groq");
@@ -3406,42 +3245,6 @@ function App() {
   const abortRefs = React.useRef({}); // {id: AbortController}
   const msgsEndRefs = React.useRef({}); // {id: ref}
   const [chatInput, setChatInput] = useState("");
-  // ── Génération d'images ─────────────────────────────────────────
-  const [imgGenModal, setImgGenModal] = useState(false);
-  const [imgGenPrompt, setImgGenPrompt] = useState("");
-  const [imgGenResult, setImgGenResult] = useState(null); // {url, prompt, model}
-  const [imgGenLoading, setImgGenLoading] = useState(false);
-  const [imgGenModel, setImgGenModel] = useState("flux"); // flux|turbo|stable-diffusion
-  const IMG_MODELS = [
-    { id:"flux",             label:"FLUX.1",          desc:"Qualité maximale",  time:"~6s" },
-    { id:"turbo",            label:"FLUX Turbo",       desc:"Rapide & bon",      time:"~3s" },
-    { id:"stable-diffusion", label:"Stable Diffusion", desc:"Classique open-source", time:"~5s" },
-  ];
-  const generateImage = async () => {
-    if (!imgGenPrompt.trim()) return;
-    setImgGenLoading(true); setImgGenResult(null);
-    try {
-      const encoded = encodeURIComponent(imgGenPrompt.trim());
-      const url = `https://image.pollinations.ai/prompt/${encoded}?model=${imgGenModel}&width=768&height=512&nologo=true&private=true`;
-      // Preload image
-      await new Promise((res, rej) => {
-        const img = new Image();
-        img.onload = res;
-        img.onerror = rej;
-        img.src = url;
-      });
-      setImgGenResult({ url, prompt: imgGenPrompt.trim(), model: imgGenModel });
-    } catch(e) {
-      setImgGenResult({ error: "Génération échouée. Réessaie." });
-    }
-    setImgGenLoading(false);
-  };
-  const sendImageToChat = () => {
-    if (!imgGenResult?.url) return;
-    setChatInput(prev => (prev ? prev + "\n" : "") + `![Image générée](${imgGenResult.url})\n> Prompt : ${imgGenResult.prompt}`);
-    setImgGenModal(false);
-    showToast("✓ Image ajoutée au message");
-  };
   const [modal, setModal] = useState(null);
   const [keyDraft, setKeyDraft] = useState("");
 
@@ -3525,31 +3328,13 @@ function App() {
   };
   const getRagContext = (query) => {
     if (!ragChunks.length) return null;
-    // TF-IDF inspired scoring: term frequency × inverse doc frequency
-    const queryWords = query.toLowerCase().split(/\s+/).filter(w=>w.length>3);
-    const N = ragChunks.length;
-    // IDF: how rare is each word across all chunks
-    const idf = {};
-    queryWords.forEach(w=>{
-      const docsWithW = ragChunks.filter(c=>c.toLowerCase().includes(w)).length;
-      idf[w] = docsWithW>0 ? Math.log((N+1)/(docsWithW+1))+1 : 1;
-    });
-    const scored = ragChunks.map((chunk, i) => {
-      const lower = chunk.toLowerCase();
-      const chunkWords = lower.split(/\s+/).length||1;
-      // TF-IDF score
-      const score = queryWords.reduce((acc,w)=>{
-        const tf = (lower.split(w).length-1)/chunkWords;
-        return acc + tf*(idf[w]||1);
-      },0);
-      // Bonus for exact phrase match
-      const phraseBonus = lower.includes(query.toLowerCase().slice(0,30))?2:0;
-      return { chunk, i, score: score+phraseBonus };
-    }).sort((a,b)=>b.score-a.score);
-    // Return top 3 chunks (instead of 2) for better coverage
-    const top = scored.slice(0,3).filter(s=>s.score>0).map(s=>s.chunk).join("\n\n---\n\n");
-    if (!top) return `[Document chargé]\n[Question]\n${query}`;
-    return `[Contexte pertinent du document (${ragChunks.length} sections indexées)]\n\n${top}\n\n[Question de l'utilisateur]\n${query}`;
+    const words = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const scored = ragChunks.map((chunk, i) => ({
+      chunk, i,
+      score: words.reduce((acc, w) => acc + (chunk.toLowerCase().split(w).length - 1), 0)
+    })).sort((a,b) => b.score - a.score);
+    const top = scored.slice(0, 2).map(s => s.chunk).join("\n\n---\n\n");
+    return `[Contexte du document]\n${top}\n\n[Question de l'utilisateur]\n${query}`;
   };
 
   // ── Ollama local ────────────────────────────────────────────────
@@ -3634,29 +3419,6 @@ function App() {
   const [workflowRunning, setWorkflowRunning] = useState(false);
   const [workflowResults, setWorkflowResults] = useState([]); // [{nodeId,label,ia,output,ok,duration}]
   const [workflowRunStep, setWorkflowRunStep] = useState(null); // id of currently running step
-  const WF_BUILTIN_TEMPLATES = [
-    { name:"📰 News → LinkedIn Post", nodes:[
-      {id:"n1",name:"news",label:"Récupère 5 news IA récentes",type:"prompt",ia:"groq",prompt:"Liste 5 actualités importantes en IA de cette semaine. Pour chacune : titre, 2 phrases de contexte.",parallel_ias:[],usePrevOutput:false},
-      {id:"n2",name:"translate",label:"Traduit en français",type:"prompt",ia:"mistral",prompt:"Traduis et adapte ces news en français courant, sans jargon :\n{INPUT}",parallel_ias:[],usePrevOutput:true},
-      {id:"n3",name:"linkedin",label:"Rédige post LinkedIn",type:"prompt",ia:"groq",prompt:"Rédige un post LinkedIn engageant (300 mots max) basé sur ces actualités. Ton professionnel, 3 hashtags, émojis moderés :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
-      {id:"n4",name:"image",label:"Génère illustration",type:"prompt",ia:"groq",prompt:"Génère une description d'image en 10 mots anglais pour illustrer ce post LinkedIn sur l'IA. Juste la description, rien d'autre :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
-    ]},
-    { name:"📄 Analyse → Rapport exécutif", nodes:[
-      {id:"n1",name:"analyse",label:"Analyse le sujet",type:"prompt",ia:"cohere",prompt:"Analyse en profondeur : {INPUT}\nPoints clés, données factuelles, tendances.",parallel_ias:[],usePrevOutput:false},
-      {id:"n2",name:"critique",label:"Identifie les risques",type:"prompt",ia:"groq",prompt:"Sur la base de cette analyse, identifie les risques, incertitudes et points faibles :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
-      {id:"n3",name:"rapport",label:"Rapport exécutif",type:"prompt",ia:"mistral",prompt:"Rédige un rapport exécutif synthétisant l'analyse et les risques. Format : Résumé (5 lignes) / Analyse / Risques / Recommandations :\nAnalyse : {n1}\nRisques : {n2}",parallel_ias:[],usePrevOutput:false},
-    ]},
-    { name:"💻 Idée → Code → Tests", nodes:[
-      {id:"n1",name:"spec",label:"Spécifications techniques",type:"prompt",ia:"groq",prompt:"Génère les spécifications techniques détaillées pour : {INPUT}\nArchitecture, technologies, structures de données.",parallel_ias:[],usePrevOutput:false},
-      {id:"n2",name:"code",label:"Implémentation",type:"prompt",ia:"groq",prompt:"Implémente cette spec en code complet, propre et commenté :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
-      {id:"n3",name:"tests",label:"Tests unitaires",type:"prompt",ia:"mistral",prompt:"Écris des tests unitaires complets pour ce code (edge cases inclus) :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
-    ]},
-    { name:"🌍 Contenu multilingue", nodes:[
-      {id:"n1",name:"fr",label:"Rédige en français",type:"prompt",ia:"mistral",prompt:"Rédige un contenu professionnel sur : {INPUT}\n500 mots, ton engageant.",parallel_ias:[],usePrevOutput:false},
-      {id:"n2",name:"en",label:"Traduit en anglais",type:"prompt",ia:"groq",prompt:"Translate this French content to professional English, keeping the tone :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
-      {id:"n3",name:"adapt",label:"Adapte pour réseaux sociaux",type:"prompt",ia:"groq",prompt:"Create 3 social media versions (Twitter/X 280 chars, LinkedIn 300 words, Instagram caption) from :\n{PREVIOUS}",parallel_ias:[],usePrevOutput:true},
-    ]},
-  ];
   const [workflowSavedTpls, setWorkflowSavedTpls] = useState(() => {
     try { return JSON.parse(localStorage.getItem("multiia_wf_templates")||"[]"); } catch { return []; }
   });
@@ -3873,14 +3635,14 @@ ${allMsgs.map(m=>`
     setMemFacts(updated);
     try { localStorage.setItem(MEM_KEY, JSON.stringify(updated)); } catch {}
   };
-  const buildSystem = () => {
+  const buildSystem = React.useCallback(() => {
     let sys = currentSystem || "";
     if (memFacts.length > 0) {
       const facts = memFacts.map(f => "- " + f.text).join("\n");
       sys = `${sys}\n\n📌 Mémoire utilisateur (rappels persistants) :\n${facts}`.trim();
     }
     return sys;
-  };
+  }, [memFacts, currentSystem]);
 
   // ── Raccourcis clavier globaux ─────────────────────────────────
   useEffect(() => {
@@ -4084,26 +3846,6 @@ ${allMsgs.map(m=>`
   // ── Zoom / Échelle UI ──
   const [zenMode, setZenMode] = React.useState(false);
   const [canvasContent, setCanvasContent] = React.useState(null); // {code, lang, title}
-  const [canvasEditInput, setCanvasEditInput] = React.useState("");
-  const [canvasEditing, setCanvasEditing] = React.useState(false);
-  const editCanvas = async () => {
-    if (!canvasEditInput.trim() || !canvasContent) return;
-    setCanvasEditing(true);
-    const ids = IDS.filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial);
-    const id = ids.find(i=>["groq","mistral","claude"].includes(i)) || ids[0];
-    if (!id) { setCanvasEditing(false); return; }
-    try {
-      const sys = "Tu es un expert développeur. Réponds UNIQUEMENT avec le code modifié complet, sans explication, sans balises markdown.";
-      const prompt = `Voici du code ${canvasContent.lang}. Modifie-le selon cette demande : "${canvasEditInput}"\n\nCode actuel :\n${canvasContent.code}`;
-      const reply = await callModel(id, [{role:"user",content:prompt}], apiKeys, sys);
-      // Strip markdown fences if any
-      const cleaned = reply.replace(/^```[\w]*\n?/,'').replace(/\n?```$/,'').trim();
-      setCanvasContent(prev=>({...prev, code:cleaned}));
-      setCanvasEditInput("");
-      showToast("✓ Canvas mis à jour");
-    } catch(e) { showToast("❌ "+e.message); }
-    setCanvasEditing(false);
-  };
   // Expose to window so CodeBlock (non-child) can trigger canvas
   React.useEffect(() => { window.__openCanvas = (code, lang, title) => setCanvasContent({code, lang, title}); return () => { delete window.__openCanvas; }; }, []);
   const [sessionTokens, setSessionTokens] = React.useState({}); // {id: {in:N, out:N}}
@@ -4148,189 +3890,6 @@ ${allMsgs.map(m=>`
   const dismissPwaBanner = () => { setShowPwaBanner(false); localStorage.setItem("multiia_pwa_dismissed","1"); };
 
   const MOBILE_TABS = [["chat","◈","Chat"],["recherche","🔎","Cherche"],["notes","📝","Notes"],["agent","🤖","Agent"],["config","⚙","Config"]];
-
-  // ── Feature: Auto-translate to English ──────────────────────────
-  const [autoTranslateEN, setAutoTranslateEN] = React.useState(() => {
-    try { return localStorage.getItem("multiia_translate_en") === "1"; } catch { return false; }
-  });
-  const toggleTranslateEN = () => {
-    setAutoTranslateEN(v => {
-      const nv = !v;
-      try { localStorage.setItem("multiia_translate_en", nv?"1":"0"); } catch{}
-      showToast(nv ? "🌍 Traduction EN activée" : "🌍 Traduction EN désactivée");
-      return nv;
-    });
-  };
-  const translateToEN = async (text) => {
-    const ids = IDS.filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
-    if (!ids.length) return text;
-    const id = ids.find(i=>i==="groq")||ids[0];
-    try {
-      const r = await callModel(id, [{role:"user",content:`Translate to English, return ONLY the translation, no explanation:
-
-${text}`}], apiKeys, "You are a translator. Output only the translated text.");
-      return r || text;
-    } catch { return text; }
-  };
-
-  // ── Feature: Share conversation by URL ──────────────────────────
-  const [shareModal, setShareModal] = React.useState(false);
-  const [shareUrl, setShareUrl] = React.useState("");
-  const [shareCopied, setShareCopied] = React.useState(false);
-  const generateShareUrl = () => {
-    const ids = IDS.filter(i => enabled[i]);
-    const data = {};
-    ids.forEach(id => {
-      const msgs = (conversations[id]||[]).filter(m=>m.role==="user"||m.role==="assistant");
-      if (msgs.length) data[id] = msgs.map(m=>({r:m.role,c:m.content.slice(0,2000)}));
-    });
-    if (!Object.keys(data).length) { showToast("Aucune conversation à partager"); return; }
-    try {
-      const json = JSON.stringify(data);
-      const b64 = btoa(unescape(encodeURIComponent(json)));
-      const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(b64)}`;
-      setShareUrl(url);
-      setShareModal(true);
-    } catch(e) { showToast("Conversation trop longue pour le partage"); }
-  };
-  const copyShareUrl = () => {
-    navigator.clipboard.writeText(shareUrl).then(()=>{
-      setShareCopied(true);
-      setTimeout(()=>setShareCopied(false),2000);
-    });
-  };
-
-  // ── Feature: Prompt Battle ───────────────────────────────────────
-  const [battleModal, setBattleModal] = React.useState(false);
-  const [battlePrompts, setBattlePrompts] = React.useState(["","","",""]);
-  const [battleResults, setBattleResults] = React.useState({}); // {promptIdx: {iaId: response}}
-  const [battleRunning, setBattleRunning] = React.useState(false);
-  const [battleJury, setBattleJury] = React.useState(null); // {winner:idx, scores:{}, reason:""}
-  const [battleIA, setBattleIA] = React.useState("");
-  const runBattle = async () => {
-    const prompts = battlePrompts.filter(p=>p.trim());
-    if (prompts.length < 2) { showToast("Écris au moins 2 variantes de prompt"); return; }
-    const ia = battleIA || IDS.find(id=>enabled[id]&&!MODEL_DEFS[id]?.serial) || "";
-    if (!ia) { showToast("Active au moins une IA"); return; }
-    setBattleRunning(true); setBattleResults({}); setBattleJury(null);
-    const results = {};
-    await Promise.all(prompts.map(async (p, idx) => {
-      try {
-        const r = await callModel(ia, [{role:"user",content:p}], apiKeys, "Tu es un assistant expert. Réponds de façon complète et précise.");
-        results[idx] = r;
-        setBattleResults(prev => ({...prev, [idx]:r}));
-      } catch(e) { results[idx] = "❌ "+e.message; setBattleResults(prev=>({...prev,[idx]:"❌ "+e.message})); }
-    }));
-    // Jury
-    const juryIA = IDS.find(id=>enabled[id]&&id!==ia&&!MODEL_DEFS[id]?.serial) || ia;
-    const variantsText = prompts.map((p,i)=>{
-      return "## Variante "+(i+1)+"\nPrompt: "+JSON.stringify(p)+"\nRéponse: "+JSON.stringify((results[i]||"").slice(0,400));
-    }).join("\n\n");
-    const juryPrompt = "Tu es un expert en prompt engineering. Évalue ces "+prompts.length+" variantes de prompt et leurs réponses.\n\n"+variantsText+"\n\nRéponds UNIQUEMENT en JSON valide (pas de texte avant/après):\n{\"winner\": 0, \"scores\": [8,6], \"reason\": \"explication courte\"}";
-    try {
-      const jr = await callModel(juryIA, [{role:"user",content:juryPrompt}], apiKeys, "Tu es un jury expert. Réponds uniquement en JSON valide.");
-      const jd = JSON.parse(jr.replace(/```json|```/g,"").trim());
-      setBattleJury(jd);
-    } catch { setBattleJury({winner:0,scores:prompts.map(()=>7),reason:"Jury indisponible"}); }
-    setBattleRunning(false);
-    showToast("✓ Battle terminée !");
-  };
-
-  // ── Feature: Document Multi-IA Analysis ─────────────────────────
-  const [analyseModal, setAnalyseModal] = React.useState(false);
-  const [analyseFile, setAnalyseFile] = React.useState(null);
-  const [analyseQuestion, setAnalyseQuestion] = React.useState("");
-  const [analyseResults, setAnalyseResults] = React.useState({});
-  const [analyseRunning, setAnalyseRunning] = React.useState(false);
-  const analyseFileRef = React.useRef(null);
-  const ANALYSE_ANGLES = [
-    "Fais un résumé complet et structuré (points clés, structure, idées principales)",
-    "Analyse les failles, incohérences et points faibles",
-    "Extrait toutes les données chiffrées, dates et faits importants",
-    "Identifie les opportunités, recommandations et actions concrètes",
-    "Évalue la qualité rédactionnelle et propose des améliorations",
-    "Génère 5 questions pertinentes et leurs réponses basées sur ce document",
-  ];
-  const handleAnalyseFile = async (file) => {
-    if (!file) return;
-    const name = file.name; const ftype = file.type;
-    if (ftype.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = () => setAnalyseFile({name,type:"image",base64:reader.result.split(",")[1],mimeType:ftype,icon:"🖼"});
-      reader.readAsDataURL(file);
-    } else {
-      try {
-        const text = await file.text();
-        setAnalyseFile({name,type:"text",content:text.slice(0,12000),icon:file.name.endsWith(".pdf")?"📕":"📄"});
-      } catch { showToast("Format non supporté"); }
-    }
-  };
-  const runDocAnalyse = async () => {
-    if (!analyseFile) { showToast("Joint un fichier d'abord"); return; }
-    const ids = IDS.filter(id=>enabled[id]&&!isLimited(id));
-    if (!ids.length) { showToast("Active au moins une IA"); return; }
-    setAnalyseRunning(true); setAnalyseResults({});
-    const fileCtx = analyseFile.type!=="image" ? `
-
-📎 Fichier : ${analyseFile.name}
-\`\`\`
-${analyseFile.content}
-\`\`\`` : "";
-    const question = analyseQuestion.trim();
-    await Promise.all(ids.map(async(id,idx) => {
-      const angle = ANALYSE_ANGLES[idx % ANALYSE_ANGLES.length];
-      const prompt = question
-        ? `${question}${fileCtx}`
-        : `Ta mission : ${angle}${fileCtx}`;
-      const sys = `Tu es un expert analyste. Analyse le document fourni selon ta mission : "${angle}". Sois précis, factuel et actionnable.`;
-      try {
-        const r = await callModel(id, [{role:"user",content:prompt}], apiKeys, sys, analyseFile.type==="image"?analyseFile:null);
-        setAnalyseResults(prev=>({...prev,[id]:{text:r,angle}}));
-      } catch(e) { setAnalyseResults(prev=>({...prev,[id]:{text:"❌ "+e.message,angle}})); }
-    }));
-    setAnalyseRunning(false);
-    showToast("✓ Analyse terminée !");
-  };
-
-  // ── Feature: Dashboard ───────────────────────────────────────────
-  const [dashPopups, setDashPopups] = React.useState([]);
-  const [dashWeather, setDashWeather] = React.useState(null);
-  const [dashNews, setDashNews] = React.useState([]);
-  const [dashLoadingNews, setDashLoadingNews] = React.useState(false);
-  const dismissPopup = (id) => setDashPopups(p=>p.filter(x=>x.id!==id));
-  const addDashPopup = (msg, type="info") => {
-    const id = Date.now().toString();
-    setDashPopups(p=>[...p,{id,msg,type,ts:new Date()}]);
-    setTimeout(()=>dismissPopup(id), 8000);
-  };
-  const fetchDashWeather = async () => {
-    try {
-      const geo = await fetch("https://ipapi.co/json/").then(r=>r.json());
-      const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${geo.latitude}&longitude=${geo.longitude}&current=temperature_2m,weathercode,windspeed_10m&timezone=auto`).then(r=>r.json());
-      const codes = {0:"☀️ Ensoleillé",1:"🌤 Peu nuageux",2:"⛅ Nuageux",3:"☁️ Couvert",45:"🌫 Brouillard",51:"🌦 Bruine",61:"🌧 Pluie",71:"🌨 Neige",80:"🌩 Averses",95:"⛈ Orage"};
-      const code = w.current.weathercode;
-      const label = Object.entries(codes).find(([k])=>code<=parseInt(k))?.[1] || "🌡 Météo";
-      setDashWeather({
-        city: geo.city||"Votre ville", country: geo.country_name||"",
-        temp: Math.round(w.current.temperature_2m),
-        wind: Math.round(w.current.windspeed_10m),
-        label
-      });
-    } catch { setDashWeather({city:"?",temp:0,label:"🌡 Météo indisponible"}); }
-  };
-  const fetchDashNews = async () => {
-    setDashLoadingNews(true);
-    const ids = IDS.filter(id=>enabled[id]&&!isLimited(id)&&!MODEL_DEFS[id]?.serial);
-    if (!ids.length) { setDashLoadingNews(false); return; }
-    const id = ids.find(i=>i==="groq")||ids[0];
-    try {
-      const newsP = "Génère 8 actualités IA importantes de mars 2026. JSON uniquement, tableau de 8 objets : [{\"titre\":\"max 80 chars\",\"desc\":\"3 phrases détaillées sur l'actualité et son impact\",\"cat\":\"Modèles|Outils|Recherche|Business|Sécurité|Open-source\",\"hot\":true,\"imgQuery\":\"2 mots anglais pour illustrer\"}]. Exactement 3 hot:true. Variété de catégories obligatoire.";
-      const r = await callModel(id, [{role:"user",content:newsP}], apiKeys, "Expert veille IA. Réponds uniquement en JSON valide, sans texte avant ou après.");
-      const d = JSON.parse(r.replace(/```json|```/g,"").trim());
-      setDashNews(Array.isArray(d)?d.slice(0,8):[]);
-    } catch { setDashNews([]); }
-    setDashLoadingNews(false);
-  };
 
   const [debInput, setDebInput] = useState("");
   const [debPhase, setDebPhase] = useState(0);
@@ -4383,7 +3942,6 @@ ${analyseFile.content}
   };
 
   useEffect(() => { IDS.forEach(id => { const el = msgRefs.current[id]; if(el) el.scrollTop = el.scrollHeight; }); }, [conversations, loading]);
-  useEffect(() => { if (tab === "dashboard" && !dashWeather) fetchDashWeather(); }, [tab]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2800); };
 
@@ -4534,100 +4092,12 @@ ${analyseFile.content}
     finally { setGrammarLoading(false); }
   };
 
-  const enabledIds = IDS.filter(id => enabled[id]);
-  const availableIds = enabledIds.filter(id => !isLimited(id));
-  const isLoadingAny = Object.values(loading).some(Boolean);
-
-
-  // ── Multi-Model Consensus (Mixture of Agents) ───────────────────
-  const [consensusModal, setConsensusModal] = React.useState(false);
-  const [consensusQuery, setConsensusQuery] = React.useState("");
-  const [consensusResults, setConsensusResults] = React.useState({}); // {iaId: response}
-  const [consensusSynth, setConsensusSynth] = React.useState("");
-  const [consensusRunning, setConsensusRunning] = React.useState(false);
-  const [consensusSynthIA, setConsensusSynthIA] = React.useState("");
-
-  const runConsensus = async () => {
-    const q = consensusQuery.trim(); if (!q) return;
-    const ids = IDS.filter(id=>enabled[id]&&!isLimited(id)&&!MODEL_DEFS[id]?.serial);
-    if (ids.length < 2) { showToast("Active au moins 2 IAs"); return; }
-    // Use at most 4 IAs for parallel answers
-    const panelIds = ids.slice(0,4);
-    // Best IA for synthesis (most capable)
-    const synthPriority = ["groq","cohere","mistral","sambanova","qwen3"];
-    const synthId = synthPriority.find(id=>enabled[id]&&!isLimited(id)) || panelIds[0];
-
-    setConsensusRunning(true); setConsensusResults({}); setConsensusSynth(""); setConsensusSynthIA("");
-
-    // Step 1: All IAs answer in parallel
-    const answers = {};
-    await Promise.all(panelIds.map(async(id,idx)=>{
-      if (idx>0) await new Promise(r=>setTimeout(r,idx*600));
-      try {
-        const r = await callModel(id,[{role:"user",content:q}],apiKeys,"Tu es un expert. Réponds avec précision et exhaustivité.");
-        answers[id]=r;
-        setConsensusResults(prev=>({...prev,[id]:r}));
-      } catch(e) { answers[id]="❌ "+e.message; setConsensusResults(prev=>({...prev,[id]:"❌ "+e.message})); }
-    }));
-
-    // Step 2: Synthesis IA analyzes all answers
-    setConsensusSynthIA(synthId);
-    const validAnswers = panelIds.filter(id=>answers[id]&&!answers[id].startsWith("❌"));
-    if (validAnswers.length === 0) { setConsensusRunning(false); return; }
-
-    const answerBlocks = validAnswers.map(id=>"**"+MODEL_DEFS[id].short+"**: "+answers[id].slice(0,600)).join("\n\n---\n\n");
-    const synthPrompt = "Question posée : \""+q+"\"\n\n"+validAnswers.length+" IAs ont répondu :\n\n"+answerBlocks+"\n\n---\n\nTu es un arbitre expert. Analyse ces réponses et génère :\n1. RÉPONSE CONSENSUS — la réponse la plus correcte et complète\n2. ERREURS DÉTECTÉES — erreurs factuelles dans les réponses individuelles\n3. POINTS DE DIVERGENCE — là où les IAs ne s'accordent pas\n\nSois précis et factuel.";
-    try {
-      const synth = await callModel(synthId,[{role:"user",content:synthPrompt}],apiKeys,"Tu es un arbitre expert en vérification factuelle. Synthèse claire et structurée.");
-      setConsensusSynth(synth);
-    } catch(e) { setConsensusSynth("❌ Synthèse impossible : "+e.message); }
-
-    setConsensusRunning(false);
-    playBeep();
-    showToast("✓ Consensus généré !");
-  };
-
-  // ── Slash Commands (/code /seo /mail etc.) ───────────────────────
-  const SLASH_COMMANDS = {
-    "/code":    { system:"Tu es un expert développeur senior. Génère du code propre, commenté, avec gestion d'erreurs. Privilégie les bonnes pratiques.", toast:"💻 Mode Code activé" },
-    "/seo":     { system:"Tu es un expert SEO. Optimise le contenu pour les moteurs de recherche : mots-clés, structure, méta-descriptions, lisibilité.", toast:"🔍 Mode SEO activé" },
-    "/mail":    { system:"Tu es un expert en communication professionnelle. Rédige des emails clairs, professionnels, avec objet, corps et formule de politesse.", toast:"📧 Mode Email activé" },
-    "/resume":  { system:"Tu es un expert en synthèse. Résume en 5 points clés essentiels, structure claire, langage simple.", toast:"📋 Mode Résumé activé" },
-    "/traduit": { system:"Tu es un traducteur expert. Traduis avec précision en gardant le ton et le style original. Propose des alternatives si pertinent.", toast:"🌍 Mode Traduction activé" },
-    "/critique":{ system:"Tu es un expert critique constructif. Analyse les points forts, points faibles, incohérences et propose des améliorations concrètes.", toast:"🧐 Mode Critique activé" },
-    "/simple":  { system:"Tu expliques tout comme à un débutant complet. Zéro jargon, analogies du quotidien, étapes courtes et claires.", toast:"🎯 Mode Simplifié activé" },
-    "/pro":     { system:"Tu reformules dans un style professionnel et formel, impeccable, adapté au monde des affaires.", toast:"👔 Mode Pro activé" },
-    "/debug":   { system:"Tu es un expert en débogage. Identifie les bugs, explique la cause racine, propose le correctif exact avec le code corrigé.", toast:"🐛 Mode Debug activé" },
-    "/idea":    { system:"Tu es un générateur d'idées créatives. Propose 5-10 idées originales et inattendues, avec pour chacune un angle unique.", toast:"💡 Mode Idées activé" },
-  };
-  const parseSlashCommand = (text) => {
-    const words = text.trim().split(/\s+/);
-    const cmd = words[0]?.toLowerCase();
-    if (SLASH_COMMANDS[cmd]) {
-      return { system: SLASH_COMMANDS[cmd].system, text: words.slice(1).join(" ") || text, toast: SLASH_COMMANDS[cmd].toast, cmd };
-    }
-    return null;
-  };
+  const enabledIds   = React.useMemo(() => IDS.filter(id => enabled[id]),            [enabled]);
+  const availableIds = React.useMemo(() => enabledIds.filter(id => !isLimited(id)), [enabledIds, limited]);
+  const isLoadingAny = React.useMemo(() => Object.values(loading).some(Boolean),    [loading]);
 
   const sendChat = async () => {
-    let text = applyPromptVars(chatInput.trim()); if (!text) return;
-    // Slash command detection
-    let slashSystem = null;
-    const slashResult = parseSlashCommand(text);
-    if (slashResult && slashResult.text.trim()) {
-      slashSystem = slashResult.system;
-      text = slashResult.text;
-      showToast(slashResult.toast);
-    }
-
-    // Auto-translate to English if enabled
-    if (autoTranslateEN && text.length > 3) {
-      const translated = await translateToEN(text);
-      if (translated && translated !== text) {
-        text = translated;
-        showToast("🌍 Prompt traduit en anglais");
-      }
-    }
+    const text = applyPromptVars(chatInput.trim()); if (!text) return;
     setShowGrammarPopup(false); setGrammarResult(null); setChatInput(""); setBestVote(null);
     const file = attachedFile; setAttachedFile(null);
     requestNotifPerm();
@@ -4657,11 +4127,8 @@ ${analyseFile.content}
         if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
           reply = await callOllama(ollamaModel, hist, buildSystem());
         } else {
-          const activeSystem = slashSystem || buildSystem();
-          // Smart context: compress if conversation is long
-          const compressedHist = hist.length > 14 ? await compressContext(hist, apiKeys, 12) : hist;
-          const safeHist = truncateForModel(compressedHist, id, activeSystem);
-          reply = await callModel(id, safeHist, apiKeys, activeSystem, file);
+          const safeHist = truncateForModel(hist, id, buildSystem());
+          reply = await callModel(id, safeHist, apiKeys, buildSystem(), file);
         }
         const thinkContent = extractThink(reply);
         const cleanReply = stripThink(reply);
@@ -4975,7 +4442,7 @@ ${analyseFile.content}
     showToast("✓ Pipeline exporté dans Workflows");
   };
 
-  const sortedArena = [...ARENA_MODELS].sort((a,b) => {
+  const sortedArena = React.useMemo(() => [...ARENA_MODELS].sort((a,b) => {
     if (arenaSort === "score") return b.score - a.score;
     if (arenaSort === "free") return (b.free?1:0) - (a.free?1:0);
     return a.name.localeCompare(b.name);
@@ -4985,15 +4452,15 @@ ${analyseFile.content}
     if (arenaFilter === "top") return m.score >= 9;
     if (arenaFilter === "oss") return m.tag === "OSS" || m.tag === "OSS KING" || m.tag === "FREE";
     return true;
-  });
+  }), [arenaSort, arenaFilter]);
 
-  const filteredImages = IMAGE_GENERATORS.filter(g => {
+  const filteredImages = React.useMemo(() => IMAGE_GENERATORS.filter(g => {
     if (imgFilter === "all") return true;
     if (imgFilter === "free") return g.free;
     if (imgFilter === "oss") return g.license && (g.license.includes("Apache")||g.license.includes("GPL")||g.license.includes("OSS")||g.license.includes("Community"));
     if (imgFilter === "paid") return !g.free;
     return true;
-  });
+  }), [imgFilter]);
 
   return (
     <>
@@ -5070,7 +4537,6 @@ ${analyseFile.content}
 </div>
           <div className="nav-tabs">
             {[
-              ["dashboard","🏠 Dashboard"],
               ["chat","◈ Chat"],
               ["prompts","📋 Prompts"],
               ["redaction","✍️ Rédaction"],
@@ -5434,12 +4900,12 @@ ${analyseFile.content}
                       </button>
                     </div>
                   </div>
-                  <div className="msgs" onClick={e=>{const btn=e.target.closest(".yt-play-btn");if(btn){const id=btn.dataset.ytid,url=btn.dataset.yturl;if(id)setYtPlayer({videoId:id,title:url,channel:"YouTube"});}}} style={{position:"relative"}} ref={el => msgRefs.current[id] = el}>
+                  <div className="msgs" style={{position:"relative"}} ref={el => msgRefs.current[id] = el}>
                     {conversations[id].length === 0 && !loading[id] && <div className="empty">{enabled[id]?lim?`⏳ Bloqué — ${fmtCd(id)}`:"En attente…":"Désactivé"}</div>}
                     {conversations[id].map((msg, i) => (
                       <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative",animation:"fadeInUp .3s ease-out"}:{animation:"fadeInUp .25s ease-out"}}>
                         {msg.think && <CoTBlock think={msg.think}/>}
-                        <MarkdownRenderer text={msg.displayContent || msg.content} onYtPlay={(id,url)=>setYtPlayer({videoId:id,title:url,channel:""})} />
+                        <MarkdownRenderer text={msg.displayContent || msg.content} />
                         {msg.displayContent && <span style={{fontSize:8,color:"var(--mu)",marginLeft:6,verticalAlign:"middle"}}>📄 RAG</span>}
                         {msg.role==="blocked" && (
                           <button onClick={()=>setLimited(prev=>{const n={...prev};delete n[id];return n;})}
@@ -5528,17 +4994,6 @@ ${analyseFile.content}
         })()}
         <div className="foot">
             {/* Prompt variables hint */}
-            {chatInput.startsWith("/") && !chatInput.includes(" ") && (
-              <div style={{padding:"4px 10px",borderBottom:"1px solid var(--bd)",display:"flex",gap:4,flexWrap:"wrap",alignItems:"center",background:"rgba(96,165,250,.04)"}}>
-                <span style={{fontSize:8,color:"var(--blue)",fontWeight:700,marginRight:4}}>⚡ Commandes :</span>
-                {Object.entries(SLASH_COMMANDS).filter(([k])=>k.startsWith(chatInput.toLowerCase())||chatInput==="/").map(([k,v])=>(
-                  <button key={k} onClick={()=>setChatInput(k+" ")}
-                    style={{fontSize:8,padding:"2px 7px",borderRadius:4,border:"1px solid rgba(96,165,250,.3)",background:"rgba(96,165,250,.1)",color:"var(--blue)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                    {k} <span style={{opacity:.6}}>{v.toast.split(" ").slice(1).join(" ")}</span>
-                  </button>
-                ))}
-              </div>
-            )}
             {chatInput.includes("{{") && (
               <div className="pvar-hint">
                 <span style={{color:"var(--ac)",fontWeight:700,marginRight:4}}>📋 Vars :</span>
@@ -5568,30 +5023,6 @@ ${analyseFile.content}
               <button onClick={()=>exportPDF(null)} title="Exporter en PDF / Imprimer"
                 style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🖨 PDF
-              </button>
-              <button onClick={()=>{setImgGenModal(true);setImgGenPrompt(chatInput.trim()||"");setImgGenResult(null);}} title="Générer une image IA (Pollinations — sans clé)"
-                style={{background:"rgba(244,114,182,.08)",border:"1px solid rgba(244,114,182,.25)",borderRadius:4,color:"#F472B6",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
-                🎨 Image IA
-              </button>
-              <button onClick={toggleTranslateEN} title={autoTranslateEN?"🌍 Traduction EN activée — clic pour désactiver":"🌍 Traduire le prompt en anglais avant envoi"}
-                style={{background:autoTranslateEN?"rgba(96,165,250,.15)":"transparent",border:`1px solid ${autoTranslateEN?"rgba(96,165,250,.5)":"var(--bd)"}`,borderRadius:4,color:autoTranslateEN?"var(--blue)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontWeight:autoTranslateEN?700:400}}>
-                🌍 EN{autoTranslateEN&&<span style={{marginLeft:3,fontSize:7}}>●</span>}
-              </button>
-              <button onClick={generateShareUrl} title="Partager cette conversation par lien URL"
-                style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
-                🔗 Partager
-              </button>
-              <button onClick={()=>{setConsensusQuery(chatInput.trim()||"");setConsensusResults({});setConsensusSynth("");setConsensusModal(true);}} title="Consensus multi-IAs — Mixture of Agents, réduit les hallucinations"
-                style={{background:"rgba(167,139,250,.08)",border:"1px solid rgba(167,139,250,.25)",borderRadius:4,color:"#A78BFA",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
-                ✦ Consensus
-              </button>
-              <button onClick={()=>{setBattlePrompts([chatInput.trim(),"","",""]);setBattleResults({});setBattleJury(null);setBattleModal(true);}} title="Prompt Battle — compare plusieurs variantes de prompt"
-                style={{background:"rgba(251,146,60,.08)",border:"1px solid rgba(251,146,60,.25)",borderRadius:4,color:"var(--orange)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
-                ⚔ Battle
-              </button>
-              <button onClick={()=>{setAnalyseFile(null);setAnalyseResults({});setAnalyseQuestion("");setAnalyseModal(true);}} title="Analyser un document avec toutes les IAs"
-                style={{background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.25)",borderRadius:4,color:"var(--ac)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
-                🔬 Analyser doc
               </button>
               {focusId && <span style={{fontSize:9,color:"var(--ac)",marginLeft:"auto"}}>⛶ Plein écran : {MODEL_DEFS[focusId]?.short} — <button onClick={()=>setFocusId(null)} style={{background:"none",border:"none",color:"var(--ac)",cursor:"pointer",fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>Esc pour quitter</button></span>}
             </div>
@@ -5654,82 +5085,6 @@ ${analyseFile.content}
           </div>
             </div>{/* fin chat-area */}
           </div>{/* fin layout hist+chat */}
-        {/* ── Modal Génération Image ── */}
-        {imgGenModal && (
-          <div onClick={()=>setImgGenModal(false)} style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(6px)"}}>
-            <div onClick={e=>e.stopPropagation()} style={{width:"min(700px,96vw)",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:12,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,.8)"}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
-                <span style={{fontSize:16}}>🎨</span>
-                <div style={{flex:1}}>
-                  <div style={{fontFamily:"var(--font-display,'Syne',sans-serif)",fontWeight:800,fontSize:13,color:"var(--tx)"}}>Génération d'image IA</div>
-                  <div style={{fontSize:8,color:"var(--mu)"}}>Pollinations.ai — Sans clé · FLUX.1, FLUX Turbo, Stable Diffusion</div>
-                </div>
-                <button onClick={()=>setImgGenModal(false)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:14,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-              </div>
-              <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)"}}>
-                <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-                  {IMG_MODELS.map(m=>(
-                    <button key={m.id} onClick={()=>setImgGenModel(m.id)}
-                      style={{padding:"4px 10px",fontSize:9,borderRadius:5,border:`1px solid ${imgGenModel===m.id?"var(--ac)":"var(--bd)"}`,background:imgGenModel===m.id?"rgba(212,168,83,.15)":"transparent",color:imgGenModel===m.id?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                      <strong>{m.label}</strong><span style={{opacity:.7,marginLeft:5}}>{m.desc} · {m.time}</span>
-                    </button>
-                  ))}
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <textarea value={imgGenPrompt} onChange={e=>setImgGenPrompt(e.target.value)}
-                    placeholder={"Décris l'image (en anglais pour de meilleurs résultats)…\nEx: a futuristic cityscape at night, neon lights, photorealistic, 8k"}
-                    rows={3}
-                    style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 11px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",lineHeight:1.5}}
-                    onKeyDown={e=>{if(e.key==="Enter"&&e.ctrlKey){e.preventDefault();generateImage();}}}
-                  />
-                  <button onClick={generateImage} disabled={imgGenLoading||!imgGenPrompt.trim()}
-                    style={{padding:"0 16px",background:"rgba(244,114,182,.15)",border:"1px solid rgba(244,114,182,.4)",borderRadius:7,color:"#F472B6",fontSize:11,cursor:"pointer",fontWeight:700,minWidth:80,opacity:imgGenLoading||!imgGenPrompt.trim()?.4:1}}>
-                    {imgGenLoading?"⟳ Génère…":"🎨 Générer"}
-                  </button>
-                </div>
-                <div style={{fontSize:8,color:"var(--mu)",marginTop:4}}>Ctrl+Entrée · 768×512px · Gratuit, sans compte</div>
-              </div>
-              <div style={{padding:"12px 16px",minHeight:80}}>
-                {imgGenLoading && (
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:20}}>
-                    <div style={{fontSize:28,animation:"spin 1s linear infinite"}}>⟳</div>
-                    <div style={{fontSize:9,color:"var(--mu)"}}>Génération avec {IMG_MODELS.find(m=>m.id===imgGenModel)?.label}…</div>
-                  </div>
-                )}
-                {imgGenResult?.error && <div style={{color:"var(--red)",fontSize:10,padding:10}}>{imgGenResult.error}</div>}
-                {imgGenResult?.url && (
-                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    <img src={imgGenResult.url} alt={imgGenResult.prompt}
-                      style={{width:"100%",maxHeight:340,objectFit:"contain",borderRadius:8,border:"1px solid var(--bd)",background:"var(--s1)"}}/>
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      <button onClick={sendImageToChat}
-                        style={{flex:1,padding:"7px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,color:"var(--green)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
-                        💬 Envoyer dans le Chat
-                      </button>
-                      <a href={imgGenResult.url} target="_blank" rel="noreferrer"
-                        style={{padding:"7px 14px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--blue)",fontSize:9,textDecoration:"none",fontFamily:"var(--font-mono)",display:"flex",alignItems:"center"}}>
-                        ↗ Ouvrir
-                      </a>
-                      <button onClick={()=>setImgGenResult(null)}
-                        style={{padding:"7px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                        ↺ Nouveau
-                      </button>
-                    </div>
-                    <div style={{fontSize:8,color:"var(--mu)",fontStyle:"italic"}}>
-                      {IMG_MODELS.find(m=>m.id===imgGenModel)?.label} · "{imgGenResult.prompt.slice(0,80)}{imgGenResult.prompt.length>80?"…":""}"
-                    </div>
-                  </div>
-                )}
-                {!imgGenResult && !imgGenLoading && (
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:20,color:"var(--mu)",fontSize:9}}>
-                    <span style={{fontSize:28,opacity:.2}}>🎨</span>
-                    <span>Décris une image et clique sur Générer</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
         </>}
 
         {/* ── WORKFLOW TAB ── */}
@@ -5770,15 +5125,6 @@ ${analyseFile.content}
                   onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
                   onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}
                 >{tpl.name}</button>
-              ))}
-              {/* Built-in templates */}
-              {WF_BUILTIN_TEMPLATES.map((tpl,ti) => (
-                <div key={"bi"+ti} onClick={()=>setWorkflowNodes(tpl.nodes.map(n=>({...n,output:"",status:"pending",duration:null})))}
-                  style={{padding:"7px 10px",background:"rgba(96,165,250,.06)",border:"1px solid rgba(96,165,250,.2)",borderRadius:6,cursor:"pointer",fontSize:9,color:"var(--blue)",transition:"all .15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(96,165,250,.6)"}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(96,165,250,.2)"}>
-                  {tpl.name}
-                </div>
               ))}
               {workflowSavedTpls.map((tpl,ti) => (
                 <button key={"s"+ti} onClick={()=>{saveWorkflow(tpl.nodes.map(n=>({...n,id:Date.now().toString()+Math.random()})));setWorkflowResults([]);}}
@@ -6159,148 +5505,6 @@ ${analyseFile.content}
           </div>
         )}
 
-        {/* ══ DASHBOARD TAB ══ */}
-        {tab === "dashboard" && (
-          <div style={{flex:1,overflow:"auto",padding:"clamp(12px,2.5vw,20px)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
-              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(18px,3vw,22px)",color:"var(--ac)"}}>🏠 Dashboard</div>
-              <div style={{fontSize:9,color:"var(--mu)"}}>{new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</div>
-              <div style={{marginLeft:"auto",display:"flex",gap:6}}>
-                <button onClick={fetchDashNews} disabled={dashLoadingNews}
-                  style={{fontSize:9,padding:"4px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                  {dashLoadingNews?"⟳ Chargement…":"🔄 Actualiser news IA"}
-                </button>
-                <button onClick={()=>addDashPopup("Bienvenue sur Multi-IA Hub ! Les notifications apparaissent ici.","hot")}
-                  style={{fontSize:9,padding:"4px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                  🔔 Test popup
-                </button>
-              </div>
-            </div>
-
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(195px,1fr))",gap:12,marginBottom:18}}>
-              {/* Météo */}
-              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"14px 16px"}}>
-                <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>MÉTÉO LOCALE</div>
-                {!dashWeather&&<span style={{color:"var(--mu)",fontSize:9}}>⏳ Chargement météo…</span>}
-                {dashWeather ? (
-                  <>
-                    <div style={{fontSize:26,marginBottom:4}}>{dashWeather.label?.split(" ")[0]||"🌡"}</div>
-                    <div style={{fontSize:22,fontWeight:700,color:"var(--tx)"}}>{dashWeather.temp}°C</div>
-                    <div style={{fontSize:10,color:"var(--mu)",marginTop:2}}>{dashWeather.city}</div>
-                    <div style={{fontSize:8,color:"var(--mu)",marginTop:2}}>💨 {dashWeather.wind} km/h · {dashWeather.label}</div>
-                  </>
-                ) : <div style={{color:"var(--mu)",fontSize:9,paddingTop:8}}>⏳ Chargement…</div>}
-              </div>
-
-              {/* Stats */}
-              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"14px 16px"}}>
-                <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>SESSION EN COURS</div>
-                <div style={{fontSize:22,fontWeight:700,color:"var(--tx)"}}>{IDS.filter(id=>enabled[id]).length}</div>
-                <div style={{fontSize:9,color:"var(--mu)",marginBottom:8}}>IAs actives</div>
-                <div style={{fontSize:18,fontWeight:700,color:"var(--ac)"}}>
-                  {Object.values(sessionTokens).reduce((a,v)=>a+(v.in||0)+(v.out||0),0).toLocaleString()}
-                </div>
-                <div style={{fontSize:9,color:"var(--mu)"}}>tokens consommés</div>
-              </div>
-
-              {/* Accès rapide */}
-              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"14px 16px"}}>
-                <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>ACCÈS RAPIDE</div>
-                {[["chat","◈","Nouveau chat"],["debate","⚡","Mode Débat"],["workflows","🔀","Workflows"],["webia","🌐","IAs Web"]].map(([t,ic,lb])=>(
-                  <button key={t} onClick={()=>navigateTab(t)} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 0",background:"none",border:"none",color:"var(--tx)",cursor:"pointer",fontSize:10,width:"100%",textAlign:"left",transition:"color .15s"}}
-                    onMouseEnter={e=>e.currentTarget.style.color="var(--ac)"}
-                    onMouseLeave={e=>e.currentTarget.style.color="var(--tx)"}>
-                    <span style={{color:"var(--ac)",width:14}}>{ic}</span>{lb}
-                  </button>
-                ))}
-              </div>
-
-              {/* Nouvelles features */}
-              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"14px 16px"}}>
-                <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>ANNONCES</div>
-                {[
-                  ["🔥","⚔ Prompt Battle disponible","hot"],
-                  ["💡","🌍 Traduction auto EN","info"],
-                  ["🔬","🔬 Analyse doc multi-IAs","info"],
-                  ["🔗","🔗 Partager par lien","info"],
-                ].map(([ic,msg,type])=>(
-                  <button key={msg} onClick={()=>addDashPopup(msg,type)}
-                    style={{display:"flex",alignItems:"center",gap:6,padding:"4px 0",background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:8.5,width:"100%",textAlign:"left",transition:"color .15s"}}
-                    onMouseEnter={e=>e.currentTarget.style.color="var(--tx)"}
-                    onMouseLeave={e=>e.currentTarget.style.color="var(--mu)"}>
-                    <span>{ic}</span>{msg}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* News IA */}
-            <div style={{marginBottom:18}}>
-              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
-                📡 ACTUALITÉS IA
-                {dashLoadingNews&&<span className="dots" style={{color:"var(--ac)"}}><span>·</span><span>·</span><span>·</span></span>}
-                {!dashNews.length&&!dashLoadingNews&&<span style={{fontSize:8,color:"var(--mu)"}}>— Clique "Actualiser news IA" pour charger</span>}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:10}}>
-                {dashNews.map((n,i)=>{
-                  const catColor = {Modèles:"#A78BFA",Outils:"#60A5FA",Recherche:"#34D399",Business:"#F59E0B",Sécurité:"#F87171","Open-source":"#4ADE80"}[n.cat]||"#60A5FA";
-                  const imgUrl = n.imgQuery ? `https://image.pollinations.ai/prompt/${encodeURIComponent(n.imgQuery+" ai technology futuristic")}?model=turbo&width=400&height=200&nologo=true&seed=${i*7+1}` : null;
-                  return (
-                    <div key={i} style={{background:"var(--s1)",border:`1px solid ${n.hot?"rgba(212,168,83,.4)":"var(--bd)"}`,borderRadius:10,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-                      {imgUrl && (
-                        <div style={{height:110,overflow:"hidden",flexShrink:0,background:"var(--s2)",position:"relative"}}>
-                          <img src={imgUrl} alt={n.titre} loading="lazy"
-                            style={{width:"100%",height:"100%",objectFit:"cover",opacity:.85}}
-                            onError={e=>{e.target.style.display="none";}}/>
-                          {n.hot&&<span style={{position:"absolute",top:6,right:8,fontSize:14,filter:"drop-shadow(0 1px 3px rgba(0,0,0,.8))"}}>🔥</span>}
-                        </div>
-                      )}
-                      <div style={{padding:"10px 12px",flex:1,display:"flex",flexDirection:"column",gap:5}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:7,padding:"1px 5px",background:catColor+"18",color:catColor,borderRadius:3,fontWeight:700,letterSpacing:.5,border:`1px solid ${catColor}30`}}>{n.cat}</span>
-                          {!imgUrl&&n.hot&&<span style={{fontSize:10}}>🔥</span>}
-                        </div>
-                        <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",lineHeight:1.4}}>{n.titre}</div>
-                        <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.55,flex:1}}>{n.desc}</div>
-                        <div style={{display:"flex",gap:6,marginTop:4}}>
-                          <button onClick={()=>addDashPopup(n.titre,n.hot?"hot":"info")}
-                            style={{fontSize:7,padding:"2px 7px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                            🔔 Notifier
-                          </button>
-                          <button onClick={()=>{setChatInput("Parle-moi de : "+n.titre);navigateTab("chat");}}
-                            style={{fontSize:7,padding:"2px 7px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                            💬 En savoir plus
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* IAs actives */}
-            <div>
-              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10}}>⚡ IAs ACTIVES</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {IDS.filter(id=>enabled[id]).map(id=>{
-                  const m=MODEL_DEFS[id];
-                  return (
-                    <div key={id} style={{background:"var(--s1)",border:`1px solid ${m.color}33`,borderRadius:7,padding:"8px 12px",display:"flex",alignItems:"center",gap:7}}>
-                      <span style={{fontSize:12,color:m.color}}>{m.icon}</span>
-                      <div>
-                        <div style={{fontSize:10,fontWeight:700,color:m.color}}>{m.short}</div>
-                        <div style={{fontSize:7,color:"var(--mu)"}}>{m.free?"Gratuit":"Payant"}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-
         {/* ── YOUTUBE TAB ── */}
         {/* ── MÉDIAS TAB (YouTube + Images fusionnés) ── */}
         {tab === "medias" && (
@@ -6493,7 +5697,7 @@ ${analyseFile.content}
         {/* ── STATS TAB ── */}
         {tab === "stats" && (
           <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <StatsTab stats={usageStats} onReset={resetStats} sessionTokens={sessionTokens}/>
+            <StatsTab stats={usageStats} onReset={resetStats}/>
           </div>
         )}
 
@@ -7426,154 +6630,6 @@ ${analyseFile.content}
         </div>
       )}
 
-      {/* ══ CANVAS PANEL ══ */}
-      {canvasContent && (
-        <div className="canvas-panel">
-          <div className="canvas-hdr">
-            <span style={{fontSize:11}}>🎨</span>
-            <span style={{flex:1,fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{canvasContent.title||"Aperçu"}</span>
-            <span style={{fontSize:8,color:"var(--mu)",padding:"2px 6px",background:"var(--s2)",borderRadius:3}}>{canvasContent.lang}</span>
-            <button onClick={()=>{const b=new Blob([canvasContent.code],{type:"text/html"});const u=URL.createObjectURL(b);window.open(u,"_blank");}}
-              style={{fontSize:8,padding:"3px 8px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:4,color:"var(--blue)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>↗ Onglet</button>
-            <button onClick={()=>setCanvasContent(null)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:12,width:24,height:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-          </div>
-          <iframe className="canvas-iframe" sandbox="allow-scripts allow-same-origin" srcDoc={canvasContent.code} title="Canvas preview"/>
-          {/* ── Modifier avec IA ── */}
-          <div style={{padding:"8px 12px",borderTop:"1px solid var(--bd)",background:"var(--s1)",flexShrink:0}}>
-            <div style={{fontSize:8,color:"var(--mu)",marginBottom:5}}>✦ Modifier avec l'IA</div>
-            <div style={{display:"flex",gap:7}}>
-              <input value={canvasEditInput} onChange={e=>setCanvasEditInput(e.target.value)}
-                onKeyDown={e=>{if(e.key==="Enter"&&canvasEditInput.trim())editCanvas();}}
-                placeholder='Ex: "Ajoute un bouton bleu", "Change le fond en noir"...'
-                style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"6px 10px",fontFamily:"var(--font-ui)",outline:"none"}}
-                onFocus={e=>e.target.style.borderColor="var(--ac)"}
-                onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
-              <button onClick={editCanvas} disabled={canvasEditing||!canvasEditInput.trim()}
-                style={{padding:"0 12px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"var(--font-mono)",opacity:canvasEditing||!canvasEditInput.trim()?.4:1}}>
-                {canvasEditing?"⟳":"✦ OK"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══ CONSENSUS MODAL ══ */}
-      {consensusModal && (
-        <div onClick={()=>setConsensusModal(false)} style={{position:"fixed",inset:0,zIndex:9100,background:"rgba(0,0,0,.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(8px)"}}>
-          <div onClick={e=>e.stopPropagation()} style={{width:"min(920px,96vw)",maxHeight:"90vh",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:12,overflow:"auto",display:"flex",flexDirection:"column"}}>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,position:"sticky",top:0,zIndex:2}}>
-              <span style={{fontSize:16}}>✦</span>
-              <div style={{flex:1}}>
-                <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:13,color:"var(--tx)"}}>Consensus Multi-IAs</div>
-                <div style={{fontSize:8,color:"var(--mu)"}}>Mixture of Agents — les IAs répondent en parallèle, une quatrième synthétise et détecte les erreurs factuelles</div>
-              </div>
-              <button onClick={()=>setConsensusModal(false)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:14,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-            </div>
-
-            {/* Query input */}
-            <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)"}}>
-              <div style={{display:"flex",gap:8}}>
-                <input value={consensusQuery} onChange={e=>setConsensusQuery(e.target.value)}
-                  onKeyDown={e=>{if(e.key==="Enter"&&consensusQuery.trim()&&!consensusRunning)runConsensus();}}
-                  placeholder="Question factuelle ou complexe à poser à toutes les IAs…"
-                  style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:11,padding:"8px 12px",fontFamily:"var(--font-ui)",outline:"none"}}
-                  onFocus={e=>e.target.style.borderColor="rgba(167,139,250,.6)"}
-                  onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
-                <button onClick={runConsensus} disabled={consensusRunning||!consensusQuery.trim()}
-                  style={{padding:"0 18px",background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.4)",borderRadius:7,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:700,fontFamily:"var(--font-mono)",opacity:consensusRunning||!consensusQuery.trim()?.4:1,whiteSpace:"nowrap"}}>
-                  {consensusRunning?"⟳ Analyse en cours…":"✦ Lancer le Consensus"}
-                </button>
-              </div>
-              <div style={{marginTop:5,fontSize:8,color:"var(--mu)",display:"flex",gap:8,flexWrap:"wrap"}}>
-                <span>IAs du panel : {IDS.filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial).slice(0,4).map(id=>MODEL_DEFS[id]?.icon+" "+MODEL_DEFS[id]?.short).join(" · ")}</span>
-                {consensusSynthIA&&<span style={{color:"var(--ac)"}}>Arbitre : {MODEL_DEFS[consensusSynthIA]?.icon} {MODEL_DEFS[consensusSynthIA]?.short}</span>}
-              </div>
-            </div>
-
-            {/* Individual responses */}
-            {Object.keys(consensusResults).length > 0 && (
-              <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)"}}>
-                <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10}}>RÉPONSES INDIVIDUELLES</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:10}}>
-                  {Object.entries(consensusResults).map(([id,resp])=>{
-                    const m=MODEL_DEFS[id];
-                    return (
-                      <div key={id} style={{border:`1px solid ${m.color}33`,borderRadius:8,overflow:"hidden"}}>
-                        <div style={{padding:"6px 10px",borderBottom:"1px solid var(--bd)",background:m.color+"10",display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:11,color:m.color}}>{m.icon}</span>
-                          <span style={{fontSize:9,fontWeight:700,color:m.color}}>{m.short}</span>
-                          {consensusRunning&&!resp&&<span className="dots" style={{marginLeft:"auto"}}><span>·</span><span>·</span><span>·</span></span>}
-                        </div>
-                        <div style={{padding:"8px 10px",maxHeight:200,overflow:"auto"}}>
-                          {resp?<MarkdownRenderer text={resp}/>:<span style={{color:"var(--mu)",fontSize:9}}>En attente…</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Synthesis */}
-            {(consensusSynth || (consensusRunning && Object.keys(consensusResults).length>0)) && (
-              <div style={{padding:"12px 16px"}}>
-                <div style={{fontSize:9,color:"var(--ac)",fontWeight:700,letterSpacing:1,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
-                  ✦ SYNTHÈSE CONSENSUS
-                  {consensusSynthIA&&<span style={{color:"var(--mu)",fontWeight:400}}>— arbitrage par {MODEL_DEFS[consensusSynthIA]?.icon} {MODEL_DEFS[consensusSynthIA]?.short}</span>}
-                </div>
-                <div style={{background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:9,padding:"12px 14px",minHeight:60}}>
-                  {consensusSynth
-                    ? <MarkdownRenderer text={consensusSynth}/>
-                    : <span className="dots"><span>·</span><span>·</span><span>·</span></span>}
-                </div>
-                {consensusSynth && (
-                  <div style={{display:"flex",gap:7,marginTop:10,flexWrap:"wrap"}}>
-                    <button onClick={()=>{setChatInput(consensusSynth.slice(0,3000));navigateTab("chat");setConsensusModal(false);showToast("✓ Synthèse envoyée dans le Chat");}}
-                      style={{fontSize:9,padding:"5px 12px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
-                      💬 → Chat
-                    </button>
-                    <button onClick={()=>{navigator.clipboard.writeText(consensusSynth);showToast("✓ Copié");}}
-                      style={{fontSize:9,padding:"5px 12px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                      ⎘ Copier
-                    </button>
-                    <button onClick={()=>{setConsensusResults({});setConsensusSynth("");setConsensusQuery("");}}
-                      style={{fontSize:9,padding:"5px 12px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                      ↺ Nouveau
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Empty state */}
-            {!consensusRunning && Object.keys(consensusResults).length===0 && (
-              <div style={{padding:"40px",textAlign:"center",color:"var(--mu)"}}>
-                <div style={{fontSize:36,marginBottom:10,opacity:.3}}>✦</div>
-                <div style={{fontSize:11,marginBottom:6}}>Mixture of Agents</div>
-                <div style={{fontSize:9,maxWidth:400,margin:"0 auto",lineHeight:1.6}}>
-                  Plusieurs IAs répondent en parallèle à ta question, puis une IA arbitre analyse toutes les réponses pour produire la meilleure synthèse possible — en détectant les erreurs et divergences.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ══ DASHBOARD POPUPS ══ */}
-      {dashPopups.length > 0 && (
-        <div style={{position:"fixed",bottom:70,right:16,zIndex:9500,display:"flex",flexDirection:"column-reverse",gap:8,maxWidth:320,pointerEvents:"none"}}>
-          {dashPopups.map(popup=>(
-            <div key={popup.id} style={{pointerEvents:"all",background:"var(--s2)",border:`1px solid ${popup.type==="hot"?"rgba(212,168,83,.6)":popup.type==="warn"?"rgba(251,146,60,.6)":"var(--bd)"}`,borderRadius:10,padding:"10px 14px",boxShadow:"0 4px 24px rgba(0,0,0,.5)",display:"flex",alignItems:"flex-start",gap:9,animation:"tin .3s ease"}}>
-              <span style={{fontSize:16,flexShrink:0,marginTop:1}}>{popup.type==="hot"?"🔥":popup.type==="warn"?"⚠️":"💡"}</span>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.5}}>{popup.msg}</div>
-                <div style={{fontSize:8,color:"var(--mu)",marginTop:3}}>{popup.ts.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
-              </div>
-              <button onClick={()=>dismissPopup(popup.id)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:14,padding:"0 2px",flexShrink:0,lineHeight:1}}>✕</button>
-            </div>
-          ))}
-        </div>
-      )}
       {toast && <div className="toast">{toast}</div>}
     </>
   );
