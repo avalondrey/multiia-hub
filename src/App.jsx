@@ -3132,11 +3132,298 @@ function WebIAsTab() {
 
 
 
+// ── VeilleTab ────────────────────────────────────────────────────
+function VeilleTab({ enabled, apiKeys, navigateTab, setChatInput }) {
+  const [feeds, setFeeds] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_veille_feeds")||"[]"); } catch { return []; }
+  });
+  const [articles, setArticles] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [newFeed, setNewFeed] = React.useState("");
+  const [summary, setSummary] = React.useState("");
+  const DEFAULT_TOPICS = ["IA générative 2026","LLM nouveaux modèles","OpenAI Anthropic Google","IA outils productivité","Machine learning recherche"];
+
+  const saveFeed = (f) => { localStorage.setItem("multiia_veille_feeds", JSON.stringify(f)); };
+
+  const fetchVeille = async () => {
+    setLoading(true); setArticles([]); setSummary("");
+    const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+    if (!activeIds.length) { setLoading(false); return; }
+    const id = activeIds.find(i=>i==="groq")||activeIds[0];
+    const topics = feeds.length ? feeds : DEFAULT_TOPICS;
+    const prompt = "Tu es un agr\u00e9gateur de veille technologique IA. G\u00e9n\u00e8re 10 articles r\u00e9cents fictifs mais r\u00e9alistes sur ces sujets : "+topics.slice(0,5).join(", ")+". Format JSON uniquement : [{titre:...,source:Blog,date:Mars 2026,resume:2 phrases,cat:Mod\u00e8les|Outils|Recherche|Business,hot:true}]. Vari\u00e9t\u00e9 de sources et cat\u00e9gories.";
+    try {
+      const r = await callModel(id, [{role:"user",content:prompt}], apiKeys, "Expert veille IA. JSON uniquement.");
+      const d = JSON.parse(r.replace(/```json|```/g,"").trim());
+      setArticles(Array.isArray(d)?d.slice(0,10):[]);
+    } catch { setArticles([]); }
+    setLoading(false);
+  };
+
+  const generateSummary = async () => {
+    if (!articles.length) return;
+    const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+    const id = activeIds.find(i=>i==="mistral")||activeIds[0];
+    if (!id) return;
+    const digest = articles.map(a=>a.titre+": "+a.resume).join("\n");
+    try {
+      const r = await callModel(id, [{role:"user",content:"Génère un résumé exécutif de veille IA en 5 points clés basé sur ces articles :\n"+digest}], apiKeys, "Expert synth\u00e8se. 5 bullet points maximum.");
+      setSummary(r);
+    } catch {}
+  };
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)",marginBottom:14}}>📰 Veille Intelligente</div>
+      {/* Topics */}
+      <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+        <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>SUJETS DE VEILLE</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+          {(feeds.length?feeds:DEFAULT_TOPICS).map((f,i)=>(
+            <span key={i} style={{fontSize:8,padding:"2px 8px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.2)",borderRadius:10,color:"var(--blue)",display:"flex",alignItems:"center",gap:4}}>
+              {f}
+              {feeds.includes(f)&&<button onClick={()=>{const nf=feeds.filter(x=>x!==f);setFeeds(nf);saveFeed(nf);}} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:10,padding:0}}>✕</button>}
+            </span>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:7}}>
+          <input value={newFeed} onChange={e=>setNewFeed(e.target.value)} placeholder="Ajouter un sujet de veille…"
+            onKeyDown={e=>{if(e.key==="Enter"&&newFeed.trim()){const nf=[...feeds,newFeed.trim()];setFeeds(nf);saveFeed(nf);setNewFeed("");}}}
+            style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,padding:"5px 9px",outline:"none"}}/>
+          <button onClick={fetchVeille} disabled={loading}
+            style={{padding:"5px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700,whiteSpace:"nowrap"}}>
+            {loading?"⟳ Chargement…":"🔄 Actualiser"}
+          </button>
+        </div>
+      </div>
+      {/* Articles */}
+      {articles.length>0&&(
+        <>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <span style={{fontSize:9,color:"var(--mu)"}}>{articles.length} articles</span>
+            <button onClick={generateSummary} style={{fontSize:8,padding:"3px 10px",background:"rgba(167,139,250,.1)",border:"1px solid rgba(167,139,250,.3)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>✦ Résumé exécutif</button>
+          </div>
+          {summary&&(
+            <div style={{marginBottom:12,padding:"10px 12px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:8,fontSize:9,lineHeight:1.6}}>
+              <div style={{fontSize:8,color:"var(--ac)",fontWeight:700,marginBottom:6}}>✦ RÉSUMÉ EXÉCUTIF</div>
+              <MarkdownRenderer text={summary}/>
+            </div>
+          )}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+            {articles.map((a,i)=>(
+              <div key={i} style={{background:"var(--s1)",border:"1px solid "+(a.hot?"rgba(212,168,83,.35)":"var(--bd)"),borderRadius:8,padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                  <span style={{fontSize:7,padding:"1px 5px",background:"rgba(96,165,250,.1)",color:"var(--blue)",borderRadius:3,fontWeight:700}}>{a.cat}</span>
+                  <span style={{fontSize:7,color:"var(--mu)",marginLeft:"auto"}}>{a.source} · {a.date}</span>
+                  {a.hot&&<span style={{fontSize:10}}>🔥</span>}
+                </div>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:5,lineHeight:1.4}}>{a.titre}</div>
+                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5}}>{a.resume}</div>
+                <button onClick={()=>{setChatInput("Parle-moi de : "+a.titre);navigateTab("chat");}} style={{marginTop:8,fontSize:7,padding:"2px 7px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>💬 En savoir plus</button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {!articles.length&&!loading&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Clique sur "Actualiser" pour charger les actualités IA du jour.</div>}
+    </div>
+  );
+}
+
+// ── VoiceTab ─────────────────────────────────────────────────────
+function VoiceTab({ enabled, apiKeys, conversations, setChatInput, navigateTab }) {
+  const [listening, setListening] = React.useState(false);
+  const [transcript, setTranscript] = React.useState("");
+  const [voiceReply, setVoiceReply] = React.useState("");
+  const [speaking, setSpeaking] = React.useState(false);
+  const [voiceIA, setVoiceIA] = React.useState("");
+  const [history, setHistory] = React.useState([]); // [{role,text}]
+  const recognRef = React.useRef(null);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const currentIA = voiceIA || activeIds[0] || "";
+
+  const speak = (text) => {
+    if (!text || !window.speechSynthesis) return;
+    setSpeaking(true);
+    const utt = new SpeechSynthesisUtterance(text.replace(/\*\*/g,"").replace(/#{1,6} /g,"").slice(0,1000));
+    utt.lang = "fr-FR"; utt.rate = 1.1;
+    utt.onend = () => setSpeaking(false);
+    window.speechSynthesis.speak(utt);
+  };
+
+  const stopSpeak = () => { window.speechSynthesis?.cancel(); setSpeaking(false); };
+
+  const startListen = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Dictée vocale non supportée sur ce navigateur."); return; }
+    const r = new SR(); r.lang="fr-FR"; r.continuous=false; r.interimResults=true;
+    recognRef.current = r;
+    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(""); setTranscript(t); };
+    r.onend = async () => {
+      setListening(false);
+      const q = transcript; if (!q.trim()) return;
+      setHistory(h=>[...h,{role:"user",text:q}]);
+      setTranscript("");
+      if (!currentIA) return;
+      try {
+        const hist = [...history,{role:"user",text:q}].map(m=>({role:m.role==="user"?"user":"assistant",content:m.text}));
+        const reply = await callModel(currentIA, hist, apiKeys, "Tu es un assistant vocal. Réponds de façon concise, 2-3 phrases max, sans markdown.");
+        setVoiceReply(reply);
+        setHistory(h=>[...h,{role:"assistant",text:reply}]);
+        speak(reply);
+      } catch(e) { setVoiceReply("❌ "+e.message); }
+    };
+    r.start();
+    setListening(true);
+  };
+
+  const stopListen = () => { recognRef.current?.stop(); setListening(false); };
+
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",padding:"clamp(16px,3vw,32px)",overflow:"auto"}}>
+      <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(16px,3vw,22px)",color:"var(--ac)",marginBottom:6}}>🎙 Mode Vocal</div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:24}}>Parle directement à l'IA, en mains libres</div>
+      {/* IA selector */}
+      <div style={{marginBottom:24,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+        {activeIds.slice(0,6).map(id=>{
+          const m=MODEL_DEFS[id];
+          return (<button key={id} onClick={()=>setVoiceIA(id)}
+            style={{padding:"6px 14px",borderRadius:20,border:"1px solid "+(currentIA===id?m.color:"var(--bd)"),background:currentIA===id?m.color+"18":"transparent",color:currentIA===id?m.color:"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:currentIA===id?700:400}}>
+            {m.icon} {m.short}
+          </button>);
+        })}
+      </div>
+      {/* Big mic button */}
+      <button onClick={listening?stopListen:startListen}
+        style={{width:100,height:100,borderRadius:"50%",border:"3px solid "+(listening?"var(--red)":"var(--ac)"),background:listening?"rgba(248,113,113,.15)":"rgba(212,168,83,.1)",color:listening?"var(--red)":"var(--ac)",fontSize:36,cursor:"pointer",marginBottom:20,transition:"all .2s",animation:listening?"pulse 1s infinite":speaking?"none":"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        {listening?"⏹":"🎙"}
+      </button>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:16}}>{listening?"Écoute en cours…":speaking?"IA parle…":"Clique pour parler"}</div>
+      {/* Transcript */}
+      {(transcript||voiceReply)&&(
+        <div style={{width:"100%",maxWidth:600,display:"flex",flexDirection:"column",gap:8}}>
+          {transcript&&<div style={{padding:"10px 14px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,fontSize:10,color:"var(--tx)",fontStyle:"italic"}}>"{transcript}"</div>}
+          {voiceReply&&(
+            <div style={{padding:"10px 14px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:8,fontSize:10,lineHeight:1.6}}>
+              <div style={{fontSize:8,color:"var(--ac)",fontWeight:700,marginBottom:5}}>{MODEL_DEFS[currentIA]?.icon} {MODEL_DEFS[currentIA]?.short}</div>
+              {voiceReply}
+              <div style={{display:"flex",gap:6,marginTop:8}}>
+                <button onClick={()=>speak(voiceReply)} disabled={speaking} style={{fontSize:8,padding:"2px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>🔊 Réécouter</button>
+                <button onClick={stopSpeak} disabled={!speaking} style={{fontSize:8,padding:"2px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>⏹ Stop</button>
+                <button onClick={()=>{setChatInput(voiceReply.slice(0,2000));navigateTab("chat");}} style={{fontSize:8,padding:"2px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>→ Chat</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {/* Conversation history */}
+      {history.length>0&&(
+        <div style={{width:"100%",maxWidth:600,marginTop:16}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:8}}>HISTORIQUE SESSION</div>
+          {history.slice(-6).map((h,i)=>(
+            <div key={i} style={{padding:"6px 10px",marginBottom:4,borderRadius:6,background:h.role==="user"?"var(--s2)":"var(--s1)",fontSize:9,color:h.role==="user"?"var(--tx)":"var(--ac)",textAlign:h.role==="user"?"right":"left"}}>
+              {h.text.slice(0,200)}
+            </div>
+          ))}
+          <button onClick={()=>setHistory([])} style={{fontSize:8,padding:"3px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",marginTop:6}}>↺ Effacer historique</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ProjectsTab ──────────────────────────────────────────────────
+function ProjectsTab({ conversations, setChatInput, navigateTab, apiKeys, enabled }) {
+  const PROJ_KEY = "multiia_projects";
+  const [projects, setProjects] = React.useState(() => { try { return JSON.parse(localStorage.getItem(PROJ_KEY)||"[]"); } catch { return []; } });
+  const [activeProj, setActiveProj] = React.useState(null);
+  const [newName, setNewName] = React.useState("");
+  const [editingId, setEditingId] = React.useState(null);
+
+  const saveProjects = (p) => { setProjects(p); localStorage.setItem(PROJ_KEY, JSON.stringify(p)); };
+  const createProject = () => {
+    if (!newName.trim()) return;
+    const p = {id:Date.now().toString(),name:newName.trim(),desc:"",context:"",notes:"",createdAt:new Date().toISOString(),color:"#"+(Math.random()*0xFFFFFF|0).toString(16).padStart(6,"0")};
+    saveProjects([...projects,p]);
+    setNewName("");
+    setActiveProj(p.id);
+  };
+  const updateProject = (id, patch) => { saveProjects(projects.map(p=>p.id===id?{...p,...patch}:p)); };
+  const deleteProject = (id) => { if(window.confirm("Supprimer ce projet ?")) { saveProjects(projects.filter(p=>p.id!==id)); if(activeProj===id) setActiveProj(null); }};
+
+  const active = projects.find(p=>p.id===activeProj);
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar */}
+      <div style={{width:200,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:"var(--ac)",marginBottom:8}}>📁 Projets</div>
+          <div style={{display:"flex",gap:5}}>
+            <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nouveau projet…"
+              onKeyDown={e=>{if(e.key==="Enter")createProject();}}
+              style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:8,padding:"4px 7px",outline:"none"}}/>
+            <button onClick={createProject} style={{background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:4,color:"var(--ac)",fontSize:11,cursor:"pointer",padding:"2px 7px"}}>＋</button>
+          </div>
+        </div>
+        <div style={{flex:1,overflow:"auto"}}>
+          {projects.length===0&&<div style={{padding:16,fontSize:9,color:"var(--mu)",textAlign:"center"}}>Aucun projet</div>}
+          {projects.map(p=>(
+            <div key={p.id} onClick={()=>setActiveProj(p.id)}
+              style={{padding:"9px 12px",cursor:"pointer",borderBottom:"1px solid var(--bd)",background:activeProj===p.id?"rgba(212,168,83,.08)":"transparent",borderLeft:"3px solid "+(activeProj===p.id?p.color:"transparent"),transition:"all .15s"}}>
+              <div style={{fontSize:10,fontWeight:600,color:activeProj===p.id?"var(--ac)":"var(--tx)",marginBottom:2}}>{p.name}</div>
+              <div style={{fontSize:7,color:"var(--mu)"}}>{new Date(p.createdAt).toLocaleDateString("fr-FR")}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"14px 16px"}}>
+        {!active&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Sélectionne ou crée un projet</div>}
+        {active&&(
+          <>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+              <div style={{width:12,height:12,borderRadius:"50%",background:active.color,flexShrink:0}}/>
+              <input value={active.name} onChange={e=>updateProject(active.id,{name:e.target.value})}
+                style={{fontSize:16,fontWeight:700,background:"transparent",border:"none",color:"var(--tx)",fontFamily:"var(--font-display)",outline:"none",flex:1}}/>
+              <button onClick={()=>deleteProject(active.id)} style={{fontSize:9,padding:"3px 8px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",cursor:"pointer"}}>🗑 Supprimer</button>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>DESCRIPTION</div>
+              <textarea value={active.desc||""} onChange={e=>updateProject(active.id,{desc:e.target.value})} placeholder="Description courte du projet…" rows={2}
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>CONTEXTE IA (injecté dans chaque message)</div>
+              <textarea value={active.context||""} onChange={e=>updateProject(active.id,{context:e.target.value})} placeholder="Contexte persistant : technologies utilisées, objectifs, contraintes… L'IA aura ce contexte en mémoire pour tout le projet." rows={4}
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>NOTES PROJET</div>
+              <textarea value={active.notes||""} onChange={e=>updateProject(active.id,{notes:e.target.value})} placeholder="Notes, idées, liens utiles…" rows={5}
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <button onClick={()=>{
+              const ctx = active.context ? "[Projet: "+active.name+"]\n"+active.context+"\n\n" : "";
+              setChatInput(ctx);
+              navigateTab("chat");
+            }} style={{padding:"7px 16px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
+              ◈ Ouvrir dans le Chat avec ce contexte
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
-  const TAB_ORDER = ["chat","prompts","redaction","recherche","workflows","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
+  const TAB_ORDER = ["chat","prompts","redaction","recherche","workflows","medias","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","config"];
   const navigateTab = (newTab) => {
     const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
     const newIdx = TAB_ORDER.indexOf(newTab);
@@ -3846,8 +4133,43 @@ ${allMsgs.map(m=>`
   // ── Zoom / Échelle UI ──
   const [zenMode, setZenMode] = React.useState(false);
   const [canvasContent, setCanvasContent] = React.useState(null); // {code, lang, title}
+  const [canvasError, setCanvasError] = React.useState(null);
+  const [canvasEditInput, setCanvasEditInput] = React.useState("");
+  const [canvasEditing, setCanvasEditing] = React.useState(false);
+  const [canvasHealCount, setCanvasHealCount] = React.useState(0);
+
+  const editCanvas = async (prompt) => {
+    const query = prompt || canvasEditInput;
+    if (!query?.trim() || !canvasContent) return;
+    setCanvasEditing(true);
+    const activeIds = IDS.filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+    const id = activeIds.find(i => ["groq","mistral","cohere"].includes(i)) || activeIds[0];
+    if (!id) { setCanvasEditing(false); return; }
+    try {
+      const sys = "Tu es un expert développeur. Réponds UNIQUEMENT avec le code modifié complet, sans explication ni balises markdown.";
+      const msg = query + "\n\nCode actuel :\n" + canvasContent.code;
+      const reply = await callModel(id, [{role:"user",content:msg}], apiKeys, sys);
+      const cleaned = reply.replace(/^```[\w\s]*\n?/,"").replace(/\n?```[\w]*$/,"").trim();
+      setCanvasContent(prev => ({...prev, code:cleaned}));
+      setCanvasEditInput("");
+      setCanvasError(null);
+    } catch(e) { showToast("❌ " + e.message); }
+    setCanvasEditing(false);
+  };
+
+  const healCanvas = React.useCallback(() => {
+    if (!canvasError || !canvasContent) return;
+    const healPrompt = "Ce code HTML/JS a g\u00e9n\u00e9r\u00e9 l'erreur suivante : \"" + canvasError + "\"\n\nCorrige le bug. R\u00e9ponds uniquement avec le code corrig\u00e9 complet.";
+    setCanvasHealCount(n => n + 1);
+    setCanvasError(null);
+    editCanvas(healPrompt);
+  }, [canvasError, canvasContent]);
+
   // Expose to window so CodeBlock (non-child) can trigger canvas
-  React.useEffect(() => { window.__openCanvas = (code, lang, title) => setCanvasContent({code, lang, title}); return () => { delete window.__openCanvas; }; }, []);
+  React.useEffect(() => {
+    window.__openCanvas = (code, lang, title) => { setCanvasContent({code, lang, title}); setCanvasError(null); setCanvasHealCount(0); };
+    return () => { delete window.__openCanvas; };
+  }, []);
   const [sessionTokens, setSessionTokens] = React.useState({}); // {id: {in:N, out:N}}
   const estimateCost = (id, inTok, outTok) => {
     const p = TOKEN_PRICE[id];
@@ -3890,6 +4212,63 @@ ${allMsgs.map(m=>`
   const dismissPwaBanner = () => { setShowPwaBanner(false); localStorage.setItem("multiia_pwa_dismissed","1"); };
 
   const MOBILE_TABS = [["chat","◈","Chat"],["recherche","🔎","Cherche"],["notes","📝","Notes"],["agent","🤖","Agent"],["config","⚙","Config"]];
+
+  // ── Expert Panel (Panel d'Experts) ─────────────────────────────
+  const EXPERT_PANELS = {
+    "dev": [
+      {name:"Expert Sécurité",icon:"🔒",system:"Tu es un expert en cybersécurité. Analyse le problème du point de vue des vulnérabilités, failles potentielles et bonnes pratiques de sécurité."},
+      {name:"Expert Performance",icon:"⚡",system:"Tu es un expert en optimisation des performances. Analyse le problème du point de vue de la vitesse, scalabilité, et utilisation des ressources."},
+      {name:"Expert Architecture",icon:"🏗",system:"Tu es un expert en architecture logicielle. Analyse le problème du point de vue de la maintenabilité, patterns de conception et dette technique."},
+    ],
+    "product": [
+      {name:"Expert UX",icon:"🎨",system:"Tu es un expert UX/Design. Analyse le problème du point de vue de l'expérience utilisateur, accessibilité et ergonomie."},
+      {name:"Expert Business",icon:"💼",system:"Tu es un expert business. Analyse le problème du point de vue de la valeur métier, ROI et impact stratégique."},
+      {name:"Expert Tech",icon:"⚙️",system:"Tu es un expert technique. Analyse les contraintes techniques, la faisabilité et les solutions d'implémentation."},
+    ],
+    "content": [
+      {name:"Expert SEO",icon:"🔍",system:"Tu es un expert SEO. Analyse le contenu du point de vue du référencement, mots-clés et visibilité en ligne."},
+      {name:"Expert Copywriting",icon:"✍️",system:"Tu es un expert copywriter. Analyse le contenu du point de vue de la persuasion, clarté et engagement du lecteur."},
+      {name:"Expert Audience",icon:"👥",system:"Tu es un expert en marketing d'audience. Analyse le contenu du point de vue des personas, besoin du lecteur et impact émotionnel."},
+    ],
+  };
+  const [expertQuery, setExpertQuery] = useState("");
+  const [expertPanel, setExpertPanel] = useState("dev");
+  const [expertResults, setExpertResults] = useState({}); // {expertIdx: {analysis,expert}}
+  const [expertSynthesis, setExpertSynthesis] = useState("");
+  const [expertRunning, setExpertRunning] = useState(false);
+
+  const runExpertPanel = async () => {
+    const q = expertQuery.trim(); if (!q) return;
+    const experts = EXPERT_PANELS[expertPanel] || EXPERT_PANELS.dev;
+    const activeIds = IDS.filter(id => enabled[id] && !isLimited(id) && !MODEL_DEFS[id]?.serial);
+    if (!activeIds.length) { showToast("Active au moins une IA"); return; }
+    setExpertRunning(true); setExpertResults({}); setExpertSynthesis("");
+
+    // Step 1: each expert analyses independently
+    const analyses = {};
+    await Promise.all(experts.map(async (expert, idx) => {
+      const id = activeIds[idx % activeIds.length];
+      try {
+        const r = await callModel(id, [{role:"user",content:q}], apiKeys, expert.system);
+        analyses[idx] = r;
+        setExpertResults(prev => ({...prev, [idx]:{analysis:r, expert, ia:MODEL_DEFS[id]?.short}}));
+      } catch(e) {
+        analyses[idx] = "Erreur: " + e.message;
+        setExpertResults(prev => ({...prev, [idx]:{analysis:"❌ "+e.message, expert, ia:""}}));
+      }
+    }));
+
+    // Step 2: synthesis — a 4th IA reads all analyses
+    const synthId = activeIds.find(id => !["poll_gpt","poll_gemini","poll_claude"].includes(id)) || activeIds[0];
+    const analysisText = experts.map((e,idx2) => e.icon+" "+e.name+":\n"+(analyses[idx2]||"").slice(0,500)).join("\n\n---\n\n");
+    const synthPrompt = "Question initiale : \""+q+"\"\\n\n"+analysisText+"\n\n---\n\nEn tant que coordinateur, synthétise ces analyses en :\n1. CONSENSUS\n2. TENSIONS\n3. RECOMMANDATION FINALE\n\nSois concis et actionnable.";
+    try {
+      const synth = await callModel(synthId, [{role:"user",content:synthPrompt}], apiKeys, "Tu es un coordinateur expert qui synthétise des analyses multiples.");
+      setExpertSynthesis(synth);
+    } catch(e) { setExpertSynthesis("❌ Synthèse impossible : "+e.message); }
+    setExpertRunning(false);
+    showToast("✓ Panel d'experts terminé !");
+  };
 
   const [debInput, setDebInput] = useState("");
   const [debPhase, setDebPhase] = useState(0);
@@ -4545,12 +4924,17 @@ ${allMsgs.map(m=>`
               ["medias","🎬 Médias"],
               ["arena","⚔ Arène"],
               ["debate","⚡ Débat"],
+              ["expert","🧠 Experts"],
               ["notes","📝 Notes"],
               ["traducteur","🌍 Trad."],
               ["agent","🤖 Agent"],
               ["webia","🌐 IAs Web"],
               ["compare","⚖ Comparer"],
               ["stats","📊 Stats"],
+              ["analytics","📈 Analytics"],
+              ["veille","📰 Veille"],
+              ["voice","🎙 Voice"],
+              ["projects","📁 Projets"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
               <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>navigateTab(t)}>{l}</button>
@@ -6002,6 +6386,149 @@ ${allMsgs.map(m=>`
 
         {/* ── CONFIG TAB ── */}
         {/* ── PWA CONFIG SECTION ── */}
+
+        {/* ══ EXPERT PANEL TAB ══ */}
+        {tab === "expert" && (
+          <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)",marginBottom:14}}>🧠 Panel d'Experts</div>
+            <div style={{marginBottom:12,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+              {Object.entries(EXPERT_PANELS).map(([key,experts])=>(
+                <button key={key} onClick={()=>setExpertPanel(key)}
+                  style={{padding:"4px 12px",borderRadius:12,border:"1px solid "+(expertPanel===key?"var(--ac)":"var(--bd)"),background:expertPanel===key?"var(--ac)":"transparent",color:expertPanel===key?"var(--bg)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:600}}>
+                  {key==="dev"?"💻 Dev":key==="product"?"📦 Produit":"✍️ Contenu"}
+                </button>
+              ))}
+            </div>
+            <div style={{marginBottom:10,display:"flex",gap:8,flexWrap:"wrap"}}>
+              {(EXPERT_PANELS[expertPanel]||[]).map((e,i)=>(
+                <div key={i} style={{flex:1,minWidth:160,padding:"8px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,fontSize:9}}>
+                  <div style={{fontWeight:700,marginBottom:3}}>{e.icon} {e.name}</div>
+                  <div style={{color:"var(--mu)",fontSize:8,lineHeight:1.4}}>{e.system.slice(0,80)}…</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              <textarea value={expertQuery} onChange={e=>setExpertQuery(e.target.value)}
+                placeholder="Pose ta question, problème ou sujet à analyser par le panel d'experts…"
+                rows={3} style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 11px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none"}}/>
+              <button onClick={runExpertPanel} disabled={expertRunning||!expertQuery.trim()}
+                style={{padding:"0 18px",background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.4)",borderRadius:7,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:700,opacity:expertRunning||!expertQuery.trim()?.4:1}}>
+                {expertRunning?"⟳":"🧠 Analyser"}
+              </button>
+            </div>
+            {Object.keys(expertResults).length>0&&(
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10,marginBottom:12}}>
+                {Object.entries(expertResults).map(([idx,{analysis,expert,ia}])=>(
+                  <div key={idx} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,overflow:"hidden"}}>
+                    <div style={{padding:"7px 10px",borderBottom:"1px solid var(--bd)",background:"var(--s2)",display:"flex",alignItems:"center",gap:6}}>
+                      <span>{expert.icon}</span>
+                      <span style={{fontSize:10,fontWeight:700,color:"var(--tx)"}}>{expert.name}</span>
+                      {ia&&<span style={{marginLeft:"auto",fontSize:8,color:"var(--mu)"}}>{ia}</span>}
+                    </div>
+                    <div style={{padding:"10px",maxHeight:220,overflow:"auto",fontSize:9,lineHeight:1.6}}>
+                      {analysis?<MarkdownRenderer text={analysis}/>:<span className="dots"><span>·</span><span>·</span><span>·</span></span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {expertSynthesis&&(
+              <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:9}}>
+                <div style={{fontSize:9,color:"var(--ac)",fontWeight:700,marginBottom:8}}>✦ SYNTHÈSE DU COORDINATEUR</div>
+                <MarkdownRenderer text={expertSynthesis}/>
+                <button onClick={()=>{setChatInput(expertSynthesis.slice(0,3000));navigateTab("chat");}} style={{marginTop:8,fontSize:8,padding:"3px 10px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>💬 → Chat</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ ANALYTICS TAB ══ */}
+        {tab === "analytics" && (
+          <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)",marginBottom:14}}>📈 Analytics</div>
+            {/* Summary cards */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:18}}>
+              {[
+                ["💬",Object.values(usageStats.msgs||{}).reduce((a,b)=>a+b,0),"Messages"],
+                ["🔤",Object.values(usageStats.tokens||{}).reduce((a,b)=>a+b,0).toLocaleString(),"Tokens"],
+                ["📚",usageStats.convs||0,"Conversations"],
+                ["💰","$"+(Object.entries(usageStats.tokens||{}).reduce((a,[id,t])=>{const p=PRICING[id];return a+(p?(t*0.7/1e6*p.in)+(t*0.3/1e6*p.out):0);},0)).toFixed(4),"Coût estimé"],
+              ].map(([ic,val,lbl])=>(
+                <div key={lbl} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+                  <div style={{fontSize:18,marginBottom:4}}>{ic}</div>
+                  <div style={{fontSize:16,fontWeight:700,color:"var(--tx)"}}>{val}</div>
+                  <div style={{fontSize:9,color:"var(--mu)"}}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+            {/* Usage bars by model */}
+            <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"14px",marginBottom:12}}>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10}}>Utilisation par modèle</div>
+              {Object.entries(usageStats.msgs||{}).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a).map(([id,count])=>{
+                const m=MODEL_DEFS[id]; const maxV=Math.max(...Object.values(usageStats.msgs||{}).map(v=>v||0),1);
+                const p=PRICING[id]; const tok=usageStats.tokens?.[id]||0;
+                const cost=p?(tok*0.7/1e6*p.in)+(tok*0.3/1e6*p.out):0;
+                return m&&count>0?(
+                  <div key={id} style={{marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                      <span style={{color:m.color,fontSize:10,width:22}}>{m.icon}</span>
+                      <span style={{fontSize:9,fontWeight:600,color:"var(--tx)",flex:1}}>{m.short}</span>
+                      <span style={{fontSize:8,color:"var(--mu)"}}>{count} msg</span>
+                      <span style={{fontSize:8,color:cost>0?"var(--orange)":"var(--green)",fontFamily:"var(--font-mono)"}}>
+                        {cost>0?"$"+cost.toFixed(4):"FREE"}
+                      </span>
+                    </div>
+                    <div style={{height:6,background:"var(--s2)",borderRadius:3,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:(count/maxV*100)+"%",background:m.color,borderRadius:3,transition:"width .5s"}}/>
+                    </div>
+                  </div>
+                ):null;
+              })}
+            </div>
+            {/* Session live */}
+            {Object.keys(sessionTokens).length>0&&(
+              <div style={{background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:8,padding:"14px"}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--ac)",marginBottom:10}}>⚡ Session en cours</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
+                  {Object.entries(sessionTokens).filter(([,t])=>(t.in||0)+(t.out||0)>0).map(([id,t])=>{
+                    const m=MODEL_DEFS[id]; const p=PRICING[id];
+                    const cost=p?(t.in/1e6*p.in)+(t.out/1e6*p.out):0;
+                    return (
+                      <div key={id} style={{background:"var(--s2)",borderRadius:6,padding:"8px 10px",border:"1px solid "+m.color+"30"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+                          <span style={{color:m.color}}>{m.icon}</span>
+                          <span style={{fontSize:9,fontWeight:700,color:m.color}}>{m.short}</span>
+                          <span style={{marginLeft:"auto",fontSize:7,padding:"1px 4px",background:cost===0?"rgba(74,222,128,.12)":"rgba(251,146,60,.12)",color:cost===0?"var(--green)":"var(--orange)",borderRadius:3,fontWeight:700}}>
+                            {cost===0?"FREE":"$"+cost.toFixed(5)}
+                          </span>
+                        </div>
+                        <div style={{fontSize:8,color:"var(--mu)"}}>
+                          ↓{(t.in/1000).toFixed(1)}k · ↑{(t.out/1000).toFixed(1)}k tokens
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ VEILLE INTELLIGENTE TAB ══ */}
+        {tab === "veille" && (
+          <VeilleTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
+        )}
+
+        {/* ══ VOICE MODE TAB ══ */}
+        {tab === "voice" && (
+          <VoiceTab enabled={enabled} apiKeys={apiKeys} conversations={conversations} setChatInput={setChatInput} navigateTab={navigateTab}/>
+        )}
+
+        {/* ══ PROJECTS TAB ══ */}
+        {tab === "projects" && (
+          <ProjectsTab conversations={conversations} setChatInput={setChatInput} navigateTab={navigateTab} apiKeys={apiKeys} enabled={enabled}/>
+        )}
+
         {tab === "config" && pwaPrompt && !pwaInstalled && (
           <div style={{padding:"8px 14px",background:"rgba(212,168,83,.08)",borderBottom:"1px solid rgba(212,168,83,.2)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
             <span style={{fontSize:18}}>📲</span>
@@ -6629,6 +7156,70 @@ ${allMsgs.map(m=>`
           <button className="pwa-dismiss-btn" onClick={dismissPwaBanner}>✕</button>
         </div>
       )}
+
+      {/* ══ CANVAS PANEL ══ */}
+      {canvasContent && (() => {
+        // Build HTML with error catcher injected
+        const isHtml = canvasContent.lang === "html" || canvasContent.lang === "svg";
+        const healScript = `<script>window.onerror=function(msg,src,line,col,err){parent.postMessage({type:'canvas-error',error:(err?.message||msg)+' (L'+line+':'+col+')'},'*');return true;};<\/script>`;
+        const srcDoc = isHtml ? healScript + canvasContent.code : '<html><head>'+healScript+'</head><body style="margin:0;background:#fff;">'+canvasContent.code+'</body></html>';
+        return (
+          <div className="canvas-panel">
+            <div className="canvas-hdr">
+              <span style={{fontSize:11}}>🎨</span>
+              <span style={{flex:1,fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {canvasContent.title||"Canvas"}
+                {canvasHealCount>0&&<span style={{marginLeft:6,fontSize:8,color:"var(--green)",fontFamily:"var(--font-mono)"}}>✓ {canvasHealCount} auto-correction{canvasHealCount>1?"s":""}</span>}
+              </span>
+              <span style={{fontSize:8,color:"var(--mu)",padding:"2px 6px",background:"var(--s2)",borderRadius:3,marginRight:4}}>{canvasContent.lang}</span>
+              <button onClick={()=>{const b=new Blob([canvasContent.code],{type:"text/html"});const u=URL.createObjectURL(b);window.open(u,"_blank");}} style={{fontSize:8,padding:"3px 8px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:4,color:"var(--blue)",cursor:"pointer",marginRight:4}}>↗</button>
+              <button onClick={()=>{setCanvasContent(null);setCanvasError(null);}} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:12,width:24,height:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            </div>
+            <iframe className="canvas-iframe" sandbox="allow-scripts"
+              srcDoc={srcDoc} title="Canvas preview"
+              ref={el=>{
+                if(el){
+                  const handler=(e)=>{
+                    if(e.data?.type==='canvas-error'){
+                      setCanvasError(e.data.error);
+                    }
+                  };
+                  window.addEventListener('message',handler);
+                  el._cleanup=()=>window.removeEventListener('message',handler);
+                }
+              }}
+              onLoad={e=>{
+                const el=e.target;
+                if(el._cleanup){el._cleanup();delete el._cleanup;}
+              }}
+            />
+            {/* Error banner with auto-heal */}
+            {canvasError && (
+              <div style={{padding:"8px 12px",background:"rgba(248,113,113,.1)",borderTop:"1px solid rgba(248,113,113,.3)",flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:9,color:"var(--red)",fontFamily:"var(--font-mono)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>⚠️ {canvasError}</span>
+                <button onClick={healCanvas} disabled={canvasEditing}
+                  style={{padding:"3px 10px",background:"rgba(248,113,113,.15)",border:"1px solid rgba(248,113,113,.4)",borderRadius:5,color:"var(--red)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700,flexShrink:0,opacity:canvasEditing?.5:1}}>
+                  {canvasEditing?"⟳ Correction…":"🔧 Auto-corriger"}
+                </button>
+              </div>
+            )}
+            {/* Edit bar */}
+            <div style={{padding:"8px 12px",borderTop:"1px solid var(--bd)",background:"var(--s1)",flexShrink:0}}>
+              <div style={{fontSize:8,color:"var(--mu)",marginBottom:5}}>✦ Modifier avec l'IA</div>
+              <div style={{display:"flex",gap:7}}>
+                <input value={canvasEditInput} onChange={e=>setCanvasEditInput(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&canvasEditInput.trim())editCanvas();}}
+                  placeholder='Ex: "Ajoute un bouton", "Change le fond en noir"…'
+                  style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"6px 10px",fontFamily:"var(--font-ui)",outline:"none"}}/>
+                <button onClick={()=>editCanvas()} disabled={canvasEditing||!canvasEditInput.trim()}
+                  style={{padding:"0 12px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,opacity:canvasEditing||!canvasEditInput.trim()?.4:1}}>
+                  {canvasEditing?"⟳":"✦"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {toast && <div className="toast">{toast}</div>}
     </>
