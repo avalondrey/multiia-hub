@@ -3518,14 +3518,6 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
     const VALID_TABS = ["router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
-    // Import shared prompt from URL
-    const promptParam = sp.get("prompt");
-    if (promptParam) {
-      try {
-        const d = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(promptParam)))));
-        if (d.text) { setChatInput(d.text); }
-      } catch {}
-    }
     return VALID_TABS.includes(t) ? t : "chat";
   });
   const [mobileCol, setMobileCol] = useState("groq");
@@ -4928,6 +4920,17 @@ function App() {
   };
 
   useEffect(() => { IDS.forEach(id => { const el = msgRefs.current[id]; if(el) el.scrollTop = el.scrollHeight; }); }, [conversations, loading]);
+  // Import shared prompt/URL params on mount
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pp = params.get("prompt");
+      if (pp) {
+        const d = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(pp)))));
+        if (d?.text) setChatInput(d.text);
+      }
+    } catch {}
+  }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2800); };
 
