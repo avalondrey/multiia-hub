@@ -5536,11 +5536,6 @@ function App() {
         )}
 
         {/* ── MOBILE HEADER (remplace la nav top sur mobile) ── */}
-        <div className="mobile-header" style={isMobile?{display:"flex"}:{display:"none"}}>
-          <span className="mobile-header-title">
-            multi<span style={{color:"var(--mu)",fontWeight:400}}>IA</span>
-          </span>
-
         {/* ══ SMART ROUTER TAB ══ */}
         {tab === "router" && (
           <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"clamp(14px,3vw,32px)",gap:0}}>
@@ -5698,6 +5693,13 @@ function App() {
             )}
           </div>
         )}
+
+        <div className="mobile-header" style={isMobile?{display:"flex"}:{display:"none"}}>
+
+          <span className="mobile-header-title">
+            multi<span style={{color:"var(--mu)",fontWeight:400}}>IA</span>
+          </span>
+
 
           {tab === "chat" && (
             <button className="mh-btn" title="Historique" onClick={()=>setShowHist(h=>!h)}>📋</button>
