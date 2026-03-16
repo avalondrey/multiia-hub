@@ -1,143 +1,117 @@
 # 📋 Changelog — Multi-IA Hub
 
-> Fichier mis à jour automatiquement à chaque session de développement.
-> Version courante : voir `APP_VERSION` dans `src/config/models.js`.
+> Mis à jour à chaque session. Version courante : `APP_VERSION` dans `src/config/models.js`.
+
+---
+
+## [v20.0] — 2026-03-16
+
+### 🔧 Corrections (bugs critiques)
+- **Canvas listener leak** — `window.addEventListener('message')` s'accumulait à chaque re-render. Corrigé avec `el.__msgHandler` pour cleanup propre
+- **VALID_TABS incomplet** — les nouveaux onglets `expert`, `veille`, `analytics`, `voice`, `projects`, `advanced` n'étaient pas dans la liste de validation des params URL `?tab=`. Corrigé
+- **Recherche historique** — déjà full-text sur titre + contenu des messages (confirmé)
+
+### 📄 PDF professionnel (jsPDF)
+- Export PDF mis en page avec header doré, couleurs par IA, pagination numérotée
+- Chaque message : bloc coloré avec bordure gauche, label IA, contenu formaté
+- Fallback automatique vers `window.print()` si jsPDF non disponible (activer via plugins)
+- Téléchargement direct `conversation-multiia-[timestamp].pdf`
+
+### 🔬 Paramètres Avancés (nouvel onglet)
+- **System prompt global** — injecté dans toutes les requêtes en plus du persona
+- **Température par IA** — slider 0→1 pour chaque modèle actif (défaut 0.7)
+- **Providers custom OpenAI-compatible** — ajouter LM Studio, Jan, n'importe quel endpoint `/v1` avec nom, URL, modèle
+- Sauvegarde localStorage
+
+### ⚡ Diff de réponses
+- Bouton `⚡ Diff` dans la barre de chat
+- Modal avec diff mot-à-mot : vert = mots ajoutés, rouge = mots supprimés
+- Score de similarité en %, barre de progression
+- Sélecteurs d'IAs dans le modal
+- Raccourci dans l'onglet Compare
+
+### 🧱 Prompt Builder visuel
+- Bouton `🧱 Builder` dans la barre de chat
+- 5 blocs : Rôle / Contexte / Tâche / Format / Contraintes
+- Exemples cliquables pour chaque bloc
+- Aperçu du prompt assemblé en temps réel
+- Bouton `✦ Optimiser avec l'IA` — envoie à Groq pour amélioration avant injection
+
+### 🧠 Auto-mémoire
+- Après chaque 6 messages, Groq extrait automatiquement 2 faits importants
+- Bandeau de suggestion bas-centre : "🧠 Mémoriser ces informations ?"
+- Bouton "✓ Mémoriser" par fait, "Ignorer tout"
+- Les faits acceptés rejoignent la mémoire persistante
+
+### 🔗 Partage de prompts par URL
+- Bouton `🔗` sur chaque carte de la bibliothèque de prompts
+- Encode le prompt en base64 dans `?prompt=...`
+- Import automatique à l'ouverture de l'URL → injecté dans le chat
 
 ---
 
 ## [v19.0] — 2026-03-16
+
 ### 🔧 Self-Healing Canvas
-- Le Canvas capture les erreurs JS via `window.onerror` dans l'iframe
-- Bandeau rouge s'affiche avec le message d'erreur exact
-- Bouton **🔧 Auto-corriger** : envoie automatiquement l'erreur + le code à Groq/Llama
-- L'IA corrige et l'iframe se recharge — sans copier-coller
-- Compteur d'auto-corrections affiché dans le header du Canvas
-- Bouton **✦ Modifier** : champ de texte pour demander une modification manuelle
+- `window.onerror` dans l'iframe capte les erreurs JS
+- Bandeau rouge avec message d'erreur + bouton **🔧 Auto-corriger**
+- L'IA corrige le code automatiquement, l'iframe se recharge
+- Compteur d'auto-corrections dans le header
 
-### 🧠 Panel d'Experts (Multi-Agent)
-- Nouvel onglet **🧠 Experts** dans la nav
-- 3 panels prédéfinis : **Dev** (Sécurité / Perf / Architecture), **Produit** (UX / Business / Tech), **Contenu** (SEO / Copywriting / Audience)
-- Chaque expert analyse le problème avec son system prompt dédié en parallèle
-- Un 4ème modèle synthétise : Consensus / Tensions / Recommandation finale
-- Bouton → Chat pour envoyer la synthèse
+### 🧠 Panel d'Experts
+- Onglet `🧠 Experts` — 3 panels : Dev / Produit / Contenu
+- Analyse parallèle par 3 experts spécialisés
+- Synthèse : Consensus / Tensions / Recommandation finale
 
-### 📈 Onglet Analytics
-- Remplace l'onglet Stats basique avec une vue plus riche
-- Cartes résumé : messages, tokens, conversations, coût estimé
-- Barres d'utilisation par modèle avec coût affiché (FREE ou $X)
-- Widget session en cours temps réel
+### 📈 Analytics
+- Onglet `📈 Analytics` avec cartes résumé et barres par modèle
+- Coût FREE ou $X par IA, widget session temps réel
 
 ### 📰 Veille Intelligente
-- Nouvel onglet **📰 Veille**
-- Sujets de veille personnalisables (stockés en localStorage)
-- Génération de 10 articles récents via l'IA active
-- Bouton **✦ Résumé exécutif** : synthèse en 5 points clés
-- Chaque article a un bouton "💬 En savoir plus" → Chat
+- Onglet `📰 Veille` — sujets personnalisables, 10 articles IA générés
+- Résumé exécutif en 5 points, bouton → Chat
 
-### 🎙 Mode Vocal dédié
-- Nouvel onglet **🎙 Voice** — interface mains-libres
-- Gros bouton micro central, sélecteur d'IA
-- Reconnaissance vocale → réponse IA → lecture TTS automatique
-- Historique de session, bouton Réécouter/Stop
-- Bouton → Chat pour continuer en mode texte
+### 🎙 Mode Vocal
+- Onglet `🎙 Voice` — gros bouton micro, sélecteur d'IA
+- Reconnaissance → réponse IA → TTS auto, historique session
 
 ### 📁 Gestion de Projets
-- Nouvel onglet **📁 Projets**
-- Création de projets avec nom, description, contexte IA, notes
-- Le **contexte IA** est injecté automatiquement dans le Chat
-- Sidebar de navigation entre projets
-- Stockage localStorage, suppression avec confirmation
-
-### ⚡ Optimisations React (v18.2)
-- `useMemo` sur `enabledIds`, `availableIds`, `isLoadingAny`, `sortedArena`, `filteredImages`
-- `useCallback` sur `buildSystem`
-- Repartir d'une base propre depuis GitHub (corruption backtick résolue)
+- Onglet `📁 Projets` — nom, description, contexte IA, notes
+- Contexte injecté automatiquement dans le Chat
 
 ---
 
 ## [v18.2] — 2026-03-15
-### ✦ Consensus Multi-IAs (Mixture of Agents)
-- Bouton `✦ Consensus` dans la barre de chat
-- Jusqu'à 4 IAs répondent en parallèle, une 5ème synthétise
-- Réponse Consensus + Erreurs détectées + Points de divergence
-
-### ⚡ Slash Commands
-- `/code` `/seo` `/mail` `/resume` `/traduit` `/critique` `/simple` `/pro` `/debug` `/idea`
-- Autocomplete au tap de `/`
-
-### 🧠 Smart Context (ai-service.js)
-- Compression automatique des longues conversations (> 14 messages) via Groq
-
-### 📄 RAG TF-IDF
-- Scoring basé sur TF-IDF, 3 chunks, bonus phrases exactes
-
-### 🔀 Templates Workflows
-- 4 templates prédéfinis : News→LinkedIn, Analyse→Rapport, Idée→Code→Tests, Contenu multilingue
-
-### ▶ YouTube détection dans les réponses
-- Bouton `▶ Play` sur les liens YouTube générés par les IAs
-
----
+- ✦ Consensus Multi-IAs (Mixture of Agents)
+- ⚡ Slash Commands (`/code` `/seo` `/mail` `/pro` `/debug`…)
+- 🧠 Smart Context (compression auto via Groq)
+- 📄 RAG TF-IDF (3 chunks, score sémantique)
+- 🔀 4 Templates Workflows prédéfinis
+- ▶ YouTube Play dans les réponses IA
 
 ## [v18.1] — 2026-03-15
-- Popups flottants bas-droite (notifications)
-- Météo automatique via IP (open-meteo.com)
-- News dashboard avec images Pollinations
-
----
+- Popups flottants, météo auto, news avec images
 
 ## [v18.0] — 2026-03-15
-- 🏠 Dashboard (météo, stats, news, accès rapide)
-- ⚔ Prompt Battle (variantes de prompt + jury IA)
-- 🔬 Analyse document Multi-IAs
-- 🌍 Traduction auto EN
-- 🔗 Partage par URL
-- Refactoring Phase 1 (models.js + ai-service.js)
-
----
+- Dashboard, Prompt Battle, Analyse doc Multi-IAs
+- Traduction EN, Partage URL, Refactoring Phase 1
 
 ## [v17.x] — 2026-03-14/15
-- Pipeline Concrétisation (Plan/Code/Doc)
-- Débat + fichier (Analyse vs Débat)
-- Fix Pollinations queue ticket-based (18s)
-- Cerebras/L3.1-8B limite 6k tokens
-
----
+- Pipeline Concrétisation, Débat + Fichier
+- Fix Pollinations queue, limites Cerebras
 
 ## [v16.x] — 2026-03-10/13
-- Markdown complet + Prism.js syntax highlighting
-- Mode Zen, Mémoire locale, Canvas HTML
-- CoT Raisonnement `<think>` pliable
-- Compteur tokens/coût session
-- Variables `{{date}}` `{{heure}}`
-- Workflows multi-steps refonte
+- Markdown + Prism.js, Mode Zen, Mémoire locale
+- Canvas HTML, CoT Raisonnement, Workflows refonte
 
----
-
-## [v15.0] — 2026-03-08
-- 12 plugins JS, vidéos vues, Personas Débutant/Tuteur
-
----
-
-## [v14.0] — 2026-03-05
-- Jury IA automatique, raccourcis clavier, RAG, Ollama local
-
----
+## [v14.0–v15.0] — 2026-03-05/08
+- Jury IA, RAG, Ollama local, 12 Plugins JS
 
 ## [v13.0] — 2026-03-01
-- 37 IAs Web en 8 catégories, découverte automatique
-
----
+- 37 IAs Web, découverte automatique
 
 ## [v12.0] — 2026-02-25
-- Navigation 10 onglets, thème clair/sombre, TTS+dictée, Personas
+- Navigation 10 onglets, TTS+Dictée, Personas, Thème sombre/clair
 
----
-
-## [v10.0] — 2026-02-20
-- Historique auto 50 conversations, panneau latéral
-
----
-
-## [v1-9] — 2026-01-20 → 2026-02-15
-- Lancement, Débat 3 phases, Config clés, Arène, YouTube, Responsive mobile
+## [v1.0–v10.0] — 2026-01-20 → 02-20
+- Lancement, Débat 3 phases, Config, Arène, YouTube, Mobile
