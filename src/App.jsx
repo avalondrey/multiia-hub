@@ -5536,163 +5536,7 @@ function App() {
         )}
 
         {/* ── MOBILE HEADER (remplace la nav top sur mobile) ── */}
-        {/* ══ SMART ROUTER TAB ══ */}
-        {tab === "router" && (
-          <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"clamp(14px,3vw,32px)",gap:0}}>
-            {/* Header */}
-            <div style={{width:"100%",maxWidth:700,marginBottom:24}}>
-              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(18px,3vw,24px)",color:"var(--ac)",marginBottom:4}}>🧭 Smart Router</div>
-              <div style={{fontSize:10,color:"var(--mu)"}}>Dépose un fichier → l'IA l'analyse → propose l'onglet optimal → lance automatiquement la procédure</div>
-            </div>
-
-            {/* DROP ZONE */}
-            {!routerFile && (
-              <div style={{width:"100%",maxWidth:700}}
-                onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="var(--ac)";}}
-                onDragLeave={e=>{e.currentTarget.style.borderColor="rgba(212,168,83,.25)";}}
-                onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="rgba(212,168,83,.25)";const f=e.dataTransfer.files?.[0];if(f)loadRouterFile(f);}}>
-                <input type="file" ref={routerFileRef} style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)loadRouterFile(f);e.target.value="";}}/>
-                <div onClick={()=>routerFileRef.current?.click()}
-                  style={{border:"2px dashed rgba(212,168,83,.25)",borderRadius:16,padding:"60px 24px",textAlign:"center",cursor:"pointer",transition:"all .2s",background:"rgba(212,168,83,.03)"}}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(212,168,83,.25)"}>
-                  <div style={{fontSize:48,marginBottom:14,opacity:.4}}>🧭</div>
-                  <div style={{fontSize:14,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Dépose ton fichier ici</div>
-                  <div style={{fontSize:10,color:"var(--mu)",marginBottom:16}}>ou clique pour choisir</div>
-                  <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
-                    {["📕 PDF","📊 CSV/JSON","💻 Code","🖼 Image","📝 Texte","📄 Docx"].map(t=>(
-                      <span key={t} style={{fontSize:8,padding:"2px 8px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:10,color:"var(--mu)"}}>{t}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* FILE LOADED */}
-            {routerFile && (
-              <div style={{width:"100%",maxWidth:700}}>
-                {/* File card */}
-                <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:10,marginBottom:14}}>
-                  <span style={{fontSize:28}}>{routerFile.icon}</span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{routerFile.name}</div>
-                    <div style={{fontSize:9,color:"var(--mu)"}}>{routerFile.ext.toUpperCase()} · {routerFile.sizeKB} KB · {routerFile.type==="image"?"Image":"Texte"}</div>
-                  </div>
-                  <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);}}
-                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:5,color:"var(--red)",fontSize:9,padding:"3px 9px",cursor:"pointer"}}>
-                    ✕ Changer
-                  </button>
-                </div>
-
-                {/* Optional question */}
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:5}}>QUESTION OPTIONNELLE <span style={{fontWeight:400}}>(guide le routage et la procédure)</span></div>
-                  <input value={routerQuestion} onChange={e=>setRouterQuestion(e.target.value)}
-                    placeholder='Ex: "Résume ce PDF", "Génère une variante de cette image", "Corrige le code"…'
-                    style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 12px",fontFamily:"var(--font-ui)",outline:"none",boxSizing:"border-box"}}
-                    onFocus={e=>e.target.style.borderColor="var(--ac)"}
-                    onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
-                </div>
-
-                {/* Analyze button */}
-                {!routerAnalysis && (
-                  <button onClick={analyzeRouterFile} disabled={routerAnalyzing}
-                    style={{width:"100%",padding:"12px",background:"rgba(212,168,83,.15)",border:"2px solid rgba(212,168,83,.4)",borderRadius:9,color:"var(--ac)",fontSize:13,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerAnalyzing?.6:1}}>
-                    {routerAnalyzing?"⟳ Analyse en cours…":"🔍 Analyser et proposer un routage"}
-                  </button>
-                )}
-
-                {/* Analysis result */}
-                {routerAnalysis && !routerDone && (
-                  <div>
-                    {/* Summary */}
-                    <div style={{padding:"10px 14px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:16,fontStyle:"italic"}}>
-                      💡 {routerAnalysis.summary}
-                    </div>
-
-                    {/* Route suggestions */}
-                    <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10}}>ONGLETS RECOMMANDÉS — Clique pour sélectionner</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
-                      {routerAnalysis.suggestions.map((sug,i)=>{
-                        const route = ROUTER_ROUTES.find(r=>r.id===sug.route);
-                        if(!route) return null;
-                        const isSelected = routerSelected===sug.route;
-                        const conf = Math.round((sug.confidence||0.8)*100);
-                        return (
-                          <div key={sug.route} onClick={()=>setRouterSelected(sug.route)}
-                            style={{padding:"14px 16px",background:isSelected?"rgba(212,168,83,.08)":"var(--s1)",border:`2px solid ${isSelected?"var(--ac)":"var(--bd)"}`,borderRadius:10,cursor:"pointer",transition:"all .15s",position:"relative"}}
-                            onMouseEnter={e=>{if(!isSelected)e.currentTarget.style.borderColor="rgba(212,168,83,.4)";}}
-                            onMouseLeave={e=>{if(!isSelected)e.currentTarget.style.borderColor="var(--bd)";}}>
-                            {i===0&&<div style={{position:"absolute",top:10,right:12,fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.15)",color:"var(--ac)",borderRadius:4,fontWeight:700}}>⭐ RECOMMANDÉ</div>}
-                            <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <div style={{width:36,height:36,borderRadius:8,background:route.color+"18",border:"1px solid "+route.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
-                                {route.icon}
-                              </div>
-                              <div style={{flex:1,minWidth:0,paddingRight:60}}>
-                                <div style={{fontSize:11,fontWeight:700,color:isSelected?"var(--ac)":"var(--tx)",marginBottom:2}}>{route.label}</div>
-                                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4}}>{sug.reason}</div>
-                                {sug.params?.prompt&&<div style={{fontSize:8,color:"var(--ac)",marginTop:4,fontStyle:"italic"}}>Prompt : «{sug.params.prompt.slice(0,60)}{sug.params.prompt.length>60?"…":""}»</div>}
-                              </div>
-                              <div style={{flexShrink:0,textAlign:"right"}}>
-                                <div style={{fontSize:10,fontWeight:700,color:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)"}}>{conf}%</div>
-                                <div style={{fontSize:7,color:"var(--mu)"}}>confiance</div>
-                                <div style={{width:40,height:3,background:"var(--bd)",borderRadius:2,marginTop:4,overflow:"hidden"}}>
-                                  <div style={{height:"100%",width:conf+"%",background:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)",borderRadius:2}}/>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* All routes quick-pick */}
-                    <div style={{marginBottom:16}}>
-                      <div style={{fontSize:9,color:"var(--mu)",marginBottom:6}}>Ou choisir manuellement :</div>
-                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                        {ROUTER_ROUTES.map(route=>(
-                          <button key={route.id} onClick={()=>setRouterSelected(route.id)}
-                            style={{fontSize:9,padding:"4px 10px",borderRadius:6,border:"1px solid "+(routerSelected===route.id?route.color:"var(--bd)"),background:routerSelected===route.id?route.color+"18":"transparent",color:routerSelected===route.id?route.color:"var(--mu)",cursor:"pointer",transition:"all .15s"}}>
-                            {route.icon} {route.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* LAUNCH button */}
-                    {routerSelected && (
-                      <button onClick={launchRouterAction} disabled={routerLaunching}
-                        style={{width:"100%",padding:"14px",background:"rgba(212,168,83,.2)",border:"2px solid var(--ac)",borderRadius:10,color:"var(--ac)",fontSize:14,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerLaunching?.6:1,transition:"all .2s"}}
-                        onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,168,83,.3)";}}
-                        onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,168,83,.2)";}}>
-                        {routerLaunching?"⟳ Lancement…":"▶ Lancer dans " + (ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label||routerSelected)}
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Done state */}
-                {routerDone && (
-                  <div style={{textAlign:"center",padding:"32px 16px"}}>
-                    <div style={{fontSize:40,marginBottom:12}}>✓</div>
-                    <div style={{fontSize:14,fontWeight:700,color:"var(--green)",marginBottom:6}}>Procédure lancée !</div>
-                    <div style={{fontSize:10,color:"var(--mu)",marginBottom:20}}>L'onglet <strong style={{color:"var(--ac)"}}>{ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label}</strong> a été activé avec ton fichier.</div>
-                    <div style={{display:"flex",gap:8,justifyContent:"center"}}>
-                      <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);setRouterQuestion("");}}
-                        style={{padding:"8px 18px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>
-                        🔄 Nouveau fichier
-                      </button>
-                      <button onClick={()=>navigateTab(routerSelected||"chat")}
-                        style={{padding:"8px 18px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
-                        → Aller à l'onglet
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        }
 
         <div className="mobile-header" style={isMobile?{display:"flex"}:{display:"none"}}>
 
@@ -7503,6 +7347,163 @@ function App() {
           </div>
         )}
 
+        {/* ══ SMART ROUTER TAB ══ */}
+        {tab === "router" && (
+          <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"clamp(14px,3vw,32px)",gap:0}}>
+            {/* Header */}
+            <div style={{width:"100%",maxWidth:700,marginBottom:24}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(18px,3vw,24px)",color:"var(--ac)",marginBottom:4}}>🧭 Smart Router</div>
+              <div style={{fontSize:10,color:"var(--mu)"}}>Dépose un fichier → l'IA l'analyse → propose l'onglet optimal → lance automatiquement la procédure</div>
+            </div>
+
+            {/* DROP ZONE */}
+            {!routerFile && (
+              <div style={{width:"100%",maxWidth:700}}
+                onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="var(--ac)";}}
+                onDragLeave={e=>{e.currentTarget.style.borderColor="rgba(212,168,83,.25)";}}
+                onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="rgba(212,168,83,.25)";const f=e.dataTransfer.files?.[0];if(f)loadRouterFile(f);}}>
+                <input type="file" ref={routerFileRef} style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)loadRouterFile(f);e.target.value="";}}/>
+                <div onClick={()=>routerFileRef.current?.click()}
+                  style={{border:"2px dashed rgba(212,168,83,.25)",borderRadius:16,padding:"60px 24px",textAlign:"center",cursor:"pointer",transition:"all .2s",background:"rgba(212,168,83,.03)"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(212,168,83,.25)"}>
+                  <div style={{fontSize:48,marginBottom:14,opacity:.4}}>🧭</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Dépose ton fichier ici</div>
+                  <div style={{fontSize:10,color:"var(--mu)",marginBottom:16}}>ou clique pour choisir</div>
+                  <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
+                    {["📕 PDF","📊 CSV/JSON","💻 Code","🖼 Image","📝 Texte","📄 Docx"].map(t=>(
+                      <span key={t} style={{fontSize:8,padding:"2px 8px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:10,color:"var(--mu)"}}>{t}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FILE LOADED */}
+            {routerFile && (
+              <div style={{width:"100%",maxWidth:700}}>
+                {/* File card */}
+                <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:10,marginBottom:14}}>
+                  <span style={{fontSize:28}}>{routerFile.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{routerFile.name}</div>
+                    <div style={{fontSize:9,color:"var(--mu)"}}>{routerFile.ext.toUpperCase()} · {routerFile.sizeKB} KB · {routerFile.type==="image"?"Image":"Texte"}</div>
+                  </div>
+                  <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);}}
+                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:5,color:"var(--red)",fontSize:9,padding:"3px 9px",cursor:"pointer"}}>
+                    ✕ Changer
+                  </button>
+                </div>
+
+                {/* Optional question */}
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:5}}>QUESTION OPTIONNELLE <span style={{fontWeight:400}}>(guide le routage et la procédure)</span></div>
+                  <input value={routerQuestion} onChange={e=>setRouterQuestion(e.target.value)}
+                    placeholder='Ex: "Résume ce PDF", "Génère une variante de cette image", "Corrige le code"…'
+                    style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 12px",fontFamily:"var(--font-ui)",outline:"none",boxSizing:"border-box"}}
+                    onFocus={e=>e.target.style.borderColor="var(--ac)"}
+                    onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
+                </div>
+
+                {/* Analyze button */}
+                {!routerAnalysis && (
+                  <button onClick={analyzeRouterFile} disabled={routerAnalyzing}
+                    style={{width:"100%",padding:"12px",background:"rgba(212,168,83,.15)",border:"2px solid rgba(212,168,83,.4)",borderRadius:9,color:"var(--ac)",fontSize:13,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerAnalyzing?.6:1}}>
+                    {routerAnalyzing?"⟳ Analyse en cours…":"🔍 Analyser et proposer un routage"}
+                  </button>
+                )}
+
+                {/* Analysis result */}
+                {routerAnalysis && !routerDone && (
+                  <div>
+                    {/* Summary */}
+                    <div style={{padding:"10px 14px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:16,fontStyle:"italic"}}>
+                      💡 {routerAnalysis.summary}
+                    </div>
+
+                    {/* Route suggestions */}
+                    <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10}}>ONGLETS RECOMMANDÉS — Clique pour sélectionner</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+                      {routerAnalysis.suggestions.map((sug,i)=>{
+                        const route = ROUTER_ROUTES.find(r=>r.id===sug.route);
+                        if(!route) return null;
+                        const isSelected = routerSelected===sug.route;
+                        const conf = Math.round((sug.confidence||0.8)*100);
+                        return (
+                          <div key={sug.route} onClick={()=>setRouterSelected(sug.route)}
+                            style={{padding:"14px 16px",background:isSelected?"rgba(212,168,83,.08)":"var(--s1)",border:`2px solid ${isSelected?"var(--ac)":"var(--bd)"}`,borderRadius:10,cursor:"pointer",transition:"all .15s",position:"relative"}}
+                            onMouseEnter={e=>{if(!isSelected)e.currentTarget.style.borderColor="rgba(212,168,83,.4)";}}
+                            onMouseLeave={e=>{if(!isSelected)e.currentTarget.style.borderColor="var(--bd)";}}>
+                            {i===0&&<div style={{position:"absolute",top:10,right:12,fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.15)",color:"var(--ac)",borderRadius:4,fontWeight:700}}>⭐ RECOMMANDÉ</div>}
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:36,height:36,borderRadius:8,background:route.color+"18",border:"1px solid "+route.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+                                {route.icon}
+                              </div>
+                              <div style={{flex:1,minWidth:0,paddingRight:60}}>
+                                <div style={{fontSize:11,fontWeight:700,color:isSelected?"var(--ac)":"var(--tx)",marginBottom:2}}>{route.label}</div>
+                                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4}}>{sug.reason}</div>
+                                {sug.params?.prompt&&<div style={{fontSize:8,color:"var(--ac)",marginTop:4,fontStyle:"italic"}}>Prompt : «{sug.params.prompt.slice(0,60)}{sug.params.prompt.length>60?"…":""}»</div>}
+                              </div>
+                              <div style={{flexShrink:0,textAlign:"right"}}>
+                                <div style={{fontSize:10,fontWeight:700,color:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)"}}>{conf}%</div>
+                                <div style={{fontSize:7,color:"var(--mu)"}}>confiance</div>
+                                <div style={{width:40,height:3,background:"var(--bd)",borderRadius:2,marginTop:4,overflow:"hidden"}}>
+                                  <div style={{height:"100%",width:conf+"%",background:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)",borderRadius:2}}/>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* All routes quick-pick */}
+                    <div style={{marginBottom:16}}>
+                      <div style={{fontSize:9,color:"var(--mu)",marginBottom:6}}>Ou choisir manuellement :</div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                        {ROUTER_ROUTES.map(route=>(
+                          <button key={route.id} onClick={()=>setRouterSelected(route.id)}
+                            style={{fontSize:9,padding:"4px 10px",borderRadius:6,border:"1px solid "+(routerSelected===route.id?route.color:"var(--bd)"),background:routerSelected===route.id?route.color+"18":"transparent",color:routerSelected===route.id?route.color:"var(--mu)",cursor:"pointer",transition:"all .15s"}}>
+                            {route.icon} {route.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* LAUNCH button */}
+                    {routerSelected && (
+                      <button onClick={launchRouterAction} disabled={routerLaunching}
+                        style={{width:"100%",padding:"14px",background:"rgba(212,168,83,.2)",border:"2px solid var(--ac)",borderRadius:10,color:"var(--ac)",fontSize:14,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerLaunching?.6:1,transition:"all .2s"}}
+                        onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,168,83,.3)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,168,83,.2)";}}>
+                        {routerLaunching?"⟳ Lancement…":"▶ Lancer dans " + (ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label||routerSelected)}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Done state */}
+                {routerDone && (
+                  <div style={{textAlign:"center",padding:"32px 16px"}}>
+                    <div style={{fontSize:40,marginBottom:12}}>✓</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--green)",marginBottom:6}}>Procédure lancée !</div>
+                    <div style={{fontSize:10,color:"var(--mu)",marginBottom:20}}>L'onglet <strong style={{color:"var(--ac)"}}>{ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label}</strong> a été activé avec ton fichier.</div>
+                    <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+                      <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);setRouterQuestion("");}}
+                        style={{padding:"8px 18px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>
+                        🔄 Nouveau fichier
+                      </button>
+                      <button onClick={()=>navigateTab(routerSelected||"chat")}
+                        style={{padding:"8px 18px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                        → Aller à l'onglet
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {/* ══ VEILLE INTELLIGENTE TAB ══ */}
         {tab === "veille" && (
           <VeilleTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
