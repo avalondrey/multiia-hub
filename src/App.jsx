@@ -3686,25 +3686,25 @@ function AideTab() {
               steps:["Télécharge cli_relay.py depuis ce projet","python cli_relay.py","Tourne sur http://localhost:5678"] },
             { icon:"📄", name:"LibreOffice", color:"#60A5FA", required:false,
               desc:"Génère des PDF, présentations et documents depuis les Workflows.",
-              steps:["Télécharge LibreOffice : libreoffice.org","Dans Claude Code : /cli-anything ./libreoffice","cd libreoffice/agent-harness && pip install -e ."] },
+              steps:["PowerShell : winget install TheDocumentFoundation.LibreOffice","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\libreoffice\\agent-harness && pip install -e ."] },
             { icon:"🎨", name:"GIMP", color:"#4ADE80", required:false,
               desc:"Traitement d'images, batch resize, création de visuels.",
-              steps:["Télécharge GIMP : gimp.org","Dans Claude Code : /cli-anything ./gimp","cd gimp/agent-harness && pip install -e ."] },
+              steps:["PowerShell : winget install GIMP.GIMP","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\gimp\\agent-harness && pip install -e ."] },
             { icon:"🎬", name:"Blender", color:"#F97316", required:false,
               desc:"Rendu 3D, animations, scènes depuis les Workflows.",
-              steps:["Télécharge Blender : blender.org","Dans Claude Code : /cli-anything https://github.com/blender/blender","cd blender/agent-harness && pip install -e ."] },
+              steps:["PowerShell : winget install BlenderFoundation.Blender","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\blender\\agent-harness && pip install -e ."] },
             { icon:"🗺", name:"Draw.io", color:"#A78BFA", required:false,
               desc:"Génère des diagrammes, flowcharts, mind maps automatiquement.",
-              steps:["Télécharge Draw.io Desktop : drawio.com","Dans Claude Code : /cli-anything ./drawio","cd drawio/agent-harness && pip install -e ."] },
+              steps:["PowerShell : winget install JGraph.Draw","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\drawio\\agent-harness && pip install -e ."] },
             { icon:"🔴", name:"OBS Studio", color:"#F87171", required:false,
               desc:"Enregistre l'écran pour les tutos vidéo automatiques (Studio Auto).",
-              steps:["Télécharge OBS : obsproject.com","Dans Claude Code : /cli-anything ./obs-studio","cd obs-studio/agent-harness && pip install -e ."] },
+              steps:["PowerShell : winget install OBSProject.OBSStudio","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\obs\\agent-harness && pip install -e ."] },
             { icon:"🎞", name:"Kdenlive", color:"#F97316", required:false,
               desc:"Monte les vidéos automatiquement après enregistrement OBS.",
-              steps:["Télécharge Kdenlive : kdenlive.org","Dans Claude Code : /cli-anything ./kdenlive","cd kdenlive/agent-harness && pip install -e ."] },
+              steps:["PowerShell : winget install KDE.Kdenlive","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\kdenlive\\agent-harness && pip install -e ."] },
             { icon:"🌐", name:"Browser-Use", color:"#4ADE80", required:false,
               desc:"Navigue dans les apps automatiquement pour les tutos vidéo.",
-              steps:["pip install browser-use playwright","playwright install chromium","python -m browser_use.server --port 5679"] },
+              steps:["PowerShell : pip install browser-use playwright","playwright install chromium","python -m browser_use.server --port 5679"] },
           ].map((tool,i) => (
             <div key={i} style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid "+(tool.required?"rgba(212,168,83,.25)":"var(--bd)"),borderRadius:9}}>
               <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:7}}>
@@ -3726,7 +3726,7 @@ function AideTab() {
           ))}
         </div>
         <div style={{marginTop:10,padding:"8px 12px",background:"rgba(74,222,128,.05)",border:"1px solid rgba(74,222,128,.15)",borderRadius:7,fontSize:9,color:"var(--mu)"}}>
-          💡 <strong style={{color:"var(--tx)"}}>Claude Code requis</strong> pour générer les CLIs — installe-le avec <code style={{color:"var(--ac)"}}>npm install -g @anthropic-ai/claude-code</code> puis connecte-toi avec ton compte Pro.
+          💡 <strong style={{color:"var(--tx)"}}>100% gratuit via PowerShell</strong> — les pilotes CLI-Anything sont pré-construits dans le repo GitHub. Un seul <code style={{color:"var(--ac)"}}>git clone</code> suffit, pas besoin de Claude Code ni de payer quoi que ce soit.
         </div>
       </div>
     </div>
@@ -3967,7 +3967,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
                 <span style={{fontSize:8,padding:"1px 6px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:3,color:"var(--green)"}}>requis pour OBS + Kdenlive</span>
               </div>
               <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                Le relay est un petit serveur Python qui fait le pont entre Multi-IA Hub et les logiciels locaux. Lance-le une seule fois, il tourne en arrière-plan.
+                Le relay est un petit programme Python — pense à lui comme un "traducteur" entre Multi-IA Hub et tes logiciels. Tu le lances une seule fois dans un terminal, et il reste actif en arrière-plan. Tu n'as pas besoin de comprendre comment il fonctionne, il suffit de le lancer.
               </div>
               <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
                 <div style={{color:"var(--mu)"}}># 1. Télécharge le relay (onglet ❓ Aide → fichiers)</div>
@@ -3984,14 +3984,16 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
                 <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
               </div>
               <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                OBS enregistre ton écran pendant que Browser-Use navigue dans l'app. Résultat : une vraie vidéo de démonstration.
+                OBS Studio est un logiciel gratuit qui enregistre ton écran. Quand Studio Auto génère un tuto, OBS filme automatiquement ce qui se passe à l'écran — exactement comme si tu enregistrais toi-même, mais en automatique. C'est le même logiciel que les streamers utilisent sur Twitch.
               </div>
               <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
-                <div style={{color:"var(--mu)"}}># 1. Télécharge OBS Studio (gratuit)</div>
-                <div>https://obsproject.com/download</div>
-                <div style={{color:"var(--mu)"}}># 2. Installe le CLI via Claude Code :</div>
-                <div>/cli-anything ./obs-studio</div>
-                <div>cd obs-studio/agent-harness && pip install -e .</div>
+                <div style={{color:"var(--mu)"}}>// PowerShell — 100% gratuit, pas besoin de Claude Code</div>
+                <div style={{color:"var(--mu)"}}>// Étape 1 : Installe OBS si pas déjà fait</div>
+                <div>winget install OBSProject.OBSStudio</div>
+                <div style={{color:"var(--mu)"}}>// Étape 2 : Clone le pilote pré-construit (gratuit)</div>
+                <div>git clone https://github.com/HKUDS/CLI-Anything.git</div>
+                <div>cd CLI-Anything\obs\agent-harness</div>
+                <div>pip install -e .</div>
               </div>
             </div>
 
@@ -4003,13 +4005,13 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
                 <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
               </div>
               <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                Browser-Use navigue automatiquement dans l'app et démontre les fonctionnalités pendant que OBS enregistre. C'est lui qui "joue" le tuto.
+                Browser-Use est un agent IA open source qui contrôle le navigateur à ta place. Il ouvre l'URL que tu as indiquée, clique sur les boutons, navigue dans les menus — pendant qu'OBS filme tout ça. C'est lui qui "joue" le rôle du démonstrateur dans la vidéo.
               </div>
               <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
-                <div style={{color:"var(--mu)"}}># Installation</div>
+                <div style={{color:"var(--mu)"}}>// PowerShell — 100% gratuit</div>
                 <div>pip install browser-use playwright</div>
                 <div>playwright install chromium</div>
-                <div style={{color:"var(--mu)"}}># Lancement (port 5679)</div>
+                <div style={{color:"var(--mu)"}}>// Lancer le serveur (port 5679)</div>
                 <div>python -m browser_use.server --port 5679</div>
               </div>
             </div>
@@ -4022,14 +4024,16 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
                 <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
               </div>
               <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                Kdenlive assemble automatiquement la vidéo enregistrée par OBS avec les sous-titres et transitions.
+                Kdenlive est un logiciel de montage vidéo gratuit (comme iMovie ou DaVinci Resolve). Studio Auto l'utilise pour assembler automatiquement la vidéo filmée par OBS, y ajouter des transitions et préparer le projet pour l'export final. Tu n'as pas besoin de savoir faire du montage vidéo.
               </div>
               <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
-                <div style={{color:"var(--mu)"}}># 1. Télécharge Kdenlive (gratuit)</div>
-                <div>https://kdenlive.org/download</div>
-                <div style={{color:"var(--mu)"}}># 2. Installe le CLI via Claude Code :</div>
-                <div>/cli-anything ./kdenlive</div>
-                <div>cd kdenlive/agent-harness && pip install -e .</div>
+                <div style={{color:"var(--mu)"}}>// PowerShell — 100% gratuit, pas besoin de Claude Code</div>
+                <div style={{color:"var(--mu)"}}>// Étape 1 : Installe Kdenlive si pas déjà fait</div>
+                <div>winget install KDE.Kdenlive</div>
+                <div style={{color:"var(--mu)"}}>// Étape 2 : Clone le pilote pré-construit (gratuit)</div>
+                <div>git clone https://github.com/HKUDS/CLI-Anything.git</div>
+                <div>cd CLI-Anything\kdenlive\agent-harness</div>
+                <div>pip install -e .</div>
               </div>
             </div>
 
