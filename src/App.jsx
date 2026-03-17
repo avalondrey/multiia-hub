@@ -3760,16 +3760,30 @@ const STUDIO_PIPELINE_STEPS = [
 ];
 
 function StudioTab({ apiKeys, enabled, MODEL_DEFS, callModel, buildSystem, showToast }) {
-  const [phase, setPhase]             = React.useState("intro");     // intro|questions|confirm|running|done
-  const [subject, setSubject]         = React.useState("");
-  const [answers, setAnswers]         = React.useState({});
-  const [aiQuestions, setAiQuestions] = React.useState([]);
-  const [aiAnswers, setAiAnswers]     = React.useState({});
-  const [script, setScript]           = React.useState("");
-  const [narration, setNarration]     = React.useState("");
-  const [pipelineLog, setPipelineLog] = React.useState([]);
+  // ── État persistant via localStorage ──────────────────────────
+  const _load = (key, def) => { try { const v = localStorage.getItem('studio_'+key); return v !== null ? JSON.parse(v) : def; } catch { return def; } };
+  const _save = (key, val) => { try { localStorage.setItem('studio_'+key, JSON.stringify(val)); } catch {} };
+
+  const [phase, setPhase]             = React.useState(() => _load('phase', 'intro'));
+  const [subject, setSubject]         = React.useState(() => _load('subject', ''));
+  const [answers, setAnswers]         = React.useState(() => _load('answers', {}));
+  const [aiQuestions, setAiQuestions] = React.useState(() => _load('aiQuestions', []));
+  const [aiAnswers, setAiAnswers]     = React.useState(() => _load('aiAnswers', {}));
+  const [script, setScript]           = React.useState(() => _load('script', ''));
+  const [narration, setNarration]     = React.useState(() => _load('narration', ''));
+  const [pipelineLog, setPipelineLog] = React.useState(() => _load('pipelineLog', []));
   const [running, setRunning]         = React.useState(false);
   const [toolStatus, setToolStatus]   = React.useState({ browseruse: null, obs: null, kdenlive: null });
+
+  // Sauvegarde automatique à chaque changement
+  React.useEffect(() => { _save('phase', phase); }, [phase]);
+  React.useEffect(() => { _save('subject', subject); }, [subject]);
+  React.useEffect(() => { _save('answers', answers); }, [answers]);
+  React.useEffect(() => { _save('aiQuestions', aiQuestions); }, [aiQuestions]);
+  React.useEffect(() => { _save('aiAnswers', aiAnswers); }, [aiAnswers]);
+  React.useEffect(() => { _save('script', script); }, [script]);
+  React.useEffect(() => { _save('narration', narration); }, [narration]);
+  React.useEffect(() => { _save('pipelineLog', pipelineLog); }, [pipelineLog]);
 
   const firstIA = (Object.keys(enabled || {}).find(id => enabled[id] && MODEL_DEFS?.[id])) || Object.keys(MODEL_DEFS || {})[0] || "";
 
@@ -3867,7 +3881,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
       log("navigate","running","Browser-Use navigue vers la page…");
       try {
         const url = aiAnswers[aiQuestions[2]] || answers.url || "https://multiia-hub.vercel.app";
-        const r = await fetch("http://localhost:5679/navigate", {
+        const r = await fetch("http://localhost:5678/navigate", {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ url, script: scriptContent }),
           signal: AbortSignal.timeout(30000)
@@ -3942,7 +3956,12 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
     setPhase("done");
   };
 
-  const reset = () => { setPhase("intro"); setSubject(""); setAnswers({}); setAiQuestions([]); setAiAnswers({}); setScript(""); setNarration(""); setPipelineLog([]); };
+  const reset = () => {
+    ['phase','subject','answers','aiQuestions','aiAnswers','script','narration','pipelineLog']
+      .forEach(k => { try { localStorage.removeItem('studio_'+k); } catch {} });
+    setPhase("intro"); setSubject(""); setAnswers({}); setAiQuestions([]); setAiAnswers({});
+    setScript(""); setNarration(""); setPipelineLog([]);
+  };
 
   const statusColor = s => s==="done"?"#4ADE80":s==="running"?"#D4A853":s==="error"?"#F87171":"#666674";
   const statusIcon  = s => s==="done"?"✅":s==="running"?"⏳":s==="error"?"❌":"⏸";
