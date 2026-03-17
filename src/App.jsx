@@ -3786,13 +3786,23 @@ function App() {
         setOllamaConnected(true);
         if (models.length && !ollamaModel) setOllamaModel(models[0]);
         localStorage.setItem("multiia_ollama", base);
-        showToast(`✓ Ollama connecté — ${models.length} modèle(s)`);
+        // Check version
+        try {
+          const vr = await fetch(base+"/api/version", { signal: AbortSignal.timeout(2000) });
+          if (vr.ok) {
+            const vd = await vr.json();
+            const ver = vd.version || "";
+            showToast("✓ Ollama "+ver+" connecté — "+models.length+" modèle(s)");
+          } else {
+            showToast("✓ Ollama connecté — "+models.length+" modèle(s)");
+          }
+        } catch { showToast("✓ Ollama connecté — "+models.length+" modèle(s)"); }
         return true;
       }
     } catch {}
     setOllamaConnected(false);
     setOllamaModels([]);
-    showToast("✗ Ollama non trouvé — Lance Ollama sur ton PC");
+    showToast("✗ Ollama non trouvé — Lance 'ollama serve' sur ton PC");
     return false;
   };
   const callOllama = async (model, messages, system) => {
@@ -6139,7 +6149,19 @@ function App() {
                       Activer pour le chat
                     </label>
                   )}
-                  {!ollamaConnected && <span style={{fontSize:9,color:"var(--mu)"}}>Installe Ollama + lance <code style={{color:"var(--ac)"}}>ollama serve</code></span>}
+                  {!ollamaConnected && (
+                    <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
+                      Lance <code style={{color:"var(--ac)"}}>ollama serve</code> puis connecte.
+                      <div style={{marginTop:4,display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {["llama3.3","mistral","qwen3.5:4b","gemma3","deepseek-r1:7b","phi4"].map(m=>(
+                          <span key={m} onClick={()=>{navigator.clipboard.writeText("ollama pull "+m);showToast("✓ Copié : ollama pull "+m);}}
+                            style={{fontSize:7,padding:"1px 6px",background:"rgba(74,222,128,.08)",border:"1px solid rgba(74,222,128,.2)",borderRadius:3,color:"var(--green)",cursor:"pointer"}} title="Cliquer pour copier la commande">
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
