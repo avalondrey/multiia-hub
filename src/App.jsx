@@ -3962,7 +3962,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
       </div>
 
       {/* ── CONTENU SCROLLABLE ── */}
-      <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,20px)"}}>
+      <div style={{flex:"1 1 0",overflow:"auto",minHeight:0,padding:"clamp(10px,2vw,20px)"}}>
 
 
         {/* ══ GUIDE D'INSTALLATION ══ */}
