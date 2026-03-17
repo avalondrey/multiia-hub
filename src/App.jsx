@@ -3914,7 +3914,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
       try {
         const r = await fetch("http://localhost:5678/execute", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ command:"cli-anything-kdenlive project new --name tuto_output --output ./tuto_output.kdenlive", software:"kdenlive" }),
+          body: JSON.stringify({ command:"cli-anything-kdenlive project new --name tuto_output --width 1920 --height 1080 --fps-num 25 --fps-den 1 --output ./tuto_output.kdenlive", software:"kdenlive" }),
           signal: AbortSignal.timeout(30000)
         });
         if(r.ok) log("assemble","done","✅ Projet Kdenlive créé");
