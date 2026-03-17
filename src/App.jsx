@@ -3714,7 +3714,7 @@ function StudioTab({ apiKeys, enabled, MODEL_DEFS, callModel, buildSystem, showT
   const [running, setRunning]         = React.useState(false);
   const [toolStatus, setToolStatus]   = React.useState({ browseruse: null, obs: null, kdenlive: null });
 
-  const firstIA = Object.keys(MODEL_DEFS || {}).find(id => enabled?.[id]) || "";
+  const firstIA = (Object.keys(enabled || {}).find(id => enabled[id] && MODEL_DEFS?.[id])) || Object.keys(MODEL_DEFS || {})[0] || "";
 
   // ── Vérification optionnelle des outils ──────────────────────
   const checkTools = async () => {
@@ -3917,7 +3917,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
             <button
               onClick={startQuestionsPhase}
               disabled={!subject.trim() || !firstIA}
-              style={{padding:"10px 24px",background:"linear-gradient(135deg,var(--ac),var(--ac2))",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer",opacity:(!subject.trim()||!firstIA)?.5:1}}>
+              style={{padding:"10px 24px",background:"linear-gradient(135deg,var(--ac),var(--ac2))",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer",opacity:(!subject.trim()||!firstIA)?0.5:1}}>
               ▶ L'IA pose ses questions →
             </button>
             {!firstIA && <div style={{marginTop:8,fontSize:9,color:"var(--red)"}}>Active au moins une IA dans l'onglet Config</div>}
@@ -6228,7 +6228,6 @@ async function checkCliBridge() {
         )}
 
         {/* ── MOBILE HEADER (remplace la nav top sur mobile) ── */}
-        }
 
         <div className="mobile-header" style={isMobile?{display:"flex"}:{display:"none"}}>
 
