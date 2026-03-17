@@ -3776,17 +3776,16 @@ function StudioTab({ apiKeys, enabled, MODEL_DEFS, callModel, buildSystem, showT
   // ── Vérification optionnelle des outils ──────────────────────
   const checkTools = async () => {
     const status = { browseruse: false, obs: false, kdenlive: false };
-    // Relay CLI-Anything (port 5678) — vérifie OBS et Kdenlive
+    // Relay CLI-Anything (port 5678) — vérifie OBS, Kdenlive et Browser-Use
     try {
       const r = await fetch("http://localhost:5678/ping", { signal: AbortSignal.timeout(2000) });
       if(r.ok) {
         const d = await r.json();
-        status.obs = d.obs || false;
-        status.kdenlive = d.kdenlive || false;
+        status.obs      = d.obs        || false;
+        status.kdenlive = d.kdenlive   || false;
+        status.browseruse = d.browseruse || false;
       }
     } catch {}
-    // Browser-Use — non disponible en mode serveur, intégration future
-    status.browseruse = false;
     setToolStatus(status);
     return status;
   };
