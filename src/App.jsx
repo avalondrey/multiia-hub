@@ -3672,6 +3672,63 @@ function AideTab() {
         📂 <strong style={{color:"var(--tx)"}}>Pour afficher les tutos dans l'app :</strong> place les fichiers HTML dans le dossier <code style={{color:"var(--ac)",background:"rgba(212,168,83,.08)",padding:"1px 5px",borderRadius:3}}>public/tutos/</code> de ton projet Vite.
         Les tutos s'ouvriront directement en iframe dans cet onglet.
       </div>
+
+      {/* CLI-Anything tunnels guide */}
+      <div style={{marginTop:16}}>
+        <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:10,letterSpacing:1,fontFamily:"var(--font-mono)"}}>🔀 TUNNELS CLI-ANYTHING — OUTILS LOCAUX OPTIONNELS</div>
+        <div style={{fontSize:9,color:"var(--mu)",marginBottom:12,lineHeight:1.7,padding:"8px 12px",background:"rgba(212,168,83,.05)",border:"1px solid rgba(212,168,83,.15)",borderRadius:7}}>
+          Les tunnels CLI-Anything permettent à l'app de contrôler des logiciels locaux (GIMP, LibreOffice, Blender…). Ils sont <strong style={{color:"var(--tx)"}}>100% optionnels</strong> — si un logiciel n'est pas installé, l'étape est ignorée et l'app continue normalement.
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+          {[
+            { icon:"🔌", name:"Relay CLI-Anything", color:"#D4A853", required:true,
+              desc:"Pont entre Multi-IA Hub et les logiciels locaux. À lancer une seule fois.",
+              steps:["Télécharge cli_relay.py depuis ce projet","python cli_relay.py","Tourne sur http://localhost:5678"] },
+            { icon:"📄", name:"LibreOffice", color:"#60A5FA", required:false,
+              desc:"Génère des PDF, présentations et documents depuis les Workflows.",
+              steps:["Télécharge LibreOffice : libreoffice.org","Dans Claude Code : /cli-anything ./libreoffice","cd libreoffice/agent-harness && pip install -e ."] },
+            { icon:"🎨", name:"GIMP", color:"#4ADE80", required:false,
+              desc:"Traitement d'images, batch resize, création de visuels.",
+              steps:["Télécharge GIMP : gimp.org","Dans Claude Code : /cli-anything ./gimp","cd gimp/agent-harness && pip install -e ."] },
+            { icon:"🎬", name:"Blender", color:"#F97316", required:false,
+              desc:"Rendu 3D, animations, scènes depuis les Workflows.",
+              steps:["Télécharge Blender : blender.org","Dans Claude Code : /cli-anything https://github.com/blender/blender","cd blender/agent-harness && pip install -e ."] },
+            { icon:"🗺", name:"Draw.io", color:"#A78BFA", required:false,
+              desc:"Génère des diagrammes, flowcharts, mind maps automatiquement.",
+              steps:["Télécharge Draw.io Desktop : drawio.com","Dans Claude Code : /cli-anything ./drawio","cd drawio/agent-harness && pip install -e ."] },
+            { icon:"🔴", name:"OBS Studio", color:"#F87171", required:false,
+              desc:"Enregistre l'écran pour les tutos vidéo automatiques (Studio Auto).",
+              steps:["Télécharge OBS : obsproject.com","Dans Claude Code : /cli-anything ./obs-studio","cd obs-studio/agent-harness && pip install -e ."] },
+            { icon:"🎞", name:"Kdenlive", color:"#F97316", required:false,
+              desc:"Monte les vidéos automatiquement après enregistrement OBS.",
+              steps:["Télécharge Kdenlive : kdenlive.org","Dans Claude Code : /cli-anything ./kdenlive","cd kdenlive/agent-harness && pip install -e ."] },
+            { icon:"🌐", name:"Browser-Use", color:"#4ADE80", required:false,
+              desc:"Navigue dans les apps automatiquement pour les tutos vidéo.",
+              steps:["pip install browser-use playwright","playwright install chromium","python -m browser_use.server --port 5679"] },
+          ].map((tool,i) => (
+            <div key={i} style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid "+(tool.required?"rgba(212,168,83,.25)":"var(--bd)"),borderRadius:9}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:7}}>
+                <span style={{fontSize:18}}>{tool.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:11,color:tool.color}}>{tool.name}</div>
+                  <div style={{fontSize:8,color:"var(--mu)"}}>{tool.desc}</div>
+                </div>
+                {tool.required && <span style={{fontSize:7,padding:"1px 5px",border:"1px solid rgba(212,168,83,.4)",borderRadius:3,color:"var(--ac)"}}>requis</span>}
+              </div>
+              <div style={{background:"var(--bg)",borderRadius:5,padding:"6px 9px"}}>
+                {tool.steps.map((s,si) => (
+                  <div key={si} style={{fontSize:8,color:"var(--green)",fontFamily:"var(--font-mono)",lineHeight:1.9,display:"flex",gap:5}}>
+                    <span style={{color:"var(--mu)",flexShrink:0}}>{si+1}.</span>{s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:10,padding:"8px 12px",background:"rgba(74,222,128,.05)",border:"1px solid rgba(74,222,128,.15)",borderRadius:7,fontSize:9,color:"var(--mu)"}}>
+          💡 <strong style={{color:"var(--tx)"}}>Claude Code requis</strong> pour générer les CLIs — installe-le avec <code style={{color:"var(--ac)"}}>npm install -g @anthropic-ai/claude-code</code> puis connecte-toi avec ton compte Pro.
+        </div>
+      </div>
     </div>
   );
 }
@@ -3894,6 +3951,99 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
           ))}
           <button onClick={checkTools} style={{fontSize:8,padding:"4px 9px",border:"1px solid var(--bd)",borderRadius:5,background:"transparent",color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>🔄 Vérifier</button>
         </div>
+
+        {/* ══ GUIDE D'INSTALLATION ══ */}
+        <details style={{marginBottom:16}}>
+          <summary style={{cursor:"pointer",fontSize:10,color:"var(--mu)",fontWeight:700,letterSpacing:.5,fontFamily:"var(--font-mono)",padding:"8px 12px",background:"var(--s1)",borderRadius:7,border:"1px solid var(--bd)",listStyle:"none",display:"flex",alignItems:"center",gap:7}}>
+            <span>⚙️</span> Comment installer les outils optionnels ? <span style={{marginLeft:"auto",opacity:.5}}>▼</span>
+          </summary>
+          <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:10}}>
+
+            {/* CLI-Anything relay */}
+            <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
+                <span style={{fontSize:14}}>🔌</span>
+                <div style={{fontWeight:700,fontSize:11,color:"var(--ac)"}}>Étape 1 — Relay CLI-Anything</div>
+                <span style={{fontSize:8,padding:"1px 6px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:3,color:"var(--green)"}}>requis pour OBS + Kdenlive</span>
+              </div>
+              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
+                Le relay est un petit serveur Python qui fait le pont entre Multi-IA Hub et les logiciels locaux. Lance-le une seule fois, il tourne en arrière-plan.
+              </div>
+              <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
+                <div style={{color:"var(--mu)"}}># 1. Télécharge le relay (onglet ❓ Aide → fichiers)</div>
+                <div>python cli_relay.py</div>
+                <div style={{color:"var(--mu)"}}># Le relay démarre sur http://localhost:5678</div>
+              </div>
+            </div>
+
+            {/* OBS Studio */}
+            <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(248,113,113,.15)",borderRadius:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
+                <span style={{fontSize:14}}>🔴</span>
+                <div style={{fontWeight:700,fontSize:11,color:"#F87171"}}>Étape 2 — OBS Studio</div>
+                <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
+              </div>
+              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
+                OBS enregistre ton écran pendant que Browser-Use navigue dans l'app. Résultat : une vraie vidéo de démonstration.
+              </div>
+              <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
+                <div style={{color:"var(--mu)"}}># 1. Télécharge OBS Studio (gratuit)</div>
+                <div>https://obsproject.com/download</div>
+                <div style={{color:"var(--mu)"}}># 2. Installe le CLI via Claude Code :</div>
+                <div>/cli-anything ./obs-studio</div>
+                <div>cd obs-studio/agent-harness && pip install -e .</div>
+              </div>
+            </div>
+
+            {/* Browser-Use */}
+            <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(74,222,128,.15)",borderRadius:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
+                <span style={{fontSize:14}}>🌐</span>
+                <div style={{fontWeight:700,fontSize:11,color:"var(--green)"}}>Étape 3 — Browser-Use</div>
+                <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
+              </div>
+              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
+                Browser-Use navigue automatiquement dans l'app et démontre les fonctionnalités pendant que OBS enregistre. C'est lui qui "joue" le tuto.
+              </div>
+              <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
+                <div style={{color:"var(--mu)"}}># Installation</div>
+                <div>pip install browser-use playwright</div>
+                <div>playwright install chromium</div>
+                <div style={{color:"var(--mu)"}}># Lancement (port 5679)</div>
+                <div>python -m browser_use.server --port 5679</div>
+              </div>
+            </div>
+
+            {/* Kdenlive */}
+            <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(249,115,22,.15)",borderRadius:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
+                <span style={{fontSize:14}}>🎬</span>
+                <div style={{fontWeight:700,fontSize:11,color:"var(--orange)"}}>Étape 4 — Kdenlive</div>
+                <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
+              </div>
+              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
+                Kdenlive assemble automatiquement la vidéo enregistrée par OBS avec les sous-titres et transitions.
+              </div>
+              <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
+                <div style={{color:"var(--mu)"}}># 1. Télécharge Kdenlive (gratuit)</div>
+                <div>https://kdenlive.org/download</div>
+                <div style={{color:"var(--mu)"}}># 2. Installe le CLI via Claude Code :</div>
+                <div>/cli-anything ./kdenlive</div>
+                <div>cd kdenlive/agent-harness && pip install -e .</div>
+              </div>
+            </div>
+
+            {/* Sans aucun outil */}
+            <div style={{padding:"10px 14px",background:"rgba(96,165,250,.05)",border:"1px solid rgba(96,165,250,.2)",borderRadius:8}}>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--blue)",marginBottom:4}}>💡 Sans aucun outil installé</div>
+              <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.7}}>
+                Studio Auto génère quand même le <strong style={{color:"var(--tx)"}}>script complet</strong> et la <strong style={{color:"var(--tx)"}}>narration voix off</strong>.
+                Tu peux ensuite enregistrer manuellement avec OBS ou Loom, et monter avec Kdenlive, CapCut ou DaVinci Resolve.
+              </div>
+            </div>
+
+          </div>
+        </details>
 
         {/* ══ PHASE : INTRO ══ */}
         {phase === "intro" && (
