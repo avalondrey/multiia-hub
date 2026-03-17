@@ -3811,7 +3811,12 @@ Exemple : ["Quel est le niveau de l'audience ?","Quelle durée idéale ?","URL o
       const reply = await callModel(firstIA, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
       const clean = reply.replace(/```json|```/g,"").trim();
       const questions = JSON.parse(clean);
-      setAiQuestions(Array.isArray(questions) ? questions : STUDIO_QUESTIONS.map(q=>q.label));
+      const finalQuestions = Array.isArray(questions) ? questions : STUDIO_QUESTIONS.map(q=>q.label);
+      setAiQuestions(finalQuestions);
+      // Init les réponses vides
+      const initAnswers = {};
+      finalQuestions.forEach(q => { initAnswers[q] = ""; });
+      setAiAnswers(initAnswers);
     } catch(e) {
       setAiQuestions(STUDIO_QUESTIONS.map(q => q.label));
     }
@@ -3879,7 +3884,10 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
           body: JSON.stringify({}),
           signal: AbortSignal.timeout(10000)
         });
-        if(r.ok) { log("record","done","✅ OBS enregistre via WebSocket"); await new Promise(res=>setTimeout(res, 3000)); }
+        if(r.ok) {
+            log("record","done","✅ OBS enregistre — Ouvre multiia-hub.vercel.app dans ton navigateur maintenant pour que l'écran ne soit pas noir ! Enregistrement pendant 30s…");
+            await new Promise(res=>setTimeout(res, 30000)); // 30 secondes d'enregistrement
+          }
         else log("record","skip","⚠️ OBS WebSocket non dispo — active-le dans OBS : Outils → WebSocket Server → port 4455");
       } catch { log("record","skip","ℹ️ OBS non disponible — ignoré"); }
     } else {
@@ -3902,7 +3910,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
       try {
         const r = await fetch("http://localhost:5678/execute", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ command:"cli-anything-kdenlive project new --fps 25 --resolution 1920x1080 --output ./tuto_output.kdenlive", software:"kdenlive" }),
+          body: JSON.stringify({ command:"cli-anything-kdenlive project new --width 1920 --height 1080 --fps 25 --output ./tuto_output.kdenlive", software:"kdenlive" }),
           signal: AbortSignal.timeout(30000)
         });
         if(r.ok) log("assemble","done","✅ Projet Kdenlive créé");
@@ -4026,9 +4034,11 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
                 ))}
                 <button
                   onClick={confirmAndStart}
-                  style={{marginTop:8,padding:"10px 24px",background:"linear-gradient(135deg,#60A5FA,#93C5FD)",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer",alignSelf:"flex-start"}}>
+                  disabled={aiQuestions.some(q => !aiAnswers[q]?.trim())}
+                  style={{marginTop:8,padding:"10px 24px",background:"linear-gradient(135deg,#60A5FA,#93C5FD)",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer",alignSelf:"flex-start",opacity:aiQuestions.some(q=>!aiAnswers[q]?.trim())?0.5:1}}>
                   ✅ Confirmer et lancer le pipeline →
                 </button>
+                <div style={{fontSize:9,color:"var(--mu)",marginTop:4}}>Réponds à toutes les questions pour continuer</div>
               </div>
             )}
           </div>
