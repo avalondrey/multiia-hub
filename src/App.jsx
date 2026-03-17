@@ -3686,22 +3686,22 @@ function AideTab() {
               steps:["Télécharge cli_relay.py depuis ce projet","python cli_relay.py","Tourne sur http://localhost:5678"] },
             { icon:"📄", name:"LibreOffice", color:"#60A5FA", required:false,
               desc:"Génère des PDF, présentations et documents depuis les Workflows.",
-              steps:["PowerShell : winget install TheDocumentFoundation.LibreOffice","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\libreoffice\\agent-harness && pip install -e ."] },
+              steps:["Si pas installé : winget install TheDocumentFoundation.LibreOffice","git clone https://github.com/HKUDS/CLI-Anything.git puis cd CLI-Anything\\libreoffice\\agent-harness && pip install -e .","Tester : cli-anything-libreoffice --help"] },
             { icon:"🎨", name:"GIMP", color:"#4ADE80", required:false,
               desc:"Traitement d'images, batch resize, création de visuels.",
-              steps:["PowerShell : winget install GIMP.GIMP","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\gimp\\agent-harness && pip install -e ."] },
+              steps:["Si pas installé : winget install GIMP.GIMP","git clone https://github.com/HKUDS/CLI-Anything.git puis cd CLI-Anything\\gimp\\agent-harness && pip install -e .","Tester : cli-anything-gimp --help"] },
             { icon:"🎬", name:"Blender", color:"#F97316", required:false,
               desc:"Rendu 3D, animations, scènes depuis les Workflows.",
-              steps:["PowerShell : winget install BlenderFoundation.Blender","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\blender\\agent-harness && pip install -e ."] },
+              steps:["Si pas installé : winget install BlenderFoundation.Blender","git clone https://github.com/HKUDS/CLI-Anything.git puis cd CLI-Anything\\blender\\agent-harness && pip install -e .","Tester : cli-anything-blender --help"] },
             { icon:"🗺", name:"Draw.io", color:"#A78BFA", required:false,
               desc:"Génère des diagrammes, flowcharts, mind maps automatiquement.",
-              steps:["PowerShell : winget install JGraph.Draw","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\drawio\\agent-harness && pip install -e ."] },
+              steps:["Si pas installé : winget install JGraph.Draw","git clone https://github.com/HKUDS/CLI-Anything.git puis cd CLI-Anything\\drawio\\agent-harness && pip install -e .","Tester : cli-anything-drawio --help"] },
             { icon:"🔴", name:"OBS Studio", color:"#F87171", required:false,
               desc:"Enregistre l'écran pour les tutos vidéo automatiques (Studio Auto).",
-              steps:["PowerShell : winget install OBSProject.OBSStudio","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\obs-studio\\agent-harness && pip install -e ."] },
+              steps:["Si pas installé : winget install OBSProject.OBSStudio","git clone https://github.com/HKUDS/CLI-Anything.git puis cd CLI-Anything\\obs-studio\\agent-harness && pip install -e .","Tester : cli-anything-obs-studio --help"] },
             { icon:"🎞", name:"Kdenlive", color:"#F97316", required:false,
               desc:"Monte les vidéos automatiquement après enregistrement OBS.",
-              steps:["PowerShell : winget install KDE.Kdenlive","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\kdenlive\\agent-harness && pip install -e ."] },
+              steps:["Si pas installé : winget install KDE.Kdenlive","git clone https://github.com/HKUDS/CLI-Anything.git puis cd CLI-Anything\\kdenlive\\agent-harness && pip install -e .","Tester : cli-anything-kdenlive --help"] },
             { icon:"🌐", name:"Browser-Use", color:"#4ADE80", required:false,
               desc:"Navigue dans les apps automatiquement pour les tutos vidéo.",
               steps:["PowerShell : pip install browser-use playwright","playwright install chromium","python -m browser_use.server --port 5679"] },
@@ -3868,7 +3868,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
       try {
         const r = await fetch("http://localhost:5678/execute", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ command:"cli-anything-obs recording start", software:"obs" }),
+          body: JSON.stringify({ command:"cli-anything-obs-studio output start-recording", software:"obs-studio" }),
           signal: AbortSignal.timeout(10000)
         });
         if(r.ok) { log("record","done","✅ OBS enregistre"); await new Promise(res=>setTimeout(res, 3000)); }
@@ -3909,7 +3909,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
       try {
         await fetch("http://localhost:5678/execute", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ command:"cli-anything-obs recording stop", software:"obs" }),
+          body: JSON.stringify({ command:"cli-anything-obs-studio output stop-recording", software:"obs-studio" }),
           signal: AbortSignal.timeout(10000)
         });
         log("export","done","✅ OBS a arrêté l'enregistrement");
