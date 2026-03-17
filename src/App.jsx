@@ -3500,11 +3500,166 @@ function PromptBuilderModal({ onInsert, onClose, enabled, apiKeys }) {
   );
 }
 
+// ── AideTab ──────────────────────────────────────────────────────
+const TUTORIALS = [
+  { id:"t01", num:"01", icon:"🧭", title:"Bienvenue sur Multi-IA Hub", sub:"Présentation générale — 2 min 30", color:"#D4A853", level:"Débutant", tags:["intro","navigation","IAs gratuites"] },
+  { id:"t02", num:"02", icon:"💬", title:"Premier Chat & Clés API", sub:"Configurer les IAs gratuites — 4 min 30", color:"#60A5FA", level:"Débutant", tags:["config","clés","Groq","Mistral"] },
+  { id:"t03", num:"03", icon:"🧭", title:"Le Smart Router", sub:"Analyse de fichiers automatique — 3 min", color:"#A78BFA", level:"Débutant", tags:["router","fichiers","automatique"] },
+  { id:"t04", num:"04", icon:"⚡", title:"Le Débat Multi-IAs", sub:"Analyser sous tous les angles — 3 min", color:"#F97316", level:"Intermédiaire", tags:["débat","analyse","experts"] },
+  { id:"t05", num:"05", icon:"⬡", title:"ComfyUI — Images locales", sub:"Générer avec ta GPU — 4 min", color:"#A78BFA", level:"Intermédiaire", tags:["ComfyUI","images","GPU","local"] },
+  { id:"t06", num:"06", icon:"🔀", title:"Les Workflows", sub:"Automatiser des tâches — 3 min", color:"#F97316", level:"Intermédiaire", tags:["workflow","automatisation","templates"] },
+  { id:"t07", num:"07", icon:"🧱", title:"Prompt Builder", sub:"Écrire de meilleurs prompts — 3 min", color:"#D4A853", level:"Intermédiaire", tags:["prompt","builder","mémoire"] },
+];
+
+function AideTab({ navigateTab }) {
+  const [activeTuto, setActiveTuto] = React.useState(null);
+  const [filterLevel, setFilterLevel] = React.useState("all");
+  const [search, setSearch] = React.useState("");
+  const iframeRef = React.useRef(null);
+
+  const filtered = TUTORIALS.filter(t => {
+    if (filterLevel !== "all" && t.level !== filterLevel) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return t.title.toLowerCase().includes(q) || t.tags.some(tg => tg.includes(q));
+    }
+    return true;
+  });
+
+  // Build tuto HTML URL — uses relative path for hosted version, fallback to embedded
+  const getTutoUrl = (id) => {
+    const map = {
+      t01: "./tutos/tuto_01_bienvenue.html",
+      t02: "./tutos/tuto_02_premier_chat.html",
+      t03: "./tutos/tuto_03_smart_router.html",
+      t04: "./tutos/tuto_04_debat.html",
+      t05: "./tutos/tuto_05_comfyui.html",
+      t06: "./tutos/tuto_06_workflows.html",
+      t07: "./tutos/tuto_07_prompt_builder.html",
+    };
+    return map[id] || null;
+  };
+
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {activeTuto ? (
+        // ── VIEWER MODE ──
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{padding:"7px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+            <button onClick={()=>setActiveTuto(null)} style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,padding:"3px 10px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>← Retour</button>
+            <span style={{fontSize:10,fontWeight:700,color:"var(--tx)",fontFamily:"var(--font-display)"}}>{activeTuto.icon} {activeTuto.title}</span>
+            <span style={{marginLeft:"auto",fontSize:8,padding:"2px 8px",borderRadius:4,background:"rgba(255,255,255,.05)",color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{activeTuto.level}</span>
+          </div>
+          {/* Embedded viewer with inline slides */}
+          <div style={{flex:1,overflow:"auto",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+            <div style={{width:"100%",maxWidth:800,background:"var(--s1)",borderRadius:12,border:"1px solid var(--bd)",overflow:"hidden",minHeight:500,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",textAlign:"center"}}>
+              <div style={{fontSize:56,marginBottom:16}}>{activeTuto.icon}</div>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:24,color:"var(--tx)",marginBottom:8}}>{activeTuto.title}</div>
+              <div style={{fontSize:12,color:"var(--mu)",marginBottom:28}}>{activeTuto.sub}</div>
+              <div style={{fontSize:10,color:"var(--mu)",marginBottom:20,padding:"10px 18px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)"}}>
+                📂 Pour voir ce tuto en plein écran, télécharge le fichier HTML et ouvre-le dans ton navigateur.
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+                {activeTuto.tags.map(tag=>(
+                  <span key={tag} style={{fontSize:8,padding:"2px 8px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:10,color:"var(--mu)"}}>#{tag}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        // ── LIBRARY MODE ──
+        <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,20px)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,20px)",color:"var(--ac)"}}>❓ Centre d'aide</div>
+            <div style={{flex:1,minWidth:160}}>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Chercher un tuto…"
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"5px 10px",fontFamily:"var(--font-ui)",outline:"none"}}/>
+            </div>
+            <div style={{display:"flex",gap:5}}>
+              {["all","Débutant","Intermédiaire"].map(lvl=>(
+                <button key={lvl} onClick={()=>setFilterLevel(lvl)}
+                  style={{fontSize:8,padding:"3px 9px",borderRadius:5,border:"1px solid "+(filterLevel===lvl?"var(--ac)":"var(--bd)"),background:filterLevel===lvl?"rgba(212,168,83,.12)":"transparent",color:filterLevel===lvl?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                  {lvl==="all"?"Tous":lvl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick start banner */}
+          <div style={{marginBottom:16,padding:"12px 16px",background:"rgba(212,168,83,.06)",border:"1px solid rgba(212,168,83,.2)",borderRadius:10,display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:24,flexShrink:0}}>🚀</span>
+            <div>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:12,color:"var(--ac)",marginBottom:2}}>Nouveau sur Multi-IA Hub ?</div>
+              <div style={{fontSize:9,color:"var(--mu)"}}>Commence par le Tuto 01 — 2 min 30 pour comprendre l'essentiel.</div>
+            </div>
+            <button onClick={()=>setActiveTuto(TUTORIALS[0])}
+              style={{marginLeft:"auto",padding:"6px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700,flexShrink:0}}>
+              ▶ Commencer
+            </button>
+          </div>
+
+          {/* Tutorial grid */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+            {filtered.map((tuto,i)=>(
+              <div key={tuto.id} onClick={()=>setActiveTuto(tuto)}
+                style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,overflow:"hidden",cursor:"pointer",transition:"all .2s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=tuto.color+"66";e.currentTarget.style.transform="translateY(-2px)";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--bd)";e.currentTarget.style.transform="none";}}>
+                <div style={{height:4,background:`linear-gradient(90deg,${tuto.color},${tuto.color}88)`}}/>
+                <div style={{padding:"14px 16px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                    <span style={{fontSize:24}}>{tuto.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)",marginBottom:1}}>TUTO {tuto.num}</div>
+                      <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:12,color:"var(--tx)",lineHeight:1.2}}>{tuto.title}</div>
+                    </div>
+                    <span style={{fontSize:7,padding:"2px 6px",borderRadius:3,background:"rgba(255,255,255,.05)",color:"var(--mu)",fontFamily:"var(--font-mono)",flexShrink:0}}>{tuto.level}</span>
+                  </div>
+                  <div style={{fontSize:9,color:"var(--mu)",marginBottom:10}}>{tuto.sub}</div>
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                    {tuto.tags.slice(0,3).map(tag=>(
+                      <span key={tag} style={{fontSize:7,padding:"1px 6px",background:"rgba(255,255,255,.04)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--mu)"}}>{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* FAQ quick links */}
+          <div style={{marginTop:20,padding:"12px 16px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10}}>
+            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:10,letterSpacing:1,fontFamily:"var(--font-mono)"}}>QUESTIONS FRÉQUENTES</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
+              {[
+                ["C'est quoi une clé API ?","t02"],
+                ["Comment obtenir Groq gratuit ?","t02"],
+                ["Mon IA ne répond pas ?","t02"],
+                ["ComfyUI — comment installer ?","t05"],
+                ["Quelle IA choisir pour débuter ?","t01"],
+                ["Comment automatiser ?","t06"],
+              ].map(([q,tuto])=>(
+                <div key={q} onClick={()=>setActiveTuto(TUTORIALS.find(t=>t.id===tuto))}
+                  style={{padding:"6px 10px",borderRadius:6,background:"var(--s2)",border:"1px solid var(--bd)",fontSize:9,color:"var(--mu)",cursor:"pointer",transition:"all .15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.color="var(--tx)";e.currentTarget.style.borderColor="var(--ac)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.color="var(--mu)";e.currentTarget.style.borderColor="var(--bd)";}}>
+                  ❓ {q}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function App() {
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
-  const TAB_ORDER = ["router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
+  const TAB_ORDER = ["aide","router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
   const navigateTab = (newTab) => {
     const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
     const newIdx = TAB_ORDER.indexOf(newTab);
@@ -3518,7 +3673,7 @@ function App() {
     // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    const VALID_TABS = ["router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
+    const VALID_TABS = ["aide","router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
     return VALID_TABS.includes(t) ? t : "chat";
   });
   const [mobileCol, setMobileCol] = useState("groq");
@@ -5613,6 +5768,7 @@ function App() {
 </div>
           <div className="nav-tabs">
             {[
+              ["aide","❓ Aide"],
               ["router","🧭 Router"],
               ["chat","◈ Chat"],
               ["prompts","📋 Prompts"],
@@ -7367,6 +7523,12 @@ function App() {
               </div>
             )}
           </div>
+        )}
+
+
+        {/* ══ AIDE TAB ══ */}
+        {tab === "aide" && (
+          <AideTab navigateTab={navigateTab}/>
         )}
 
         {/* ══ SMART ROUTER TAB ══ */}
