@@ -3502,154 +3502,176 @@ function PromptBuilderModal({ onInsert, onClose, enabled, apiKeys }) {
 
 // ── AideTab ──────────────────────────────────────────────────────
 const TUTORIALS = [
-  { id:"t01", num:"01", icon:"🧭", title:"Bienvenue sur Multi-IA Hub", sub:"Présentation générale — 2 min 30", color:"#D4A853", level:"Débutant", tags:["intro","navigation","IAs gratuites"] },
-  { id:"t02", num:"02", icon:"💬", title:"Premier Chat & Clés API", sub:"Configurer les IAs gratuites — 4 min 30", color:"#60A5FA", level:"Débutant", tags:["config","clés","Groq","Mistral"] },
-  { id:"t03", num:"03", icon:"🧭", title:"Le Smart Router", sub:"Analyse de fichiers automatique — 3 min", color:"#A78BFA", level:"Débutant", tags:["router","fichiers","automatique"] },
-  { id:"t04", num:"04", icon:"⚡", title:"Le Débat Multi-IAs", sub:"Analyser sous tous les angles — 3 min", color:"#F97316", level:"Intermédiaire", tags:["débat","analyse","experts"] },
-  { id:"t05", num:"05", icon:"⬡", title:"ComfyUI — Images locales", sub:"Générer avec ta GPU — 4 min", color:"#A78BFA", level:"Intermédiaire", tags:["ComfyUI","images","GPU","local"] },
-  { id:"t06", num:"06", icon:"🔀", title:"Les Workflows", sub:"Automatiser des tâches — 3 min", color:"#F97316", level:"Intermédiaire", tags:["workflow","automatisation","templates"] },
-  { id:"t07", num:"07", icon:"🧱", title:"Prompt Builder", sub:"Écrire de meilleurs prompts — 3 min", color:"#D4A853", level:"Intermédiaire", tags:["prompt","builder","mémoire"] },
+  { id:"t01", num:"01", icon:"🤖", title:"Bienvenue sur Multi-IA Hub",   sub:"Présentation générale · 6 slides",        color:"#D4A853", level:"Débutant",       file:"tuto_01_bienvenue.html" },
+  { id:"t02", num:"02", icon:"💬", title:"Premier Chat & Clés API",       sub:"Configurer les IAs gratuites · 6 slides", color:"#60A5FA", level:"Débutant",       file:"tuto_02_premier_chat.html" },
+  { id:"t03", num:"03", icon:"🧭", title:"Le Smart Router",               sub:"Analyse de fichiers auto · 5 slides",     color:"#A78BFA", level:"Débutant",       file:"tuto_03_smart_router.html" },
+  { id:"t04", num:"04", icon:"⚡", title:"Le Débat Multi-IAs",            sub:"Analyser sous tous les angles · 5 slides",color:"#F97316", level:"Intermédiaire",  file:"tuto_04_debat.html" },
+  { id:"t05", num:"05", icon:"⬡", title:"ComfyUI — Images locales",       sub:"Générer avec ta GPU · 5 slides",          color:"#A78BFA", level:"Intermédiaire",  file:"tuto_05_comfyui.html" },
+  { id:"t06", num:"06", icon:"🔀", title:"Les Workflows",                 sub:"Automatiser des tâches · 5 slides",       color:"#F97316", level:"Intermédiaire",  file:"tuto_06_workflows.html" },
+  { id:"t07", num:"07", icon:"🧱", title:"Prompt Builder",                sub:"Écrire de meilleurs prompts · 5 slides",  color:"#D4A853", level:"Intermédiaire",  file:"tuto_07_prompt_builder.html" },
 ];
 
-function AideTab({ navigateTab }) {
+function AideTab() {
   const [activeTuto, setActiveTuto] = React.useState(null);
   const [filterLevel, setFilterLevel] = React.useState("all");
   const [search, setSearch] = React.useState("");
-  const iframeRef = React.useRef(null);
+  const [iframeLoaded, setIframeLoaded] = React.useState(false);
 
   const filtered = TUTORIALS.filter(t => {
     if (filterLevel !== "all" && t.level !== filterLevel) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
-      return t.title.toLowerCase().includes(q) || t.tags.some(tg => tg.includes(q));
+      return t.title.toLowerCase().includes(q) || t.sub.toLowerCase().includes(q) || t.level.toLowerCase().includes(q);
     }
     return true;
   });
 
-  // Build tuto HTML URL — uses relative path for hosted version, fallback to embedded
-  const getTutoUrl = (id) => {
-    const map = {
-      t01: "./tutos/tuto_01_bienvenue.html",
-      t02: "./tutos/tuto_02_premier_chat.html",
-      t03: "./tutos/tuto_03_smart_router.html",
-      t04: "./tutos/tuto_04_debat.html",
-      t05: "./tutos/tuto_05_comfyui.html",
-      t06: "./tutos/tuto_06_workflows.html",
-      t07: "./tutos/tuto_07_prompt_builder.html",
-    };
-    return map[id] || null;
+  const openTuto = (tuto) => {
+    setIframeLoaded(false);
+    setActiveTuto(tuto);
   };
 
+  // ── VIEWER ──
+  if (activeTuto) {
+    return (
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {/* Topbar */}
+        <div style={{padding:"7px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexShrink:0,zIndex:10}}>
+          <button onClick={()=>setActiveTuto(null)}
+            style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,padding:"3px 10px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+            ← Retour
+          </button>
+          <span style={{fontSize:10,fontWeight:700,color:"var(--tx)",fontFamily:"var(--font-display)"}}>{activeTuto.icon} {activeTuto.title}</span>
+          <span style={{marginLeft:"auto",fontSize:8,padding:"2px 8px",borderRadius:4,background:"rgba(255,255,255,.05)",color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{activeTuto.level}</span>
+          <button onClick={()=>window.open("tutos/"+activeTuto.file,"_blank")}
+            style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,padding:"3px 10px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+            ⛶ Plein écran
+          </button>
+        </div>
+
+        {/* iFrame viewer */}
+        <div style={{flex:1,position:"relative",background:"var(--bg)"}}>
+          {!iframeLoaded && (
+            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:"var(--mu)",fontSize:12}}>
+              <div style={{fontSize:32,animation:"spin 1s linear infinite"}}>⟳</div>
+              <span style={{fontFamily:"var(--font-mono)",fontSize:10}}>Chargement du tuto…</span>
+              <span style={{fontSize:9,opacity:.6,maxWidth:300,textAlign:"center"}}>
+                Si le tuto ne s'affiche pas, place les fichiers HTML dans <code style={{color:"var(--ac)"}}>public/tutos/</code> de ton projet
+              </span>
+            </div>
+          )}
+          <iframe
+            key={activeTuto.file}
+            src={"tutos/" + activeTuto.file}
+            style={{width:"100%",height:"100%",border:"none",display:iframeLoaded?"block":"block",opacity:iframeLoaded?1:0,transition:"opacity .3s"}}
+            onLoad={()=>setIframeLoaded(true)}
+            title={activeTuto.title}
+            allow="fullscreen"
+          />
+        </div>
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
+
+  // ── LIBRARY ──
   return (
-    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-      {activeTuto ? (
-        // ── VIEWER MODE ──
-        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-          <div style={{padding:"7px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-            <button onClick={()=>setActiveTuto(null)} style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,padding:"3px 10px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>← Retour</button>
-            <span style={{fontSize:10,fontWeight:700,color:"var(--tx)",fontFamily:"var(--font-display)"}}>{activeTuto.icon} {activeTuto.title}</span>
-            <span style={{marginLeft:"auto",fontSize:8,padding:"2px 8px",borderRadius:4,background:"rgba(255,255,255,.05)",color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{activeTuto.level}</span>
-          </div>
-          {/* Embedded viewer with inline slides */}
-          <div style={{flex:1,overflow:"auto",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
-            <div style={{width:"100%",maxWidth:800,background:"var(--s1)",borderRadius:12,border:"1px solid var(--bd)",overflow:"hidden",minHeight:500,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",textAlign:"center"}}>
-              <div style={{fontSize:56,marginBottom:16}}>{activeTuto.icon}</div>
-              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:24,color:"var(--tx)",marginBottom:8}}>{activeTuto.title}</div>
-              <div style={{fontSize:12,color:"var(--mu)",marginBottom:28}}>{activeTuto.sub}</div>
-              <div style={{fontSize:10,color:"var(--mu)",marginBottom:20,padding:"10px 18px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)"}}>
-                📂 Pour voir ce tuto en plein écran, télécharge le fichier HTML et ouvre-le dans ton navigateur.
-              </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
-                {activeTuto.tags.map(tag=>(
-                  <span key={tag} style={{fontSize:8,padding:"2px 8px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:10,color:"var(--mu)"}}>#{tag}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        // ── LIBRARY MODE ──
-        <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,20px)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,20px)",color:"var(--ac)"}}>❓ Centre d'aide</div>
-            <div style={{flex:1,minWidth:160}}>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Chercher un tuto…"
-                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"5px 10px",fontFamily:"var(--font-ui)",outline:"none"}}/>
-            </div>
-            <div style={{display:"flex",gap:5}}>
-              {["all","Débutant","Intermédiaire"].map(lvl=>(
-                <button key={lvl} onClick={()=>setFilterLevel(lvl)}
-                  style={{fontSize:8,padding:"3px 9px",borderRadius:5,border:"1px solid "+(filterLevel===lvl?"var(--ac)":"var(--bd)"),background:filterLevel===lvl?"rgba(212,168,83,.12)":"transparent",color:filterLevel===lvl?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                  {lvl==="all"?"Tous":lvl}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick start banner */}
-          <div style={{marginBottom:16,padding:"12px 16px",background:"rgba(212,168,83,.06)",border:"1px solid rgba(212,168,83,.2)",borderRadius:10,display:"flex",alignItems:"center",gap:12}}>
-            <span style={{fontSize:24,flexShrink:0}}>🚀</span>
-            <div>
-              <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:12,color:"var(--ac)",marginBottom:2}}>Nouveau sur Multi-IA Hub ?</div>
-              <div style={{fontSize:9,color:"var(--mu)"}}>Commence par le Tuto 01 — 2 min 30 pour comprendre l'essentiel.</div>
-            </div>
-            <button onClick={()=>setActiveTuto(TUTORIALS[0])}
-              style={{marginLeft:"auto",padding:"6px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700,flexShrink:0}}>
-              ▶ Commencer
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,20px)"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,20px)",color:"var(--ac)"}}>❓ Centre d'aide</div>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Chercher un tuto…"
+          style={{flex:1,minWidth:140,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"5px 10px",fontFamily:"var(--font-ui)",outline:"none"}}/>
+        <div style={{display:"flex",gap:5}}>
+          {["all","Débutant","Intermédiaire"].map(lvl=>(
+            <button key={lvl} onClick={()=>setFilterLevel(lvl)}
+              style={{fontSize:8,padding:"3px 9px",borderRadius:5,border:"1px solid "+(filterLevel===lvl?"var(--ac)":"var(--bd)"),
+                background:filterLevel===lvl?"rgba(212,168,83,.12)":"transparent",
+                color:filterLevel===lvl?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+              {lvl==="all"?"Tous":lvl}
             </button>
-          </div>
+          ))}
+        </div>
+      </div>
 
-          {/* Tutorial grid */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
-            {filtered.map((tuto,i)=>(
-              <div key={tuto.id} onClick={()=>setActiveTuto(tuto)}
-                style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,overflow:"hidden",cursor:"pointer",transition:"all .2s"}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=tuto.color+"66";e.currentTarget.style.transform="translateY(-2px)";}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--bd)";e.currentTarget.style.transform="none";}}>
-                <div style={{height:4,background:`linear-gradient(90deg,${tuto.color},${tuto.color}88)`}}/>
-                <div style={{padding:"14px 16px"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                    <span style={{fontSize:24}}>{tuto.icon}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)",marginBottom:1}}>TUTO {tuto.num}</div>
-                      <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:12,color:"var(--tx)",lineHeight:1.2}}>{tuto.title}</div>
-                    </div>
-                    <span style={{fontSize:7,padding:"2px 6px",borderRadius:3,background:"rgba(255,255,255,.05)",color:"var(--mu)",fontFamily:"var(--font-mono)",flexShrink:0}}>{tuto.level}</span>
-                  </div>
-                  <div style={{fontSize:9,color:"var(--mu)",marginBottom:10}}>{tuto.sub}</div>
-                  <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                    {tuto.tags.slice(0,3).map(tag=>(
-                      <span key={tag} style={{fontSize:7,padding:"1px 6px",background:"rgba(255,255,255,.04)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--mu)"}}>{tag}</span>
-                    ))}
-                  </div>
+      {/* Quick start banner */}
+      <div style={{marginBottom:16,padding:"12px 16px",background:"rgba(212,168,83,.06)",border:"1px solid rgba(212,168,83,.2)",borderRadius:10,display:"flex",alignItems:"center",gap:12}}>
+        <span style={{fontSize:24,flexShrink:0}}>🚀</span>
+        <div>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:12,color:"var(--ac)",marginBottom:2}}>Nouveau sur Multi-IA Hub ?</div>
+          <div style={{fontSize:9,color:"var(--mu)"}}>Commence par le Tuto 01 — présentation complète de l'app en quelques slides.</div>
+        </div>
+        <button onClick={()=>openTuto(TUTORIALS[0])}
+          style={{marginLeft:"auto",padding:"6px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",
+            borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700,flexShrink:0}}>
+          ▶ Commencer
+        </button>
+      </div>
+
+      {/* Tutorial grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:10,marginBottom:16}}>
+        {filtered.map(tuto=>(
+          <div key={tuto.id} onClick={()=>openTuto(tuto)}
+            style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,overflow:"hidden",cursor:"pointer",transition:"all .2s"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=tuto.color+"66";e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px "+tuto.color+"15";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--bd)";e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}}>
+            <div style={{height:3,background:"linear-gradient(90deg,"+tuto.color+","+tuto.color+"88)"}}/>
+            <div style={{padding:"12px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                <span style={{fontSize:22}}>{tuto.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)",marginBottom:1}}>TUTO {tuto.num}</div>
+                  <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:"var(--tx)",lineHeight:1.2}}>{tuto.title}</div>
                 </div>
+                <span style={{fontSize:7,padding:"2px 6px",borderRadius:3,background:"rgba(255,255,255,.05)",color:"var(--mu)",fontFamily:"var(--font-mono)",flexShrink:0}}>{tuto.level}</span>
               </div>
-            ))}
-          </div>
-
-          {/* FAQ quick links */}
-          <div style={{marginTop:20,padding:"12px 16px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10}}>
-            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:10,letterSpacing:1,fontFamily:"var(--font-mono)"}}>QUESTIONS FRÉQUENTES</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
-              {[
-                ["C'est quoi une clé API ?","t02"],
-                ["Comment obtenir Groq gratuit ?","t02"],
-                ["Mon IA ne répond pas ?","t02"],
-                ["ComfyUI — comment installer ?","t05"],
-                ["Quelle IA choisir pour débuter ?","t01"],
-                ["Comment automatiser ?","t06"],
-              ].map(([q,tuto])=>(
-                <div key={q} onClick={()=>setActiveTuto(TUTORIALS.find(t=>t.id===tuto))}
-                  style={{padding:"6px 10px",borderRadius:6,background:"var(--s2)",border:"1px solid var(--bd)",fontSize:9,color:"var(--mu)",cursor:"pointer",transition:"all .15s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.color="var(--tx)";e.currentTarget.style.borderColor="var(--ac)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.color="var(--mu)";e.currentTarget.style.borderColor="var(--bd)";}}>
-                  ❓ {q}
+              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8}}>{tuto.sub}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",gap:3}}>
+                  {tuto.level==="Débutant"
+                    ? <span style={{fontSize:7,padding:"1px 6px",background:"rgba(74,222,128,.08)",border:"1px solid rgba(74,222,128,.2)",borderRadius:8,color:"var(--green)"}}>Débutant</span>
+                    : <span style={{fontSize:7,padding:"1px 6px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8,color:"var(--ac)"}}>Intermédiaire</span>
+                  }
                 </div>
-              ))}
+                <span style={{fontSize:9,color:tuto.color,opacity:.7}}>▶ Voir</span>
+              </div>
             </div>
           </div>
+        ))}
+        {filtered.length === 0 && (
+          <div style={{gridColumn:"1/-1",textAlign:"center",padding:"40px 20px",color:"var(--mu)",fontSize:12}}>
+            Aucun tuto trouvé pour "{search}"
+          </div>
+        )}
+      </div>
+
+      {/* FAQ */}
+      <div style={{padding:"12px 16px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10}}>
+        <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:10,letterSpacing:1,fontFamily:"var(--font-mono)"}}>QUESTIONS FRÉQUENTES</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:6}}>
+          {[
+            ["C'est quoi une clé API ?","t02"],
+            ["Comment obtenir Groq gratuit ?","t02"],
+            ["Quelle IA choisir pour débuter ?","t01"],
+            ["ComfyUI — comment installer ?","t05"],
+            ["Comment automatiser ?","t06"],
+            ["Comment améliorer mes prompts ?","t07"],
+          ].map(([q,tid])=>(
+            <div key={q} onClick={()=>openTuto(TUTORIALS.find(t=>t.id===tid))}
+              style={{padding:"6px 10px",borderRadius:6,background:"var(--s2)",border:"1px solid var(--bd)",fontSize:9,color:"var(--mu)",cursor:"pointer",transition:"all .15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.color="var(--tx)";e.currentTarget.style.borderColor="var(--ac)";}}
+              onMouseLeave={e=>{e.currentTarget.style.color="var(--mu)";e.currentTarget.style.borderColor="var(--bd)";}}>
+              ❓ {q}
+            </div>
+          ))}
         </div>
-      )}
+      </div>
+
+      {/* Install note */}
+      <div style={{marginTop:12,padding:"10px 14px",background:"rgba(96,165,250,.05)",border:"1px solid rgba(96,165,250,.15)",borderRadius:8,fontSize:9,color:"var(--mu)",lineHeight:1.6}}>
+        📂 <strong style={{color:"var(--tx)"}}>Pour afficher les tutos dans l'app :</strong> place les fichiers HTML dans le dossier <code style={{color:"var(--ac)",background:"rgba(212,168,83,.08)",padding:"1px 5px",borderRadius:3}}>public/tutos/</code> de ton projet Vite.
+        Les tutos s'ouvriront directement en iframe dans cet onglet.
+      </div>
     </div>
   );
 }
@@ -3865,6 +3887,23 @@ function App() {
 
   // ── Open WebUI (OpenAI-compatible API) ──────────────────────────
   const OPENWEBUI_DEFAULT = "http://localhost:3000";
+
+// ══ CLI-Anything Bridge ══════════════════════════════════════════
+// Pont local optionnel (cli-bridge.js) — fallback auto sur HTTP direct
+const CLI_BRIDGE = "http://127.0.0.1:9999";
+let _cliBridgeAvailable = null; // null=inconnu, true/false
+
+async function checkCliBridge() {
+  if (_cliBridgeAvailable !== null) return _cliBridgeAvailable;
+  try {
+    const r = await fetch(CLI_BRIDGE + "/status", { signal: AbortSignal.timeout(800) });
+    _cliBridgeAvailable = r.ok;
+  } catch { _cliBridgeAvailable = false; }
+  return _cliBridgeAvailable;
+}
+// ════════════════════════════════════════════════════════════════
+
+
   const [owuiUrl, setOwuiUrl]               = useState(() => { try { return localStorage.getItem("multiia_owui_url")||OPENWEBUI_DEFAULT; } catch { return OPENWEBUI_DEFAULT; } });
   const [owuiKey, setOwuiKey]               = useState(() => { try { return localStorage.getItem("multiia_owui_key")||""; } catch { return ""; } });
   const [owuiModels, setOwuiModels]         = useState([]);
@@ -3930,8 +3969,38 @@ function App() {
   const [ollamaActive, setOllamaActive] = useState(false);
   const [ollamaModel, setOllamaModel] = useState("");
   const [showOllamaPanel, setShowOllamaPanel] = useState(false);
+  const checkCliRelay = async () => {
+    // Vérifie si CLI-Anything relay est disponible (optionnel)
+    try {
+      const r = await fetch("http://localhost:5678/ping", { signal: AbortSignal.timeout(2000) });
+      if (r.ok) { setCliRelayStatus("available"); showToast("✓ CLI-Anything disponible"); return true; }
+    } catch {}
+    setCliRelayStatus("unavailable");
+    return false;
+  };
+
   const checkOllama = async (url) => {
     const base = (url||ollamaUrl).replace(/\/$/, "");
+
+    // ── Tente CLI-Anything bridge d'abord ────────────────────────
+    if (await checkCliBridge()) {
+      try {
+        const br = await fetch(CLI_BRIDGE+"/ollama/models?url="+encodeURIComponent(base), { signal: AbortSignal.timeout(5000) });
+        if (br.ok) {
+          const bd = await br.json();
+          if (bd.models?.length) {
+            setOllamaModels(bd.models);
+            setOllamaConnected(true);
+            if (!ollamaModel) setOllamaModel(bd.models[0]);
+            localStorage.setItem("multiia_ollama", base);
+            showToast("✓ Ollama connecté via CLI-Anything — "+bd.models.length+" modèle(s)");
+            return true;
+          }
+        }
+      } catch {}
+    }
+
+    // ── Fallback : HTTP direct (code original) ───────────────────
     try {
       const r = await fetch(base+"/api/tags", { signal: AbortSignal.timeout(3000) });
       if (r.ok) {
@@ -3941,27 +4010,38 @@ function App() {
         setOllamaConnected(true);
         if (models.length && !ollamaModel) setOllamaModel(models[0]);
         localStorage.setItem("multiia_ollama", base);
-        // Check version
         try {
           const vr = await fetch(base+"/api/version", { signal: AbortSignal.timeout(2000) });
           if (vr.ok) {
-            const vd = await vr.json();
-            const ver = vd.version || "";
+            const vd = await vr.json(); const ver = vd.version || "";
             showToast("✓ Ollama "+ver+" connecté — "+models.length+" modèle(s)");
-          } else {
-            showToast("✓ Ollama connecté — "+models.length+" modèle(s)");
-          }
+          } else showToast("✓ Ollama connecté — "+models.length+" modèle(s)");
         } catch { showToast("✓ Ollama connecté — "+models.length+" modèle(s)"); }
         return true;
       }
     } catch {}
-    setOllamaConnected(false);
-    setOllamaModels([]);
+    setOllamaConnected(false); setOllamaModels([]);
     showToast("✗ Ollama non trouvé — Lance 'ollama serve' sur ton PC");
     return false;
   };
   const callOllama = async (model, messages, system) => {
     const base = ollamaUrl.replace(/\/$/, "");
+
+    // ── Tente CLI-Anything bridge d'abord ────────────────────────
+    if (await checkCliBridge()) {
+      try {
+        const br = await fetch(CLI_BRIDGE+"/ollama/generate", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ model: model||ollamaModel, messages, system, url: base })
+        });
+        if (br.ok) {
+          const bd = await br.json();
+          if (bd.content !== undefined) return bd.content;
+        }
+      } catch {}
+    }
+
+    // ── Fallback : HTTP direct (code original) ───────────────────
     const msgs = system ? [{role:"system",content:system},...messages] : messages;
     const r = await fetch(base+"/api/chat", {
       method:"POST", headers:{"Content-Type":"application/json"},
@@ -4009,12 +4089,34 @@ function App() {
 
   const checkComfy = async (url) => {
     const base = (url||comfyUrl).replace(/\/$/, "");
+
+    // ── Tente CLI-Anything bridge d'abord ────────────────────────
+    if (await checkCliBridge()) {
+      try {
+        const br = await fetch(CLI_BRIDGE+"/comfy/info?url="+encodeURIComponent(base), { signal: AbortSignal.timeout(5000) });
+        if (br.ok) {
+          const bd = await br.json();
+          if (bd.connected !== false) {
+            setComfyConnected(true);
+            localStorage.setItem("multiia_comfy_url", base);
+            if (bd.checkpoints?.length) {
+              setComfyModels(bd.checkpoints);
+              if (!comfyModel) setComfyModel(bd.checkpoints[0]);
+            }
+            if (bd.loras?.length) setComfyLoras(bd.loras);
+            showToast("✓ ComfyUI connecté via CLI-Anything !");
+            return true;
+          }
+        }
+      } catch {}
+    }
+
+    // ── Fallback : HTTP direct (code original) ───────────────────
     try {
       const r = await fetch(base+"/system_stats", { signal: AbortSignal.timeout(3000) });
       if (r.ok) {
         setComfyConnected(true);
         localStorage.setItem("multiia_comfy_url", base);
-        // Load available checkpoints
         try {
           const ni = await fetch(base+"/object_info/CheckpointLoaderSimple").then(r=>r.json());
           const models = ni?.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
@@ -4022,7 +4124,6 @@ function App() {
           if (models.length && !comfyModel) setComfyModel(models[0]);
           setComfyNodes(prev=>({...prev, checkpoints:models}));
         } catch {}
-        // Load LoRAs
         try {
           const li = await fetch(base+"/object_info/LoraLoader").then(r=>r.json());
           const loras = li?.LoraLoader?.input?.required?.lora_name?.[0] || [];
@@ -4032,8 +4133,7 @@ function App() {
         return true;
       }
     } catch {}
-    setComfyConnected(false);
-    setComfyModels([]);
+    setComfyConnected(false); setComfyModels([]);
     showToast("✗ ComfyUI non trouvé — Lance ComfyUI sur ton PC");
     return false;
   };
@@ -4198,7 +4298,7 @@ function App() {
     const node = {
       id: Date.now().toString(),
       label: `Étape ${workflowNodes.length+1}`,
-      type,                          // "prompt" | "parallel" | "transform"
+      type,                          // "prompt" | "parallel" | "transform" | "cli"
       ia: firstActive,
       parallel_ias: [firstActive],   // for parallel type
       prompt: "",
@@ -4273,6 +4373,56 @@ function App() {
             const fn = new Function("input","prev","named", node.prompt || "return prev;");
             output = String(fn(inp, prevOutput, namedOutputs));
           } catch(e) { output = "❌ Erreur transform : " + e.message; }
+        } else if (node.type === "cli") {
+          // CLI-Anything — OPTIONNEL : si absent, le workflow continue normalement
+          // L'app reste 100% indépendante de CLI-Anything
+          const cmd = resolvePrompt(node.cliCommand || "", prevOutput, namedOutputs);
+          let cliAvailable = false;
+          try {
+            // Test rapide si le relay est disponible (timeout 2s)
+            const ping = await fetch("http://localhost:5678/ping", {
+              signal: AbortSignal.timeout(2000)
+            });
+            cliAvailable = ping.ok;
+          } catch { cliAvailable = false; }
+
+          if (!cliAvailable) {
+            // CLI-Anything absent ou arrêté → on continue le workflow sans bloquer
+            output = prevOutput; // passe le contenu précédent tel quel
+            results.push({ nodeId:node.id, label:node.label, ia:"cli", type:"cli",
+              output:"ℹ️ Logiciel local "+( node.cliSoftware||"CLI")+" non disponible — étape ignorée.\nContenu transmis à l'étape suivante.",
+              ok:true, duration:0, skipped:true });
+            prevOutput = output;
+            namedOutputs[node.name || node.id] = output;
+            setWorkflowResults([...results]);
+            continue;
+          }
+
+          // CLI-Anything disponible → on l'utilise
+          try {
+            const r = await fetch("http://localhost:5678/execute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ command: cmd, software: node.cliSoftware }),
+              signal: AbortSignal.timeout(60000)
+            });
+            if (r.ok) {
+              const d = await r.json();
+              output = d.output || d.result || "✅ " + (node.cliSoftware||"Logiciel") + " : commande exécutée";
+            } else {
+              const err = await r.text().catch(()=>"");
+              output = prevOutput; // fallback : transmet le contenu précédent
+              results.push({ nodeId:node.id, label:node.label, ia:"cli", type:"cli",
+                output:"⚠️ Logiciel local erreur ("+r.status+") — contenu transmis à l'étape suivante.",
+                ok:true, duration:0, skipped:true });
+              prevOutput = output;
+              namedOutputs[node.name || node.id] = output;
+              setWorkflowResults([...results]);
+              continue;
+            }
+          } catch(e) {
+            output = prevOutput; // fallback silencieux
+          }
         } else {
           // Default: prompt type
           const prompt = resolvePrompt(node.prompt, prevOutput, namedOutputs);
@@ -6444,6 +6594,7 @@ function App() {
                 <button onClick={()=>addWorkflowNode("prompt")} style={{background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>＋ Prompt</button>
                 <button onClick={()=>addWorkflowNode("parallel")} style={{background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>⚡ Parallèle</button>
                 <button onClick={()=>addWorkflowNode("transform")} style={{background:"rgba(251,146,60,.1)",border:"1px solid rgba(251,146,60,.3)",borderRadius:5,color:"var(--orange)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>⚙ Transform</button>
+                <button onClick={()=>addWorkflowNode("cli")} style={{background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>🖥 CLI Local</button>
               </div>
             </div>
 
@@ -6459,6 +6610,14 @@ function App() {
                 {name:"🔬 Analyse IA", nodes:[
                   {id:"t1",label:"Analyse parallèle",type:"parallel",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Analyse ce sujet en profondeur : {INPUT}",name:"analyses",usePrevOutput:false,parallel_ias:IDS.filter(id=>enabled[id]).slice(0,3)},
                   {id:"t2",label:"Synthèse des analyses",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Synthétise ces analyses en points clés :\n{PREVIOUS}",name:"synthese",usePrevOutput:true,parallel_ias:[]},
+                ]},
+                {name:"📄 Texte → PDF", nodes:[
+                  {id:"t1",label:"Générer le contenu",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Rédige un document structuré sur : {INPUT}",name:"texte",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Exporter en PDF",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"pdf",usePrevOutput:true,parallel_ias:[],cliSoftware:"libreoffice",cliCommand:"cli-anything-libreoffice document create --format pdf --output ./output.pdf",cliDescription:"LibreOffice génère un PDF depuis le texte"},
+                ]},
+                {name:"🖼 Texte → Image GIMP", nodes:[
+                  {id:"t1",label:"Décrire l'image",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris précisément une image illustrant : {INPUT}",name:"desc",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Créer dans GIMP",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"image",usePrevOutput:true,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp project new --width 1920 --height 1080 --output ./output.xcf",cliDescription:"GIMP crée un nouveau projet image"},
                 ]},
                 {name:"💼 Pitch produit", nodes:[
                   {id:"t1",label:"Problème",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris le problème que résout : {INPUT}. Sois factuel et précis.",name:"problem",usePrevOutput:false,parallel_ias:[]},
