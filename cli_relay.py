@@ -149,7 +149,7 @@ class RelayHandler(BaseHTTPRequestHandler):
       2. Clone le repo CLI-Anything (une seule fois pour tous les logiciels) :<br>
       &nbsp;&nbsp;&nbsp;<code>git clone https://github.com/HKUDS/CLI-Anything.git</code><br>
       3. Installe le pilote du logiciel voulu :<br>
-      &nbsp;&nbsp;&nbsp;<code>cd CLI-Anything/obs/agent-harness &amp;&amp; pip install -e .</code><br>
+      &nbsp;&nbsp;&nbsp;<code>cd CLI-Anything/obs-studio/agent-harness &amp;&amp; pip install -e .</code><br>
       4. Recharge cette page — le logiciel apparaîtra en vert ✅<br><br>
       ⚡ Pas besoin de Claude Code ni de payer quoi que ce soit.<br>
       Consulte l'onglet <strong style="color:#D4A853">❓ Aide</strong> dans Multi-IA Hub pour le guide complet.<br>

@@ -3698,7 +3698,7 @@ function AideTab() {
               steps:["PowerShell : winget install JGraph.Draw","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\drawio\\agent-harness && pip install -e ."] },
             { icon:"🔴", name:"OBS Studio", color:"#F87171", required:false,
               desc:"Enregistre l'écran pour les tutos vidéo automatiques (Studio Auto).",
-              steps:["PowerShell : winget install OBSProject.OBSStudio","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\obs\\agent-harness && pip install -e ."] },
+              steps:["PowerShell : winget install OBSProject.OBSStudio","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\obs-studio\\agent-harness && pip install -e ."] },
             { icon:"🎞", name:"Kdenlive", color:"#F97316", required:false,
               desc:"Monte les vidéos automatiquement après enregistrement OBS.",
               steps:["PowerShell : winget install KDE.Kdenlive","git clone https://github.com/HKUDS/CLI-Anything.git","cd CLI-Anything\\kdenlive\\agent-harness && pip install -e ."] },
