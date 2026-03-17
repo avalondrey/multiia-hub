@@ -6624,6 +6624,39 @@ async function checkCliBridge() {
                   {id:"t2",label:"Solution & USP",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Propose une solution et un USP basés sur :\n{problem}",name:"solution",usePrevOutput:false,parallel_ias:[]},
                   {id:"t3",label:"Pitch 30s",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Rédige un pitch de 30 secondes à partir de :\nProblème: {problem}\nSolution: {solution}",name:"pitch",usePrevOutput:false,parallel_ias:[]},
                 ]},
+                // ── CLI-Anything tunnels — surcouche optionnelle ──────────────────
+                // Si CLI-Anything absent → étapes CLI ignorées, workflow continue
+                {name:"🖥 CLI · Rapport PDF", nodes:[
+                  {id:"t1",label:"Rédiger le rapport",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Rédige un rapport structuré complet sur : {INPUT}. Utilise des titres, sous-titres et bullet points.",name:"rapport",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"📄 LibreOffice → PDF",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"pdf",usePrevOutput:true,parallel_ias:[],cliSoftware:"libreoffice",cliCommand:"cli-anything-libreoffice document create --format pdf --output ./rapport_output.pdf",cliDescription:"LibreOffice génère un PDF professionnel"},
+                ]},
+                {name:"🖥 CLI · Images réseaux", nodes:[
+                  {id:"t1",label:"Texte pour post",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un texte accrocheur pour un post sur : {INPUT}. Court, percutant, avec émojis.",name:"texte",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🎨 GIMP → formats sociaux",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"image",usePrevOutput:true,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp project new --width 1080 --height 1080 --output ./post_square.xcf",cliDescription:"GIMP crée le visuel carré pour Instagram"},
+                  {id:"t3",label:"📐 GIMP → format LinkedIn",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"linkedin",usePrevOutput:false,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp project new --width 1200 --height 628 --output ./post_linkedin.xcf",cliDescription:"GIMP crée le visuel LinkedIn"},
+                ]},
+                {name:"🖥 CLI · Audio propre", nodes:[
+                  {id:"t1",label:"Script narration",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Écris un script de narration clair et professionnel sur : {INPUT}. Adapté pour une voix off.",name:"script",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🔊 Audacity → export MP3",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"audio",usePrevOutput:true,parallel_ias:[],cliSoftware:"audacity",cliCommand:"cli-anything-audacity project new --sample-rate 44100 --output ./narration.aup3",cliDescription:"Audacity prépare le projet audio"},
+                ]},
+                {name:"🖥 CLI · Présentation auto", nodes:[
+                  {id:"t1",label:"Plan de présentation",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Crée un plan de présentation en 8 slides sur : {INPUT}. Format: Slide N | Titre | Contenu bullet points.",name:"plan",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"✍️ Contenu slides",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Développe le contenu détaillé de chaque slide :\\n{plan}",name:"slides",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"📊 LibreOffice → Impress",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"pptx",usePrevOutput:true,parallel_ias:[],cliSoftware:"libreoffice",cliCommand:"cli-anything-libreoffice presentation create --format pptx --output ./presentation.pptx",cliDescription:"LibreOffice Impress crée la présentation .pptx"},
+                ]},
+                {name:"🖥 CLI · Pipeline vidéo", nodes:[
+                  {id:"t1",label:"Script vidéo",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Écris un script vidéo de 2 minutes sur : {INPUT}. Format: [INTRO] [PARTIE 1] [PARTIE 2] [CONCLUSION] avec timecodes.",name:"script",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🎬 Kdenlive → projet vidéo",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"video",usePrevOutput:true,parallel_ias:[],cliSoftware:"kdenlive",cliCommand:"cli-anything-kdenlive project new --fps 25 --resolution 1920x1080 --output ./video_projet.kdenlive",cliDescription:"Kdenlive crée le projet de montage vidéo"},
+                ]},
+                {name:"🖥 CLI · Batch images", nodes:[
+                  {id:"t1",label:"Instructions de traitement",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère des instructions précises de traitement d'images pour : {INPUT}. Ex: resize, watermark, format.",name:"instructions",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🎨 GIMP → traitement batch",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"batch",usePrevOutput:true,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp batch resize --width 1920 --height 1080 --input ./images/ --output ./images_resized/",cliDescription:"GIMP redimensionne toutes les images du dossier"},
+                ]},
+                {name:"🖥 CLI · Doc automatique", nodes:[
+                  {id:"t1",label:"Analyser le code",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Analyse ce code et génère une documentation technique complète avec description, paramètres, exemples :\\n{INPUT}",name:"doc",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"📝 Améliorer la doc",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Améliore et structure cette documentation pour la rendre professionnelle et complète :\\n{doc}",name:"doc_final",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"📄 LibreOffice → PDF doc",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"pdf_doc",usePrevOutput:true,parallel_ias:[],cliSoftware:"libreoffice",cliCommand:"cli-anything-libreoffice document create --format pdf --output ./documentation.pdf",cliDescription:"LibreOffice exporte la documentation en PDF"},
+                ]},
               ].map((tpl,ti) => (
                 <button key={ti} onClick={()=>{saveWorkflow(tpl.nodes.map(n=>({...n,id:Date.now().toString()+Math.random()})));setWorkflowResults([]);}}
                   style={{fontSize:8,padding:"3px 9px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",transition:"border-color .15s"}}
