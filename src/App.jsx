@@ -3677,11 +3677,388 @@ function AideTab() {
 }
 
 
+// ══════════════════════════════════════════════════════════════════
+// 🎬 STUDIO AUTO — Générateur de tutos vidéo automatique
+// Surcouche optionnelle : Browser-Use + OBS + IA + Kdenlive
+// Si un outil est absent → l'étape est ignorée, le reste continue
+// ══════════════════════════════════════════════════════════════════
+
+const STUDIO_QUESTIONS = [
+  { id:"subject",   label:"Sur quoi porte le tuto ?",         placeholder:"Ex : L'onglet Smart Router de Multi-IA Hub", type:"text" },
+  { id:"url",       label:"URL ou application à filmer ?",     placeholder:"Ex : https://multiia-hub.vercel.app ou GIMP local", type:"text" },
+  { id:"duration",  label:"Durée cible ?",                     placeholder:"Ex : 2 minutes, 5 minutes", type:"text" },
+  { id:"audience",  label:"Pour qui ? (niveau public)",        placeholder:"Ex : Débutants, développeurs, utilisateurs avancés", type:"text" },
+  { id:"style",     label:"Style de narration ?",              placeholder:"Ex : Détendu, professionnel, enthousiaste", type:"text" },
+  { id:"lang",      label:"Langue du tuto ?",                  placeholder:"Ex : Français, Anglais", type:"text" },
+];
+
+const STUDIO_PIPELINE_STEPS = [
+  { id:"script",   icon:"✍️", label:"Génération du script",        tool:"IA",           color:"#D4A853" },
+  { id:"questions",icon:"💬", label:"Questions de clarification",   tool:"IA",           color:"#60A5FA" },
+  { id:"navigate", icon:"🌐", label:"Navigation Browser-Use",       tool:"Browser-Use",  color:"#4ADE80",  optional:true },
+  { id:"record",   icon:"🔴", label:"Enregistrement OBS",           tool:"OBS",          color:"#F87171",  optional:true },
+  { id:"narration",icon:"🎙", label:"Script narration IA",          tool:"IA",           color:"#A78BFA" },
+  { id:"assemble", icon:"🎬", label:"Montage Kdenlive",             tool:"Kdenlive",     color:"#F97316",  optional:true },
+  { id:"export",   icon:"📹", label:"Export vidéo finale",          tool:"Kdenlive",     color:"#F97316",  optional:true },
+];
+
+function StudioTab({ apiKeys, enabled, MODEL_DEFS, callModel, buildSystem, showToast }) {
+  const [phase, setPhase]             = React.useState("intro");     // intro|questions|confirm|running|done
+  const [subject, setSubject]         = React.useState("");
+  const [answers, setAnswers]         = React.useState({});
+  const [aiQuestions, setAiQuestions] = React.useState([]);
+  const [aiAnswers, setAiAnswers]     = React.useState({});
+  const [script, setScript]           = React.useState("");
+  const [narration, setNarration]     = React.useState("");
+  const [pipelineLog, setPipelineLog] = React.useState([]);
+  const [running, setRunning]         = React.useState(false);
+  const [toolStatus, setToolStatus]   = React.useState({ browseruse: null, obs: null, kdenlive: null });
+
+  const firstIA = Object.keys(MODEL_DEFS || {}).find(id => enabled?.[id]) || "";
+
+  // ── Vérification optionnelle des outils ──────────────────────
+  const checkTools = async () => {
+    const status = { browseruse: false, obs: false, kdenlive: false };
+    try { const r = await fetch("http://localhost:5678/ping", { signal: AbortSignal.timeout(2000) }); if(r.ok) { const d = await r.json(); status.obs = d.obs || false; status.kdenlive = d.kdenlive || false; } } catch {}
+    try { const r = await fetch("http://localhost:5679/ping", { signal: AbortSignal.timeout(2000) }); status.browseruse = r.ok; } catch {}
+    setToolStatus(status);
+    return status;
+  };
+
+  const log = (step, status, msg) => {
+    setPipelineLog(prev => {
+      const existing = prev.findIndex(l => l.step === step);
+      const entry = { step, status, msg, ts: Date.now() };
+      if(existing >= 0) { const n=[...prev]; n[existing]=entry; return n; }
+      return [...prev, entry];
+    });
+  };
+
+  // ── Phase 1 : l'IA pose des questions de clarification ───────
+  const startQuestionsPhase = async () => {
+    if(!subject.trim()) { showToast("Décris d'abord le sujet du tuto"); return; }
+    setPhase("questions");
+    try {
+      const prompt = `Tu es un expert en création de tutoriels vidéo. Un utilisateur veut créer un tuto sur : "${subject}".
+Pose exactement 5 questions courtes et précises pour t'assurer de créer le meilleur tuto possible.
+Format de réponse : JSON array uniquement, sans texte avant ou après.
+Exemple : ["Quel est le niveau de l'audience ?","Quelle durée idéale ?","URL ou logiciel à filmer ?","Style de narration ?","Points clés à montrer ?"]`;
+      const reply = await callModel(firstIA, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const questions = JSON.parse(clean);
+      setAiQuestions(Array.isArray(questions) ? questions : STUDIO_QUESTIONS.map(q=>q.label));
+    } catch(e) {
+      setAiQuestions(STUDIO_QUESTIONS.map(q => q.label));
+    }
+  };
+
+  // ── Phase 2 : Confirmation avant lancement ────────────────────
+  const confirmAndStart = () => {
+    setPhase("confirm");
+    checkTools();
+  };
+
+  // ── Phase 3 : Pipeline complet ────────────────────────────────
+  const runPipeline = async () => {
+    setPhase("running");
+    setRunning(true);
+    setPipelineLog([]);
+    const tools = await checkTools();
+
+    // ÉTAPE 1 — Génération du script
+    log("script","running","Génération du script de tuto…");
+    let scriptContent = "";
+    try {
+      const answersStr = Object.entries(aiAnswers).map(([q,a])=>`${q}: ${a}`).join("\n");
+      const prompt = `Crée un script complet de tutoriel vidéo sur : "${subject}".
+Informations complémentaires :
+${answersStr}
+
+Format du script :
+- INTRO (15s) : accroche, présentation du sujet
+- PARTIE 1 (30s-1min) : première démonstration
+- PARTIE 2 (30s-1min) : fonctionnalité principale  
+- ASTUCE (20s) : conseil pratique
+- CONCLUSION (15s) : résumé, call-to-action
+Pour chaque partie : [TIMECODE] | ACTION À L'ÉCRAN | NARRATION
+
+Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
+      scriptContent = await callModel(firstIA, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
+      setScript(scriptContent);
+      log("script","done","✅ Script généré");
+    } catch(e) { log("script","error","❌ "+e.message); scriptContent = subject; }
+
+    // ÉTAPE 2 — Navigation Browser-Use (optionnel)
+    if(tools.browseruse) {
+      log("navigate","running","Browser-Use navigue vers la page…");
+      try {
+        const url = aiAnswers[aiQuestions[2]] || answers.url || "https://multiia-hub.vercel.app";
+        const r = await fetch("http://localhost:5679/navigate", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ url, script: scriptContent }),
+          signal: AbortSignal.timeout(30000)
+        });
+        if(r.ok) log("navigate","done","✅ Browser-Use a navigué");
+        else log("navigate","skip","⚠️ Browser-Use erreur — étape ignorée");
+      } catch { log("navigate","skip","ℹ️ Browser-Use non disponible — ignoré"); }
+    } else {
+      log("navigate","skip","ℹ️ Browser-Use non installé — étape ignorée");
+    }
+
+    // ÉTAPE 3 — Enregistrement OBS (optionnel)
+    if(tools.obs) {
+      log("record","running","OBS démarre l'enregistrement…");
+      try {
+        const r = await fetch("http://localhost:5678/execute", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ command:"cli-anything-obs recording start", software:"obs" }),
+          signal: AbortSignal.timeout(10000)
+        });
+        if(r.ok) { log("record","done","✅ OBS enregistre"); await new Promise(res=>setTimeout(res, 3000)); }
+        else log("record","skip","⚠️ OBS erreur — ignoré");
+      } catch { log("record","skip","ℹ️ OBS non disponible — ignoré"); }
+    } else {
+      log("record","skip","ℹ️ OBS non installé — étape ignorée");
+    }
+
+    // ÉTAPE 4 — Génération narration IA
+    log("narration","running","Génération du script de narration voix off…");
+    let narrationContent = "";
+    try {
+      const prompt = `À partir de ce script de tuto :\n${scriptContent}\n\nGénère uniquement le texte de narration voix off, sans les indications techniques. Ton naturel, fluide, en ${aiAnswers[aiQuestions[0]] ? "s'adaptant au niveau "+aiAnswers[aiQuestions[0]] : "français"}.`;
+      narrationContent = await callModel(firstIA, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
+      setNarration(narrationContent);
+      log("narration","done","✅ Narration générée");
+    } catch(e) { log("narration","error","❌ "+e.message); }
+
+    // ÉTAPE 5 — Montage Kdenlive (optionnel)
+    if(tools.kdenlive) {
+      log("assemble","running","Kdenlive assemble la vidéo…");
+      try {
+        const r = await fetch("http://localhost:5678/execute", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ command:"cli-anything-kdenlive project new --fps 25 --resolution 1920x1080 --output ./tuto_output.kdenlive", software:"kdenlive" }),
+          signal: AbortSignal.timeout(30000)
+        });
+        if(r.ok) log("assemble","done","✅ Projet Kdenlive créé");
+        else log("assemble","skip","⚠️ Kdenlive erreur — ignoré");
+      } catch { log("assemble","skip","ℹ️ Kdenlive non disponible — ignoré"); }
+    } else {
+      log("assemble","skip","ℹ️ Kdenlive non installé — étape ignorée");
+    }
+
+    // ÉTAPE 6 — Arrêt OBS
+    if(tools.obs) {
+      try {
+        await fetch("http://localhost:5678/execute", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ command:"cli-anything-obs recording stop", software:"obs" }),
+          signal: AbortSignal.timeout(10000)
+        });
+        log("export","done","✅ OBS a arrêté l'enregistrement");
+      } catch { log("export","skip","ℹ️ OBS stop ignoré"); }
+    } else {
+      log("export","skip","ℹ️ Export manuel requis — voir script ci-dessous");
+    }
+
+    setRunning(false);
+    setPhase("done");
+  };
+
+  const reset = () => { setPhase("intro"); setSubject(""); setAnswers({}); setAiQuestions([]); setAiAnswers({}); setScript(""); setNarration(""); setPipelineLog([]); };
+
+  const statusColor = s => s==="done"?"#4ADE80":s==="running"?"#D4A853":s==="error"?"#F87171":"#666674";
+  const statusIcon  = s => s==="done"?"✅":s==="running"?"⏳":s==="error"?"❌":"⏸";
+
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,20px)"}}>
+
+        {/* ── HEADER ── */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18,flexWrap:"wrap"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,20px)",color:"var(--tx)"}}>🎬 Studio Auto</div>
+          <div style={{fontSize:9,color:"var(--mu)",flex:1}}>Génère des tutos vidéo automatiquement · Surcouche optionnelle : Browser-Use + OBS + IA + Kdenlive</div>
+          {phase !== "intro" && <button onClick={reset} style={{fontSize:9,padding:"4px 10px",border:"1px solid var(--bd)",borderRadius:5,background:"transparent",color:"var(--mu)",cursor:"pointer"}}>↺ Recommencer</button>}
+        </div>
+
+        {/* ── TOOL STATUS BAR ── */}
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          {[
+            {key:"browseruse",label:"Browser-Use",icon:"🌐",port:5679},
+            {key:"obs",       label:"OBS Studio", icon:"🔴",port:5678},
+            {key:"kdenlive",  label:"Kdenlive",   icon:"🎬",port:5678},
+          ].map(t => (
+            <div key={t.key} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+(toolStatus[t.key]?"rgba(74,222,128,.3)":"var(--bd)"),background:toolStatus[t.key]?"rgba(74,222,128,.06)":"var(--s1)",display:"flex",alignItems:"center",gap:5,fontSize:9,color:toolStatus[t.key]?"var(--green)":"var(--mu)"}}>
+              {t.icon} {t.label} <span style={{opacity:.6}}>{toolStatus[t.key]?"● actif":"○ optionnel"}</span>
+            </div>
+          ))}
+          <button onClick={checkTools} style={{fontSize:8,padding:"4px 9px",border:"1px solid var(--bd)",borderRadius:5,background:"transparent",color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>🔄 Vérifier</button>
+        </div>
+
+        {/* ══ PHASE : INTRO ══ */}
+        {phase === "intro" && (
+          <div style={{maxWidth:620}}>
+            <div style={{padding:"16px 18px",background:"rgba(212,168,83,.05)",border:"1px solid rgba(212,168,83,.2)",borderRadius:10,marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:12,color:"var(--ac)",marginBottom:6}}>Comment ça marche</div>
+              <div style={{fontSize:10,color:"var(--mu)",lineHeight:1.8}}>
+                1️⃣ Tu décris ton tuto · 2️⃣ L'IA pose des questions · 3️⃣ Tu confirmes · 4️⃣ Le pipeline génère tout automatiquement<br/>
+                <span style={{fontSize:9,opacity:.7}}>Browser-Use, OBS et Kdenlive sont optionnels — si absents, le script et la narration sont quand même générés.</span>
+              </div>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10,color:"var(--mu)",fontWeight:700,marginBottom:6,fontFamily:"var(--font-mono)"}}>SUJET DU TUTO</div>
+              <textarea
+                value={subject}
+                onChange={e=>setSubject(e.target.value)}
+                placeholder="Ex : Comment utiliser le Smart Router de Multi-IA Hub pour analyser un PDF automatiquement"
+                style={{width:"100%",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",fontFamily:"var(--font-ui)",resize:"vertical",minHeight:80,outline:"none"}}
+              />
+            </div>
+            <button
+              onClick={startQuestionsPhase}
+              disabled={!subject.trim() || !firstIA}
+              style={{padding:"10px 24px",background:"linear-gradient(135deg,var(--ac),var(--ac2))",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer",opacity:(!subject.trim()||!firstIA)?.5:1}}>
+              ▶ L'IA pose ses questions →
+            </button>
+            {!firstIA && <div style={{marginTop:8,fontSize:9,color:"var(--red)"}}>Active au moins une IA dans l'onglet Config</div>}
+          </div>
+        )}
+
+        {/* ══ PHASE : QUESTIONS IA ══ */}
+        {phase === "questions" && (
+          <div style={{maxWidth:620}}>
+            <div style={{marginBottom:16,padding:"10px 14px",background:"rgba(96,165,250,.06)",border:"1px solid rgba(96,165,250,.2)",borderRadius:8,fontSize:10,color:"var(--blue)"}}>
+              💬 L'IA a besoin de quelques précisions pour créer le meilleur tuto possible sur : <strong>"{subject}"</strong>
+            </div>
+            {aiQuestions.length === 0 ? (
+              <div style={{fontSize:11,color:"var(--mu)"}}>⏳ L'IA génère ses questions…</div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {aiQuestions.map((q,i) => (
+                  <div key={i}>
+                    <div style={{fontSize:10,color:"var(--tx)",fontWeight:700,marginBottom:5}}>{i+1}. {q}</div>
+                    <input
+                      value={aiAnswers[q]||""}
+                      onChange={e=>setAiAnswers(prev=>({...prev,[q]:e.target.value}))}
+                      placeholder="Ta réponse…"
+                      style={{width:"100%",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",outline:"none"}}
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={confirmAndStart}
+                  style={{marginTop:8,padding:"10px 24px",background:"linear-gradient(135deg,#60A5FA,#93C5FD)",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer",alignSelf:"flex-start"}}>
+                  ✅ Confirmer et lancer le pipeline →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ PHASE : CONFIRMATION ══ */}
+        {phase === "confirm" && (
+          <div style={{maxWidth:620}}>
+            <div style={{marginBottom:16,padding:"14px 16px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10}}>
+              <div style={{fontWeight:700,fontSize:12,color:"var(--tx)",marginBottom:10}}>📋 Récapitulatif du tuto</div>
+              <div style={{fontSize:10,color:"var(--mu)",marginBottom:5}}><strong style={{color:"var(--tx)"}}>Sujet :</strong> {subject}</div>
+              {aiQuestions.map((q,i) => aiAnswers[q] && (
+                <div key={i} style={{fontSize:10,color:"var(--mu)",marginBottom:3}}>
+                  <strong style={{color:"var(--tx)"}}>{q} :</strong> {aiAnswers[q]}
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:14,fontSize:10,color:"var(--mu)"}}>
+              <strong style={{color:"var(--tx)"}}>Outils disponibles :</strong>
+              {[["Browser-Use","browseruse","🌐"],["OBS","obs","🔴"],["Kdenlive","kdenlive","🎬"]].map(([label,key,icon])=>(
+                <span key={key} style={{marginLeft:8,padding:"2px 7px",borderRadius:4,background:toolStatus[key]?"rgba(74,222,128,.1)":"rgba(255,255,255,.05)",border:"1px solid "+(toolStatus[key]?"rgba(74,222,128,.3)":"var(--bd)"),color:toolStatus[key]?"var(--green)":"var(--mu)"}}>
+                  {icon} {label} {toolStatus[key]?"✓":"(ignoré)"}
+                </span>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={runPipeline} style={{padding:"10px 24px",background:"linear-gradient(135deg,#4ADE80,#22C55E)",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                🚀 Lancer la génération automatique
+              </button>
+              <button onClick={()=>setPhase("questions")} style={{padding:"10px 16px",background:"transparent",border:"1px solid var(--bd)",borderRadius:8,color:"var(--mu)",fontSize:11,cursor:"pointer"}}>
+                ← Modifier
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PHASE : RUNNING + DONE ══ */}
+        {(phase === "running" || phase === "done") && (
+          <div style={{maxWidth:680}}>
+            {/* Pipeline steps */}
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--mu)",fontFamily:"var(--font-mono)",marginBottom:10,letterSpacing:1}}>PIPELINE EN COURS</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {STUDIO_PIPELINE_STEPS.map(step => {
+                  const entry = pipelineLog.find(l=>l.step===step.id);
+                  const status = entry?.status || "pending";
+                  return (
+                    <div key={step.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,background:"var(--s1)",border:"1px solid "+(status==="done"?"rgba(74,222,128,.25)":status==="running"?"rgba(212,168,83,.25)":status==="error"?"rgba(248,113,113,.2)":status==="skip"?"rgba(255,255,255,.04)":"var(--bd)")}}>
+                      <span style={{fontSize:18}}>{step.icon}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",display:"flex",alignItems:"center",gap:6}}>
+                          {step.label}
+                          {step.optional && <span style={{fontSize:7,padding:"1px 5px",borderRadius:3,background:"rgba(255,255,255,.07)",color:"var(--mu)"}}>optionnel</span>}
+                        </div>
+                        <div style={{fontSize:9,color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{entry?.msg || "En attente…"}</div>
+                      </div>
+                      <span style={{fontSize:16}}>{statusIcon(status)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Script généré */}
+            {script && (
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--ac)",fontFamily:"var(--font-mono)",marginBottom:8,letterSpacing:1}}>📄 SCRIPT GÉNÉRÉ</div>
+                <textarea readOnly value={script}
+                  style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8,color:"var(--tx)",fontSize:9,padding:"10px 12px",fontFamily:"var(--font-mono)",resize:"vertical",minHeight:140,outline:"none"}}/>
+              </div>
+            )}
+
+            {/* Narration générée */}
+            {narration && (
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--purple,#A78BFA)",fontFamily:"var(--font-mono)",marginBottom:8,letterSpacing:1}}>🎙 NARRATION VOIX OFF</div>
+                <textarea readOnly value={narration}
+                  style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(167,139,250,.2)",borderRadius:8,color:"var(--tx)",fontSize:9,padding:"10px 12px",fontFamily:"var(--font-ui)",resize:"vertical",minHeight:120,outline:"none",lineHeight:1.7}}/>
+                <div style={{marginTop:8,display:"flex",gap:8}}>
+                  <button onClick={()=>{navigator.clipboard.writeText(narration);showToast("✓ Narration copiée");}} style={{fontSize:9,padding:"5px 12px",border:"1px solid rgba(167,139,250,.3)",borderRadius:5,background:"rgba(167,139,250,.08)",color:"#A78BFA",cursor:"pointer"}}>📋 Copier la narration</button>
+                  <button onClick={()=>{navigator.clipboard.writeText(script);showToast("✓ Script copié");}} style={{fontSize:9,padding:"5px 12px",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,background:"rgba(212,168,83,.08)",color:"var(--ac)",cursor:"pointer"}}>📋 Copier le script</button>
+                </div>
+              </div>
+            )}
+
+            {phase === "done" && (
+              <div style={{padding:"12px 16px",background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.2)",borderRadius:8,display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:24}}>🎉</span>
+                <div>
+                  <div style={{fontWeight:700,fontSize:12,color:"var(--green)",marginBottom:3}}>Pipeline terminé !</div>
+                  <div style={{fontSize:9,color:"var(--mu)"}}>Script et narration prêts. {!toolStatus.obs && "Enregistre manuellement ton écran avec OBS ou Loom."} {!toolStatus.kdenlive && "Monte la vidéo avec Kdenlive ou CapCut."}</div>
+                </div>
+                <button onClick={reset} style={{marginLeft:"auto",fontSize:9,padding:"6px 14px",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,background:"rgba(74,222,128,.1)",color:"var(--green)",cursor:"pointer",fontWeight:700}}>+ Nouveau tuto</button>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
-  const TAB_ORDER = ["aide","router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
+  const TAB_ORDER = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
   const navigateTab = (newTab) => {
     const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
     const newIdx = TAB_ORDER.indexOf(newTab);
@@ -3695,7 +4072,7 @@ function App() {
     // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    const VALID_TABS = ["aide","router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
+    const VALID_TABS = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
     return VALID_TABS.includes(t) ? t : "chat";
   });
   const [mobileCol, setMobileCol] = useState("groq");
@@ -5919,6 +6296,7 @@ async function checkCliBridge() {
           <div className="nav-tabs">
             {[
               ["aide","❓ Aide"],
+              ["studio","🎬 Studio Auto"],
               ["router","🧭 Router"],
               ["chat","◈ Chat"],
               ["prompts","📋 Prompts"],
@@ -6651,6 +7029,29 @@ async function checkCliBridge() {
                 {name:"🖥 CLI · Batch images", nodes:[
                   {id:"t1",label:"Instructions de traitement",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère des instructions précises de traitement d'images pour : {INPUT}. Ex: resize, watermark, format.",name:"instructions",usePrevOutput:false,parallel_ias:[]},
                   {id:"t2",label:"🎨 GIMP → traitement batch",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"batch",usePrevOutput:true,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp batch resize --width 1920 --height 1080 --input ./images/ --output ./images_resized/",cliDescription:"GIMP redimensionne toutes les images du dossier"},
+                ]},
+                {name:"🖥 CLI · Draw.io Architecture", nodes:[
+                  {id:"t1",label:"Analyser & décrire",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Analyse et décris l'architecture système de : {INPUT}. Liste tous les composants, leurs connexions et flux de données.",name:"analyse",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Générer le XML Draw.io",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un diagramme Draw.io en XML pour cette architecture :\\n{analyse}\\nFormat : XML valide Draw.io avec tous les noeuds et connexions.",name:"xml",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"🗺 Draw.io → .drawio",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"diagram",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio diagram create --input-xml ./diagram.xml --output ./architecture.drawio",cliDescription:"Draw.io génère le diagramme d'architecture"},
+                ]},
+                {name:"🖥 CLI · Draw.io Flowchart", nodes:[
+                  {id:"t1",label:"Décrire le processus",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris étape par étape le processus de : {INPUT}. Identifie les décisions, les boucles et les points de sortie.",name:"process",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Générer XML flowchart",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un flowchart Draw.io en XML pour ce processus :\\n{process}",name:"xml",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"🔀 Draw.io → flowchart",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"flow",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio diagram create --type flowchart --output ./flowchart.drawio",cliDescription:"Draw.io génère le flowchart exportable"},
+                ]},
+                {name:"🖥 CLI · Draw.io Mind Map", nodes:[
+                  {id:"t1",label:"Structurer les idées",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Crée une structure de mind map complète sur : {INPUT}. Catégories principales, sous-catégories, détails.",name:"structure",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🧠 Draw.io → mind map",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"mindmap",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio diagram create --type mindmap --output ./mindmap.drawio",cliDescription:"Draw.io génère le mind map"},
+                ]},
+                {name:"🖥 CLI · Draw.io Organigramme", nodes:[
+                  {id:"t1",label:"Décrire la structure",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris la structure organisationnelle de : {INPUT}. Hiérarchie, rôles, responsabilités.",name:"structure",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🏢 Draw.io → organigramme",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"org",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio diagram create --type org-chart --output ./organigramme.drawio",cliDescription:"Draw.io génère l'organigramme"},
+                ]},
+                {name:"🖥 CLI · Draw.io → PNG/SVG", nodes:[
+                  {id:"t1",label:"Créer le contenu",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un schéma visuel clair pour : {INPUT}. Décris les éléments et leur disposition.",name:"contenu",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"📊 Draw.io → export PNG",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"export",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio export --format png --width 1920 --output ./diagram.png",cliDescription:"Draw.io exporte en PNG haute résolution"},
+                  {id:"t3",label:"📐 Draw.io → export SVG",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"svg",usePrevOutput:false,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio export --format svg --output ./diagram.svg",cliDescription:"Draw.io exporte en SVG vectoriel"},
                 ]},
                 {name:"🖥 CLI · Doc automatique", nodes:[
                   {id:"t1",label:"Analyser le code",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Analyse ce code et génère une documentation technique complète avec description, paramètres, exemples :\\n{INPUT}",name:"doc",usePrevOutput:false,parallel_ias:[]},
@@ -7721,6 +8122,19 @@ async function checkCliBridge() {
         {/* ══ AIDE TAB ══ */}
         {tab === "aide" && (
           <AideTab navigateTab={navigateTab}/>
+        )}
+
+
+        {/* ══ STUDIO AUTO TAB ══ */}
+        {tab === "studio" && (
+          <StudioTab
+            apiKeys={apiKeys}
+            enabled={enabled}
+            MODEL_DEFS={MODEL_DEFS}
+            callModel={callModel}
+            buildSystem={buildSystem}
+            showToast={showToast}
+          />
         )}
 
         {/* ══ SMART ROUTER TAB ══ */}
