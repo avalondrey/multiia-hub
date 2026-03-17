@@ -3947,7 +3947,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
         </div>
 
         {/* ── TOOL STATUS BAR ── */}
-        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
           {[
             {key:"browseruse",label:"Browser-Use",icon:"🌐",port:5679},
             {key:"obs",       label:"OBS Studio", icon:"🔴",port:5678},
@@ -3961,7 +3961,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
         </div>
 
         {/* ══ GUIDE D'INSTALLATION ══ */}
-        <details style={{marginBottom:16}}>
+        <details style={{marginBottom:8}}>
           <summary style={{cursor:"pointer",fontSize:10,color:"var(--mu)",fontWeight:700,letterSpacing:.5,fontFamily:"var(--font-mono)",padding:"8px 12px",background:"var(--s1)",borderRadius:7,border:"1px solid var(--bd)",listStyle:"none",display:"flex",alignItems:"center",gap:7}}>
             <span>⚙️</span> Comment installer les outils optionnels ? <span style={{marginLeft:"auto",opacity:.5}}>▼</span>
           </summary>
@@ -4060,20 +4060,19 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
         {/* ══ PHASE : INTRO ══ */}
         {phase === "intro" && (
           <div style={{maxWidth:620}}>
-            <div style={{padding:"16px 18px",background:"rgba(212,168,83,.05)",border:"1px solid rgba(212,168,83,.2)",borderRadius:10,marginBottom:16}}>
-              <div style={{fontWeight:700,fontSize:12,color:"var(--ac)",marginBottom:6}}>Comment ça marche</div>
-              <div style={{fontSize:10,color:"var(--mu)",lineHeight:1.8}}>
-                1️⃣ Tu décris ton tuto · 2️⃣ L'IA pose des questions · 3️⃣ Tu confirmes · 4️⃣ Le pipeline génère tout automatiquement<br/>
-                <span style={{fontSize:9,opacity:.7}}>Browser-Use, OBS et Kdenlive sont optionnels — si absents, le script et la narration sont quand même générés.</span>
-              </div>
+            {/* Explication compacte */}
+            <div style={{padding:"10px 14px",background:"rgba(212,168,83,.05)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8,marginBottom:12,fontSize:10,color:"var(--mu)",lineHeight:1.7}}>
+              <strong style={{color:"var(--ac)"}}>Comment ça marche : </strong>
+              1️⃣ Tu décris le sujet · 2️⃣ L'IA pose ses questions · 3️⃣ Tu confirmes · 4️⃣ Pipeline automatique
             </div>
+            {/* Sujet + bouton côte à côte */}
             <div style={{marginBottom:12}}>
               <div style={{fontSize:10,color:"var(--mu)",fontWeight:700,marginBottom:6,fontFamily:"var(--font-mono)"}}>SUJET DU TUTO</div>
               <textarea
                 value={subject}
                 onChange={e=>setSubject(e.target.value)}
                 placeholder="Ex : Comment utiliser le Smart Router de Multi-IA Hub pour analyser un PDF automatiquement"
-                style={{width:"100%",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",fontFamily:"var(--font-ui)",resize:"vertical",minHeight:80,outline:"none"}}
+                style={{width:"100%",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",fontFamily:"var(--font-ui)",resize:"vertical",minHeight:60,outline:"none"}}
               />
             </div>
             <button
