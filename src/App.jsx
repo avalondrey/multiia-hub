@@ -3866,13 +3866,13 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
     if(tools.obs) {
       log("record","running","OBS démarre l'enregistrement…");
       try {
-        const r = await fetch("http://localhost:5678/execute", {
+        const r = await fetch("http://localhost:5678/obs/record/start", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ command:"cli-anything-obs-studio output start-recording", software:"obs-studio" }),
+          body: JSON.stringify({}),
           signal: AbortSignal.timeout(10000)
         });
-        if(r.ok) { log("record","done","✅ OBS enregistre"); await new Promise(res=>setTimeout(res, 3000)); }
-        else log("record","skip","⚠️ OBS erreur — ignoré");
+        if(r.ok) { log("record","done","✅ OBS enregistre via WebSocket"); await new Promise(res=>setTimeout(res, 3000)); }
+        else log("record","skip","⚠️ OBS WebSocket non dispo — active-le dans OBS : Outils → WebSocket Server → port 4455");
       } catch { log("record","skip","ℹ️ OBS non disponible — ignoré"); }
     } else {
       log("record","skip","ℹ️ OBS non installé — étape ignorée");
@@ -3907,9 +3907,9 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
     // ÉTAPE 6 — Arrêt OBS
     if(tools.obs) {
       try {
-        await fetch("http://localhost:5678/execute", {
+        await fetch("http://localhost:5678/obs/record/stop", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ command:"cli-anything-obs-studio output stop-recording", software:"obs-studio" }),
+          body: JSON.stringify({}),
           signal: AbortSignal.timeout(10000)
         });
         log("export","done","✅ OBS a arrêté l'enregistrement");
@@ -3984,7 +3984,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
                 <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
               </div>
               <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                OBS Studio est un logiciel gratuit qui enregistre ton écran. Quand Studio Auto génère un tuto, OBS filme automatiquement ce qui se passe à l'écran — exactement comme si tu enregistrais toi-même, mais en automatique. C'est le même logiciel que les streamers utilisent sur Twitch.
+                OBS Studio est un logiciel gratuit (le même que les streamers Twitch). Il enregistre ton écran automatiquement via son API WebSocket intégrée — pas besoin de cliquer 'Enregistrer' toi-même. Studio Auto lui envoie le signal de démarrer et d'arrêter.
               </div>
               <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
                 <div style={{color:"var(--mu)"}}>// PowerShell — 100% gratuit, pas besoin de Claude Code</div>
