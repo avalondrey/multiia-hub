@@ -3972,29 +3972,34 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
 
         {/* ══ PHASE : INTRO ══ */}
         {phase === "intro" && (
-          <div style={{maxWidth:620}}>
-            {/* Explication compacte */}
-            <div style={{padding:"10px 14px",background:"rgba(212,168,83,.05)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8,marginBottom:12,fontSize:10,color:"var(--mu)",lineHeight:1.7}}>
-              <strong style={{color:"var(--ac)"}}>Comment ça marche : </strong>
-              1️⃣ Tu décris le sujet · 2️⃣ L'IA pose ses questions · 3️⃣ Tu confirmes · 4️⃣ Pipeline automatique
+          <div style={{display:"flex",flexDirection:"column",height:"100%"}}>
+            {/* Explication */}
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <div style={{maxWidth:500,textAlign:"center",padding:"0 20px"}}>
+                <div style={{fontSize:32,marginBottom:12}}>🎬</div>
+                <div style={{fontWeight:800,fontSize:16,color:"var(--tx)",marginBottom:8}}>Crée un tuto vidéo automatiquement</div>
+                <div style={{fontSize:10,color:"var(--mu)",lineHeight:1.8}}>
+                  L'IA pose des questions · tu confirmes · le pipeline génère le script, la narration, et filme avec OBS
+                </div>
+                {!firstIA && <div style={{marginTop:10,fontSize:9,color:"var(--red)"}}>⚠️ Active au moins une IA dans l'onglet Config</div>}
+              </div>
             </div>
-            {/* Sujet + bouton côte à côte */}
-            <div style={{marginBottom:12}}>
-              <div style={{fontSize:10,color:"var(--mu)",fontWeight:700,marginBottom:6,fontFamily:"var(--font-mono)"}}>SUJET DU TUTO</div>
-              <textarea
-                value={subject}
-                onChange={e=>setSubject(e.target.value)}
-                placeholder="Ex : Comment utiliser le Smart Router de Multi-IA Hub pour analyser un PDF automatiquement"
-                style={{width:"100%",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",fontFamily:"var(--font-ui)",resize:"vertical",minHeight:60,outline:"none"}}
-              />
+            {/* Barre de saisie style Chat */}
+            <div style={{flexShrink:0,borderTop:"1px solid var(--bd)",padding:"10px 14px",background:"var(--s1)"}}>
+              <div style={{fontSize:9,color:"var(--mu)",marginBottom:6,fontFamily:"var(--font-mono)"}}>SUJET DU TUTO</div>
+              <div className="ir">
+                <div className="ta-wrap">
+                  <textarea rows={2} value={subject} onChange={e=>setSubject(e.target.value)}
+                    placeholder="Ex : Comment utiliser le Smart Router de Multi-IA Hub…"
+                    onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();startQuestionsPhase();}}}
+                    style={{fontSize:12,resize:"none"}}
+                  />
+                </div>
+                <button className="sbtn" onClick={startQuestionsPhase}
+                  disabled={!subject.trim()||!firstIA}
+                  title="L'IA pose ses questions">↑</button>
+              </div>
             </div>
-            <button
-              onClick={startQuestionsPhase}
-              disabled={!subject.trim() || !firstIA}
-              style={{padding:"10px 24px",background:"linear-gradient(135deg,var(--ac),var(--ac2))",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer",opacity:(!subject.trim()||!firstIA)?0.5:1}}>
-              ▶ L'IA pose ses questions →
-            </button>
-            {!firstIA && <div style={{marginTop:8,fontSize:9,color:"var(--red)"}}>Active au moins une IA dans l'onglet Config</div>}
           </div>
         )}
 
