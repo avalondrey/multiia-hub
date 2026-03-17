@@ -3818,7 +3818,11 @@ Exemple : ["Quel est le niveau de l'audience ?","Quelle durée idéale ?","URL o
       finalQuestions.forEach(q => { initAnswers[q] = ""; });
       setAiAnswers(initAnswers);
     } catch(e) {
-      setAiQuestions(STUDIO_QUESTIONS.map(q => q.label));
+      const fallback = STUDIO_QUESTIONS.map(q => q.label);
+      setAiQuestions(fallback);
+      const initAnswers = {};
+      fallback.forEach(q => { initAnswers[q] = ""; });
+      setAiAnswers(initAnswers);
     }
   };
 
@@ -3910,7 +3914,7 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
       try {
         const r = await fetch("http://localhost:5678/execute", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ command:"cli-anything-kdenlive project new --width 1920 --height 1080 --fps 25 --output ./tuto_output.kdenlive", software:"kdenlive" }),
+          body: JSON.stringify({ command:"cli-anything-kdenlive project new --name tuto_output --output ./tuto_output.kdenlive", software:"kdenlive" }),
           signal: AbortSignal.timeout(30000)
         });
         if(r.ok) log("assemble","done","✅ Projet Kdenlive créé");
