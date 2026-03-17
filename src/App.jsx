@@ -3937,125 +3937,38 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
 
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-      <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,20px)"}}>
 
-        {/* ── HEADER ── */}
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18,flexWrap:"wrap"}}>
-          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,20px)",color:"var(--tx)"}}>🎬 Studio Auto</div>
+      {/* ── HEADER FIXE ── */}
+      <div style={{flexShrink:0,padding:"10px clamp(10px,2vw,20px) 0",borderBottom:"1px solid var(--bd)",background:"var(--bg)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8,flexWrap:"wrap"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--tx)"}}>🎬 Studio Auto</div>
           <div style={{fontSize:9,color:"var(--mu)",flex:1}}>Génère des tutos vidéo automatiquement · Surcouche optionnelle : Browser-Use + OBS + IA + Kdenlive</div>
           {phase !== "intro" && <button onClick={reset} style={{fontSize:9,padding:"4px 10px",border:"1px solid var(--bd)",borderRadius:5,background:"transparent",color:"var(--mu)",cursor:"pointer"}}>↺ Recommencer</button>}
         </div>
 
-        {/* ── TOOL STATUS BAR ── */}
-        <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+        {/* Barre outils compacte */}
+        <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
           {[
-            {key:"browseruse",label:"Browser-Use",icon:"🌐",port:5679},
-            {key:"obs",       label:"OBS Studio", icon:"🔴",port:5678},
-            {key:"kdenlive",  label:"Kdenlive",   icon:"🎬",port:5678},
+            {key:"browseruse",label:"Browser-Use",icon:"🌐"},
+            {key:"obs",       label:"OBS Studio", icon:"🔴"},
+            {key:"kdenlive",  label:"Kdenlive",   icon:"🎬"},
           ].map(t => (
-            <div key={t.key} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+(toolStatus[t.key]?"rgba(74,222,128,.3)":"var(--bd)"),background:toolStatus[t.key]?"rgba(74,222,128,.06)":"var(--s1)",display:"flex",alignItems:"center",gap:5,fontSize:9,color:toolStatus[t.key]?"var(--green)":"var(--mu)"}}>
-              {t.icon} {t.label} <span style={{opacity:.6}}>{toolStatus[t.key]?"● actif":"○ optionnel"}</span>
+            <div key={t.key} style={{padding:"3px 9px",borderRadius:5,border:"1px solid "+(toolStatus[t.key]?"rgba(74,222,128,.3)":"var(--bd)"),background:toolStatus[t.key]?"rgba(74,222,128,.06)":"var(--s1)",display:"flex",alignItems:"center",gap:5,fontSize:8,color:toolStatus[t.key]?"var(--green)":"var(--mu)"}}>
+              {t.icon} {t.label} <span style={{opacity:.6}}>{toolStatus[t.key]?"● actif":"○ opt."}</span>
             </div>
           ))}
-          <button onClick={checkTools} style={{fontSize:8,padding:"4px 9px",border:"1px solid var(--bd)",borderRadius:5,background:"transparent",color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>🔄 Vérifier</button>
+          <button onClick={checkTools} style={{fontSize:8,padding:"3px 8px",border:"1px solid var(--bd)",borderRadius:4,background:"transparent",color:"var(--mu)",cursor:"pointer"}}>🔄</button>
         </div>
+      </div>
+
+      {/* ── CONTENU SCROLLABLE ── */}
+      <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,20px)"}}>
+
 
         {/* ══ GUIDE D'INSTALLATION ══ */}
-        <details style={{marginBottom:8}}>
-          <summary style={{cursor:"pointer",fontSize:10,color:"var(--mu)",fontWeight:700,letterSpacing:.5,fontFamily:"var(--font-mono)",padding:"8px 12px",background:"var(--s1)",borderRadius:7,border:"1px solid var(--bd)",listStyle:"none",display:"flex",alignItems:"center",gap:7}}>
-            <span>⚙️</span> Comment installer les outils optionnels ? <span style={{marginLeft:"auto",opacity:.5}}>▼</span>
-          </summary>
-          <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:10}}>
-
-            {/* CLI-Anything relay */}
-            <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
-                <span style={{fontSize:14}}>🔌</span>
-                <div style={{fontWeight:700,fontSize:11,color:"var(--ac)"}}>Étape 1 — Relay CLI-Anything</div>
-                <span style={{fontSize:8,padding:"1px 6px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:3,color:"var(--green)"}}>requis pour OBS + Kdenlive</span>
-              </div>
-              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                Le relay est un petit programme Python — pense à lui comme un "traducteur" entre Multi-IA Hub et tes logiciels. Tu le lances une seule fois dans un terminal, et il reste actif en arrière-plan. Tu n'as pas besoin de comprendre comment il fonctionne, il suffit de le lancer.
-              </div>
-              <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
-                <div style={{color:"var(--mu)"}}># 1. Télécharge le relay (onglet ❓ Aide → fichiers)</div>
-                <div>python cli_relay.py</div>
-                <div style={{color:"var(--mu)"}}># Le relay démarre sur http://localhost:5678</div>
-              </div>
-            </div>
-
-            {/* OBS Studio */}
-            <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(248,113,113,.15)",borderRadius:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
-                <span style={{fontSize:14}}>🔴</span>
-                <div style={{fontWeight:700,fontSize:11,color:"#F87171"}}>Étape 2 — OBS Studio</div>
-                <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
-              </div>
-              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                OBS Studio est un logiciel gratuit (le même que les streamers Twitch). Il enregistre ton écran automatiquement via son API WebSocket intégrée — pas besoin de cliquer 'Enregistrer' toi-même. Studio Auto lui envoie le signal de démarrer et d'arrêter.
-              </div>
-              <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
-                <div style={{color:"var(--mu)"}}>// PowerShell — 100% gratuit, pas besoin de Claude Code</div>
-                <div style={{color:"var(--mu)"}}>// Étape 1 : Installe OBS si pas déjà fait</div>
-                <div>winget install OBSProject.OBSStudio</div>
-                <div style={{color:"var(--mu)"}}>// Étape 2 : Clone le pilote pré-construit (gratuit)</div>
-                <div>git clone https://github.com/HKUDS/CLI-Anything.git</div>
-                <div>cd CLI-Anything\obs\agent-harness</div>
-                <div>pip install -e .</div>
-              </div>
-            </div>
-
-            {/* Browser-Use */}
-            <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(74,222,128,.15)",borderRadius:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
-                <span style={{fontSize:14}}>🌐</span>
-                <div style={{fontWeight:700,fontSize:11,color:"var(--green)"}}>Étape 3 — Browser-Use</div>
-                <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
-              </div>
-              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                Browser-Use est un agent IA open source qui contrôle le navigateur à ta place. Il ouvre l'URL que tu as indiquée, clique sur les boutons, navigue dans les menus — pendant qu'OBS filme tout ça. C'est lui qui "joue" le rôle du démonstrateur dans la vidéo.
-              </div>
-              <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
-                <div style={{color:"var(--mu)"}}>// PowerShell — 100% gratuit</div>
-                <div>pip install browser-use playwright</div>
-                <div>playwright install chromium</div>
-                <div style={{color:"var(--mu)"}}>// Lancer le serveur (port 5679)</div>
-                <div>python -m browser_use.server --port 5679</div>
-              </div>
-            </div>
-
-            {/* Kdenlive */}
-            <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(249,115,22,.15)",borderRadius:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
-                <span style={{fontSize:14}}>🎬</span>
-                <div style={{fontWeight:700,fontSize:11,color:"var(--orange)"}}>Étape 4 — Kdenlive</div>
-                <span style={{fontSize:8,padding:"1px 6px",background:"rgba(255,255,255,.05)",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)"}}>optionnel</span>
-              </div>
-              <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,lineHeight:1.7}}>
-                Kdenlive est un logiciel de montage vidéo gratuit (comme iMovie ou DaVinci Resolve). Studio Auto l'utilise pour assembler automatiquement la vidéo filmée par OBS, y ajouter des transitions et préparer le projet pour l'export final. Tu n'as pas besoin de savoir faire du montage vidéo.
-              </div>
-              <div style={{background:"var(--bg)",borderRadius:6,padding:"8px 10px",fontFamily:"var(--font-mono)",fontSize:9,color:"var(--green)",lineHeight:2}}>
-                <div style={{color:"var(--mu)"}}>// PowerShell — 100% gratuit, pas besoin de Claude Code</div>
-                <div style={{color:"var(--mu)"}}>// Étape 1 : Installe Kdenlive si pas déjà fait</div>
-                <div>winget install KDE.Kdenlive</div>
-                <div style={{color:"var(--mu)"}}>// Étape 2 : Clone le pilote pré-construit (gratuit)</div>
-                <div>git clone https://github.com/HKUDS/CLI-Anything.git</div>
-                <div>cd CLI-Anything\kdenlive\agent-harness</div>
-                <div>pip install -e .</div>
-              </div>
-            </div>
-
-            {/* Sans aucun outil */}
-            <div style={{padding:"10px 14px",background:"rgba(96,165,250,.05)",border:"1px solid rgba(96,165,250,.2)",borderRadius:8}}>
-              <div style={{fontSize:10,fontWeight:700,color:"var(--blue)",marginBottom:4}}>💡 Sans aucun outil installé</div>
-              <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.7}}>
-                Studio Auto génère quand même le <strong style={{color:"var(--tx)"}}>script complet</strong> et la <strong style={{color:"var(--tx)"}}>narration voix off</strong>.
-                Tu peux ensuite enregistrer manuellement avec OBS ou Loom, et monter avec Kdenlive, CapCut ou DaVinci Resolve.
-              </div>
-            </div>
-
-          </div>
-        </details>
+        <div style={{marginBottom:10,padding:"6px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,fontSize:9,color:"var(--mu)",display:"flex",alignItems:"center",gap:8}}>
+          💡 Outils non installés ? Consulte l'onglet <strong style={{color:"var(--ac)"}}>❓ Aide</strong> → section "Tunnels CLI-Anything" pour les commandes PowerShell.
+        </div>
 
         {/* ══ PHASE : INTRO ══ */}
         {phase === "intro" && (
