@@ -12,7 +12,7 @@ export const BUILD_DATE = new Date().toISOString().slice(0,10);
 export const MODEL_DEFS = {
   // ── IAs 100% gratuites ────────────────────────────────────────────
   groq:       { name:"Llama 3.3 (Groq)",   short:"Groq",      provider:"Groq / Meta",   color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat", maxTokens:128000, inputLimit:32000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"GRATUIT 14 400/jour",   baseUrl:"https://api.groq.com/openai/v1",              model:"llama-3.3-70b-versatile" },
-  mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  inputLimit:28000, free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
+  mistral:    { name:"Mistral Small 4",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  inputLimit:28000, free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
   cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, inputLimit:60000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
   cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:8192,   inputLimit:6000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide (ctx 8k)", baseUrl:"https://api.cerebras.ai/v1", model:"llama3.1-8b" },
   sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  inputLimit:28000, free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
@@ -222,11 +222,11 @@ export const ARENA_MODELS = [
 ];
 
 export const ARENA_NEWS = [
-  { date:"Juin 2025",  icon:"✦", color:"#D4A853", title:"Claude 4 — Anthropic",          text:"Sonnet 4 + Opus 4. Mémoire longue durée, agents autonomes sur PC, 200k tokens. Opus 4 rivalise avec GPT-o1 sur les tâches complexes.",        tag:"MAJEUR" },
+  { date:"Mai 2025",   icon:"✦", color:"#D4A853", title:"Claude 4 — Anthropic",          text:"Sonnet 4 + Opus 4. Mémoire longue durée, agents autonomes sur PC, 200k tokens. Opus 4 rivalise avec GPT-o1 sur les tâches complexes.",        tag:"MAJEUR" },
   { date:"Avr 2025",  icon:"◉", color:"#5AC87C", title:"GPT-o3 & o4-mini — OpenAI",     text:"o3 établit des records sur ARC-AGI et MATH. o4-mini offre un rapport qualité-prix exceptionnel. Raisonnement profond accessible.",              tag:"MAJEUR" },
   { date:"Mars 2025", icon:"⬡", color:"#A0C8FF", title:"DeepSeek R1 — Open Source",      text:"671B MoE open weights, rivalise avec o1. Coût d'inférence 10x inférieur. Choc dans l'industrie IA mondiale.",                                  tag:"MAJEUR" },
   { date:"Fév 2025",  icon:"◇", color:"#6BA5E0", title:"Gemini 2.0 Flash Ultra — Google",text:"2 millions de tokens, analyse des heures de vidéo. Gemini Live pour conversation temps réel avec partage d'écran.",                            tag:"IMPORTANT" },
-  { date:"Jan 2025",  icon:"▲", color:"#FF8C69", title:"Mistral Agents — Le Chat",       text:"Navigation web, code exécutable, création docs. Mistral Small 3 sous Apache 2.0.",                                                               tag:"NOUVEAU" },
+  { date:"Jan 2025",  icon:"▲", color:"#FF8C69", title:"Mistral Agents — Le Chat",       text:"Navigation web, code exécutable, création docs. Mistral Small 4 sous Apache 2.0.",                                                               tag:"NOUVEAU" },
   { date:"Déc 2024",  icon:"X",  color:"#60C8E0", title:"Grok 3 — xAI",                  text:"Accès temps réel X/Twitter, génération images Aurora, raisonnement profond, API publique ouverte.",                                              tag:"NOUVEAU" },
   { date:"Nov 2024",  icon:"◈", color:"#74C98C", title:"GPT-4o mémoire — OpenAI",        text:"Mémoire persistante cross-conversations, GPTs personnalisés avancés, voix avec expressions émotionnelles.",                                      tag:"UPDATE" },
   { date:"Oct 2024",  icon:"⚡", color:"#F97316", title:"Llama 3.3 70B — Meta",           text:"Perfs proches de Llama 3.1 405B. Meta annonce Llama 4 avec MoE et multimodal natif pour 2025.",                                                tag:"OSS" },
@@ -250,6 +250,111 @@ export const IMAGE_GENERATORS = [
   { id:"firefly",    name:"Adobe Firefly",  provider:"Adobe",            icon:"🔥", color:"#FF6B35", free:true,  freeLabel:"25 générations/mois", license:"Service web",        quality:9,  speed:7,  ease:9,  url:"https://firefly.adobe.com/",                                      urlLabel:"Ouvrir Firefly", desc:"Généré sur images licensiées (droits sûrs). Intégré Photoshop. Generative Fill. Usage commercial sécurisé.",                                     strengths:["Droits sûrs","Intégré Photoshop","Commercial safe","Retouche","Qualité"], limits:"25/mois gratuit, puis Creative Cloud",tags:["Sûr","Commercial","Photoshop","Retouche"] },
 ];
 
+// ── Thèmes Voice (questions/commandes vocales prêtes) ─────────────
+export const VOICE_THEMES = [
+  { id:"meteo",      label:"🌤 Météo & Actus",    icon:"🌤", color:"#60A5FA", question:"Quelles sont les actualités importantes du jour en France ?" },
+  { id:"productif",  label:"⚡ Productivité",      icon:"⚡", color:"#F97316", question:"Donne-moi 3 conseils de productivité pour bien commencer ma journée de travail." },
+  { id:"code",       label:"💻 Code rapide",       icon:"💻", color:"#4ADE80", question:"Explique-moi la différence entre async/await et les Promises en JavaScript en 2 phrases." },
+  { id:"cuisine",    label:"🍳 Idée repas",         icon:"🍳", color:"#FB923C", question:"Propose-moi une idée de repas rapide à préparer en moins de 20 minutes avec des ingrédients courants." },
+  { id:"sport",      label:"💪 Sport & Santé",      icon:"💪", color:"#34D399", question:"Donne-moi une séance de sport de 10 minutes à faire à la maison sans équipement." },
+  { id:"motivation", label:"🌟 Motivation",         icon:"🌟", color:"#FCD34D", question:"Donne-moi une citation inspirante et explique pourquoi elle est importante." },
+  { id:"ia",         label:"🤖 Question IA",        icon:"🤖", color:"#A78BFA", question:"Quelle est la différence entre GPT-4o et Claude Sonnet 4 ? Lequel choisir selon l'usage ?" },
+  { id:"voyage",     label:"✈️ Voyage",             icon:"✈️", color:"#38BDF8", question:"Propose-moi une destination de voyage originale en Europe pour un week-end avec un budget modéré." },
+  { id:"finance",    label:"💰 Finance perso",      icon:"💰", color:"#A3E635", question:"Donne-moi 3 conseils simples pour mieux gérer son budget mensuel." },
+  { id:"langue",     label:"🌍 Apprendre langue",   icon:"🌍", color:"#F472B6", question:"Apprends-moi 5 expressions utiles en espagnol pour voyager, avec la prononciation." },
+];
+
+// ── Thèmes Veille (sujets prédéfinis par domaine) ────────────────
+export const VEILLE_THEMES = [
+  { id:"ia_gen",     label:"🤖 IA Générative",     icon:"🤖", color:"#D4A853", topics:["LLM nouveaux modèles 2026","GPT-5 OpenAI","Claude Anthropic","Gemini Google","Mistral AI"] },
+  { id:"dev",        label:"💻 Dev & Code",         icon:"💻", color:"#4ADE80", topics:["Frameworks JavaScript 2026","Rust popularité","IA coding Cursor Copilot","WebAssembly","Bun Node.js"] },
+  { id:"business",   label:"📈 Business IA",        icon:"📈", color:"#A78BFA", topics:["IA productivité entreprise","automatisation emplois","startup IA financement","ROI intelligence artificielle"] },
+  { id:"securite",   label:"🔒 Cybersécurité",      icon:"🔒", color:"#F87171", topics:["cyberattaques IA 2026","deepfakes détection","sécurité LLM prompt injection","RGPD IA réglementation"] },
+  { id:"recherche",  label:"🔬 Recherche",           icon:"🔬", color:"#38BDF8", topics:["papers IA arXiv","AGI avancées","multimodal vision language models","agents IA autonomes recherche"] },
+  { id:"images",     label:"🎨 IA Images & Vidéo",  icon:"🎨", color:"#EC4899", topics:["FLUX nouvelles versions","Sora concurrents","génération vidéo IA","diffusion models 2026"] },
+  { id:"local",      label:"🖥 IA Locale",           icon:"🖥", color:"#34D399", topics:["Ollama nouvelles versions","LM Studio","modèles open source local","edge AI mobile"] },
+  { id:"ethique",    label:"⚖️ Éthique & Société",  icon:"⚖️", color:"#94A3B8", topics:["régulation IA Europe acte IA","biais algorithmes","transparence IA","impact environnemental LLM"] },
+];
+
+// ── Templates de projets ──────────────────────────────────────────
+export const PROJECT_TEMPLATES = [
+  {
+    id:"webapp",
+    label:"🌐 App Web",
+    icon:"🌐", color:"#4ADE80",
+    name:"Projet App Web",
+    desc:"Développement d'une application web full-stack",
+    context:"Stack technique : React + Node.js + PostgreSQL\nObjectif : Créer une application web responsive\nContraintes : Performance, accessibilité WCAG, RGPD\nEnvironnement : Déploiement sur Vercel / Railway",
+    notes:"## Étapes\n- [ ] Maquettes UI/UX\n- [ ] Architecture base de données\n- [ ] API REST\n- [ ] Frontend React\n- [ ] Tests & déploiement\n\n## Liens utiles\n- Figma : [lien]\n- Repo GitHub : [lien]",
+  },
+  {
+    id:"content",
+    label:"✍️ Création contenu",
+    icon:"✍️", color:"#60A5FA",
+    name:"Stratégie Contenu",
+    desc:"Création et planification de contenu éditorial",
+    context:"Type de contenu : Articles blog, réseaux sociaux, newsletter\nTon : Professionnel mais accessible\nPublic cible : Professionnels 25-45 ans, francophones\nObjectif : Générer du trafic organique et engagement",
+    notes:"## Planning\n- Fréquence : 2 articles/semaine\n- Canaux : Blog, LinkedIn, Twitter\n\n## Idées d'articles\n1. [Titre 1]\n2. [Titre 2]\n3. [Titre 3]",
+  },
+  {
+    id:"analyse",
+    label:"🔍 Analyse & Recherche",
+    icon:"🔍", color:"#A78BFA",
+    name:"Projet Analyse",
+    desc:"Recherche approfondie et analyse de données",
+    context:"Domaine d'analyse : [À définir]\nMéthodologie : Analyse qualitative + quantitative\nSources : Rapports sectoriels, études académiques, données marché\nLivrables attendus : Rapport synthèse + recommandations",
+    notes:"## Questions de recherche\n1. [Question principale]\n2. [Question secondaire]\n\n## Sources identifiées\n- [Source 1]\n- [Source 2]",
+  },
+  {
+    id:"marketing",
+    label:"📣 Campagne Marketing",
+    icon:"📣", color:"#FB923C",
+    name:"Campagne Marketing",
+    desc:"Planification et exécution d'une campagne marketing",
+    context:"Produit/Service : [À définir]\nBudget total : [À définir]\nDurée campagne : [À définir]\nKPIs : Taux de conversion, CPL, ROAS\nCanaux : Google Ads, Meta, Email, SEO",
+    notes:"## Phases\n1. Définition personas\n2. Création assets visuels\n3. Rédaction copies\n4. Lancement & suivi\n5. Optimisation\n\n## Messages clés\n- [Message 1]\n- [Message 2]",
+  },
+  {
+    id:"formation",
+    label:"🎓 Formation / e-Learning",
+    icon:"🎓", color:"#FCD34D",
+    name:"Projet Formation",
+    desc:"Conception d'un programme de formation ou cours en ligne",
+    context:"Thème de la formation : [À définir]\nNiveau : Débutant / Intermédiaire / Avancé\nFormat : Vidéos + exercices + quiz\nDurée estimée : [X] heures de contenu\nPlateforme : Teachable / Udemy / Moodle",
+    notes:"## Modules\n1. Introduction\n2. Module 1 : [Titre]\n3. Module 2 : [Titre]\n4. Évaluation finale\n\n## Objectifs pédagogiques\n- À l'issue de cette formation, l'apprenant sera capable de…",
+  },
+  {
+    id:"startup",
+    label:"🚀 Startup / Produit",
+    icon:"🚀", color:"#F472B6",
+    name:"Projet Startup",
+    desc:"Développement d'une idée de produit ou startup",
+    context:"Idée produit : [À définir]\nProblème résolu : [À définir]\nCible : [Segment de marché]\nModèle économique : SaaS / Marketplace / B2B / B2C\nStade : Idée / MVP / Traction / Scale",
+    notes:"## Lean Canvas\n- Problème : \n- Solution : \n- Proposition de valeur : \n- Avantage compétitif : \n- Revenus : \n\n## Prochaines étapes\n- [ ] Validation problem/solution fit\n- [ ] Interviews utilisateurs\n- [ ] MVP",
+  },
+];
+
+// ── Nouveaux prompts additionnels (enrichissement DEFAULT_PROMPTS) ─
+export const EXTRA_PROMPTS = [
+  // ── Productivité ──
+  { id:"ep1",  cat:"Productivité", icon:"📅", title:"Plan de journée", text:"Organise ma journée de travail de manière optimale.\n\nTâches à accomplir :\n[LISTE TES TÂCHES]\n\nContraintes :\n- Heures de travail : [HORAIRES]\n- Réunions fixes : [RÉUNIONS]\n- Niveau d'énergie optimal : [MATIN / APRÈS-MIDI]\n\nPropose un planning heure par heure avec les pauses." },
+  { id:"ep2",  cat:"Productivité", icon:"🎯", title:"Méthode OKR", text:"Aide-moi à définir mes OKRs (Objectives & Key Results) pour ce trimestre.\n\nContexte / rôle : [TON POSTE / PROJET]\nObjectif principal : [CE QUE TU VEUX ATTEINDRE]\nPériode : [TRIMESTRE / ANNÉE]\n\nPropose 1-3 Objectives avec 3-4 Key Results chacun, mesurables et ambitieux." },
+  { id:"ep3",  cat:"Productivité", icon:"⚡", title:"Synthèse réunion", text:"Rédige le compte-rendu de cette réunion.\n\nParticipants : [QUI]\nDate : [DATE]\nSujet : [SUJET]\n\nNotes brutes :\n[COLLE TES NOTES]\n\nFormat attendu : Décisions prises / Actions / Responsables / Délais" },
+  // ── IA & Prompts ──
+  { id:"ep4",  cat:"IA & Prompts", icon:"🧠", title:"Optimiser un prompt", text:"Améliore ce prompt pour obtenir des résultats plus précis et cohérents d'une IA :\n\n[TON PROMPT]\n\nObjectif visé : [CE QUE TU VEUX OBTENIR]\nPropose 3 versions améliorées du prompt avec des explications." },
+  { id:"ep5",  cat:"IA & Prompts", icon:"🔗", title:"Prompt chaîné", text:"Crée un workflow de prompts en chaîne pour accomplir cette tâche complexe :\n\nTâche finale : [OBJECTIF]\n\nDécompose en 4-6 étapes où la sortie de chaque prompt est l'entrée du suivant. Fournis le prompt complet pour chaque étape." },
+  { id:"ep6",  cat:"IA & Prompts", icon:"🎭", title:"Créer un persona IA", text:"Crée un persona IA ultra-spécialisé pour ce rôle :\n\nRôle : [EX: Coach financier personnel]\nExpertise : [DOMAINES]\nTon : [STYLE DE COMMUNICATION]\nContraintes : [CE QUE LE PERSONA NE DOIT PAS FAIRE]\n\nRédige le system prompt complet (150-200 mots)." },
+  // ── Juridique & Admin ──
+  { id:"ep7",  cat:"Juridique", icon:"📜", title:"Résumer un contrat", text:"Résume ce contrat / document juridique en termes simples.\n\n[COLLE LE TEXTE DU CONTRAT]\n\nIdentifie :\n1. Les obligations principales de chaque partie\n2. Les clauses importantes à noter\n3. Les points potentiellement problématiques\n4. Ce qu'il faut vérifier avant de signer\n\n⚠️ Rappelle que tu n'es pas avocat et qu'un professionnel doit valider." },
+  { id:"ep8",  cat:"Juridique", icon:"⚖️", title:"Lettre de mise en demeure", text:"Rédige une lettre de mise en demeure professionnelle.\n\nExpéditeur : [MOI / MON ENTREPRISE]\nDestinataire : [QUI]\nMotif : [LE PROBLÈME]\nMontant ou obligation en jeu : [DÉTAILS]\nDélai accordé : [DÉLAI]\n\nTon : Ferme, juridiquement correct, non agressif." },
+  // ── Personnel & Bien-être ──
+  { id:"ep9",  cat:"Personnel", icon:"🌱", title:"Plan de développement", text:"Crée un plan de développement personnel sur 90 jours.\n\nObjectif principal : [CE QUE TU VEUX AMÉLIORER]\nSituation actuelle : [OÙ TU EN ES]\nRessources disponibles : [TEMPS / BUDGET / OUTILS]\n\nPropose des actions hebdomadaires concrètes, des métriques de suivi et des jalons." },
+  { id:"ep10", cat:"Personnel", icon:"💬", title:"Préparer une conversation difficile", text:"Aide-moi à préparer cette conversation difficile.\n\nContexte : [AVEC QUI / POURQUOI C'EST DIFFICILE]\nCe que je veux obtenir : [OBJECTIF]\nCe que je crains : [RÉACTION POSSIBLE]\n\nPropose une structure de conversation, les phrases d'ouverture, comment gérer les objections et comment conclure positivement." },
+  // ── Technique / Système ──
+  { id:"ep11", cat:"Technique", icon:"🔌", title:"Architecture système", text:"Propose une architecture technique pour ce système :\n\nDescription : [CE QUE LE SYSTÈME DOIT FAIRE]\nContraintes : [SCALE / BUDGET / TECHNOLOGIES IMPOSÉES]\nUtilisateurs attendus : [NOMBRE]\nDisponibilité requise : [99.9% / 99.99%]\n\nDétaille : composants, interactions, choix technologiques justifiés, points de défaillance." },
+  { id:"ep12", cat:"Technique", icon:"🐳", title:"Dockerfile optimisé", text:"Génère un Dockerfile optimisé pour cette application :\n\nTechnologie : [LANGAGE / FRAMEWORK]\nVersion : [VERSION]\nDépendances spéciales : [SI BESOIN]\nEnvironnement cible : [PROD / DEV]\n\nOptimise pour : taille d'image minimale, cache des layers, sécurité (non-root user)." },
+];
+
 // ╔══════════════════════════════════════════════════════════════╝
 export const IDS = Object.keys(MODEL_DEFS);
 export const RATE_LIMIT_COOLDOWN = 60;
@@ -258,13 +363,13 @@ export const CREDIT_COOLDOWN = 300;
 // ── Prix API ($ / 1M tokens input·output) ────────────────────────
 export const PRICING = {
   groq:       { in:0.00, out:0.00, label:"Llama 3.3 (Groq) — GRATUIT" },
-  mistral:    { in:0.00, out:0.00, label:"Mistral Small 3 — GRATUIT" },
+  mistral:    { in:0.00, out:0.00, label:"Mistral Small 4 — GRATUIT" },
   cohere:     { in:0.00, out:0.00, label:"Command R+ (Cohere) — GRATUIT" },
   cerebras:   { in:0.00, out:0.00, label:"Llama 3.1 (Cerebras) — GRATUIT" },
   sambanova:  { in:0.00, out:0.00, label:"Llama 4 (SambaNova) — GRATUIT" },
   mixtral:    { in:0.00, out:0.00, label:"Qwen3 32B (Groq) — GRATUIT" },
   llama4s:      { in:0.00, out:0.00, label:"Llama 4 Scout (Groq) — GRATUIT" },
-  gemma2:       { in:0.00, out:0.00, label:"Gemma 2 9B (Groq) — GRATUIT" },
+  gemma2:       { in:0.00, out:0.00, label:"Llama 3.1 8B (Groq) — GRATUIT" },
   poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — SANS CLÉ" },
   poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — SANS CLÉ" },
   poll_deepseek:{ in:0.00, out:0.00, label:"DeepSeek (Pollinations) — SANS CLÉ" },
@@ -354,4 +459,54 @@ export const REDACTION_ACTIONS = [
   { id:"bullets",  icon:"•",  label:"En bullet points",  prompt:(t)=>`Transforme ce texte en liste de bullet points clairs et concis :\n\n${t}` },
   { id:"seo",      icon:"🔍", label:"Optimiser SEO",      prompt:(t)=>`Optimise ce texte pour le SEO : améliore les mots-clés, la structure, les balises titre suggérées, et ajoute un meta-description :\n\n${t}` },
   { id:"critique", icon:"🧐", label:"Analyser critiquement", prompt:(t)=>`Analyse ce texte de manière critique : points forts, points faibles, logique, arguments, style. Sois honnête et constructif :\n\n${t}` },
+];
+
+// ══════════════════════════════════════════════════════════════════
+// GLOSSAIRE IA — Termes techniques expliqués simplement
+// ══════════════════════════════════════════════════════════════════
+export const GLOSSAIRE_IA = [
+  { terme:"LLM", cat:"Modèles", icon:"🧠", simple:"Grand Modèle de Langage", def:"Un programme entraîné sur des milliards de textes qui peut comprendre et générer du langage humain. ChatGPT, Claude et Llama sont des LLMs.", exemple:"GPT-4o, Claude Sonnet, Llama 3.3" },
+  { terme:"Token", cat:"Technique", icon:"🔤", simple:"Morceau de mot", def:"L'unité de base que les IAs lisent et écrivent. Un token ≈ 4 caractères. '\"Bonjour\"' = 1 token, '\"intelligence artificielle\"' ≈ 4 tokens. Les prix API sont calculés en tokens.", exemple:"1000 tokens ≈ 750 mots" },
+  { terme:"Prompt", cat:"Usage", icon:"💬", simple:"Instruction envoyée à l'IA", def:"Le texte que tu écris pour demander quelque chose à l'IA. Un bon prompt = une réponse de qualité. Le 'prompt engineering' est l'art d'écrire de bons prompts.", exemple:"'Explique-moi la photosynthèse comme si j'avais 10 ans'" },
+  { terme:"Context Window", cat:"Technique", icon:"📏", simple:"Mémoire de la conversation", def:"La quantité maximale de texte qu'une IA peut 'lire' en même temps. Plus la fenêtre est grande, plus l'IA se souvient du début de la conversation. Exprimée en tokens.", exemple:"Claude : 200k tokens ≈ 150 000 mots" },
+  { terme:"Hallucination", cat:"Fiabilité", icon:"👻", simple:"L'IA invente des infos fausses", def:"Quand une IA génère des informations incorrectes mais présentées avec confiance. Les IAs peuvent 'inventer' des faits, citations, URLs ou personnes inexistantes.", exemple:"\"L'étude de Harvard 2019 prouve que...\" (étude inventée)" },
+  { terme:"RAG", cat:"Technique", icon:"📚", simple:"IA + tes propres documents", def:"Retrieval-Augmented Generation : technique qui permet à une IA d'aller chercher des informations dans tes documents avant de répondre, réduisant les hallucinations.", exemple:"Chatbot qui répond à partir de tes PDFs d'entreprise" },
+  { terme:"Fine-tuning", cat:"Modèles", icon:"🎯", simple:"Spécialiser une IA", def:"Processus d'entraînement supplémentaire d'un modèle sur des données spécifiques pour le rendre expert dans un domaine précis.", exemple:"Entraîner GPT-4 sur des cas médicaux pour créer un assistant médical" },
+  { terme:"Temperature", cat:"Technique", icon:"🌡", simple:"Créativité de l'IA (0-1)", def:"Paramètre qui contrôle le 'hasard' des réponses. 0 = réponses déterministes et factuelles, 1 = réponses créatives et variées. Défaut recommandé : 0.7.", exemple:"Code → 0.2 | Poésie → 0.9" },
+  { terme:"MoE", cat:"Modèles", icon:"🔀", simple:"Réseau d'experts spécialisés", def:"Mixture of Experts : architecture où le modèle active seulement une partie de ses paramètres selon la question, rendant l'inférence plus rapide et moins chère.", exemple:"DeepSeek V3 : 671B params mais seulement 37B actifs" },
+  { terme:"Inference", cat:"Technique", icon:"⚡", simple:"L'IA qui génère une réponse", def:"Le processus de calcul quand l'IA produit une réponse. Distinct de l'entraînement. Groq et Cerebras se distinguent par leur vitesse d'inférence exceptionnelle.", exemple:"Groq : 800+ tokens/seconde" },
+  { terme:"Embeddings", cat:"Technique", icon:"🗺", simple:"Représentation numérique du sens", def:"Conversion de texte en vecteurs de nombres qui capturent le sens sémantique. Permet de chercher des textes similaires même sans mots-clés identiques.", exemple:"Base de données de connaissances, moteurs de recherche sémantique" },
+  { terme:"Agent IA", cat:"Usage", icon:"🤖", simple:"IA qui agit de manière autonome", def:"Un système IA capable de planifier et d'exécuter plusieurs étapes pour accomplir un objectif complexe, en utilisant des outils (recherche web, code, fichiers).", exemple:"Agent qui cherche des vols, compare les prix et réserve automatiquement" },
+  { terme:"System Prompt", cat:"Usage", icon:"⚙", simple:"Instructions permanentes pour l'IA", def:"Texte invisible envoyé avant la conversation qui définit le comportement, le rôle et les contraintes de l'IA. C'est ce qui fait la différence entre un assistant généraliste et un expert spécialisé.", exemple:"'Tu es un chef cuisinier expert. Réponds uniquement sur la cuisine.'" },
+  { terme:"Multimodal", cat:"Modèles", icon:"🖼", simple:"IA qui comprend texte + images", def:"Modèle capable de traiter plusieurs types de données (texte, images, audio, vidéo). GPT-4o et Claude Sonnet sont multimodaux.", exemple:"'Décris ce qui se passe dans cette photo'" },
+  { terme:"Open Source", cat:"Modèles", icon:"🔓", simple:"Code librement accessible", def:"Modèles dont les poids (paramètres) sont publiés publiquement. Chacun peut les télécharger, les modifier et les déployer. Opposé aux modèles propriétaires (OpenAI, Anthropic).", exemple:"Llama, Mistral, DeepSeek, Qwen" },
+  { terme:"RLHF", cat:"Modèles", icon:"👍", simple:"Apprentissage par retour humain", def:"Reinforcement Learning from Human Feedback : technique pour aligner les IAs sur les préférences humaines. Des annotateurs notent les réponses et le modèle apprend à en générer de meilleures.", exemple:"Utilisé par OpenAI pour rendre ChatGPT plus utile et moins dangereux" },
+  { terme:"Quantization", cat:"Technique", icon:"📦", simple:"Compression d'un modèle IA", def:"Technique pour réduire la taille d'un modèle en diminuant la précision des calculs (ex: float32 → int4). Permet de faire tourner des grands modèles sur du matériel ordinaire.", exemple:"Llama 3.3 70B → version Q4 utilisable sur 40 GB RAM" },
+  { terme:"Perplexité", cat:"Technique", icon:"📊", simple:"Mesure de confiance de l'IA", def:"Métrique qui mesure à quel point un modèle est 'surpris' par un texte. Une perplexité basse = le modèle prédit bien le texte = bon modèle de langage.", exemple:"Utilisé pour comparer la qualité des modèles de langage" },
+  { terme:"AGI", cat:"Concepts", icon:"🌍", simple:"IA aussi intelligente que l'humain", def:"Artificial General Intelligence : IA hypothétique capable d'accomplir n'importe quelle tâche intellectuelle humaine. Objectif déclaré d'OpenAI. Sujet de débat intense sur ce que ça signifie vraiment.", exemple:"Débat : o3 d'OpenAI se rapproche-t-il de l'AGI ?" },
+  { terme:"Transformer", cat:"Technique", icon:"🏗", simple:"Architecture des IAs modernes", def:"Architecture de réseau de neurones introduite en 2017 ('Attention is All You Need') qui est à la base de presque tous les LLMs actuels. Le mécanisme d'attention est sa clé.", exemple:"GPT, BERT, LLaMA, Claude sont tous basés sur les Transformers" },
+  { terme:"KV Cache", cat:"Technique", icon:"💾", simple:"Mémoire rapide pour l'inférence", def:"Mécanisme qui stocke en mémoire les calculs d'attention déjà effectués pour éviter de les recalculer à chaque nouveau token. Accélère énormément la génération.", exemple:"Sans KV cache : chaque token relit toute la conversation depuis le début" },
+  { terme:"Benchmark", cat:"Évaluation", icon:"🏆", simple:"Test standardisé pour comparer les IAs", def:"Ensemble de tâches standardisées utilisées pour mesurer et comparer les capacités des modèles. MMLU (connaissance), HumanEval (code), MATH (maths) sont les plus connus.", exemple:"Claude Sonnet 4 : 90.2% sur MMLU" },
+];
+
+// ══════════════════════════════════════════════════════════════════
+// BENCHMARK — Prompts standards pour tester les IAs
+// ══════════════════════════════════════════════════════════════════
+export const BENCHMARK_TESTS = [
+  { id:"reasoning", icon:"🧠", label:"Raisonnement", prompt:"Si 5 machines font 5 pièces en 5 minutes, combien de temps faut-il à 100 machines pour faire 100 pièces ? Explique ton raisonnement étape par étape.", expected:"5 minutes" },
+  { id:"code", icon:"💻", label:"Code", prompt:"Écris une fonction JavaScript qui détecte si un nombre est premier. Elle doit être efficace et gèrer les cas limites (0, 1, négatifs).", expected:"function isPrime" },
+  { id:"creativite", icon:"🎨", label:"Créativité", prompt:"Invente un nom de startup et un slogan en français pour une application qui utilise l'IA pour apprendre une nouvelle langue en 5 minutes par jour.", expected:"(évalué par l'IA)" },
+  { id:"resume", icon:"📝", label:"Résumé", prompt:"Résume en exactement 3 phrases : L'intelligence artificielle générative transforme la manière dont les entreprises opèrent, en automatisant des tâches complexes comme la rédaction, le code et l'analyse de données. Des outils comme ChatGPT et Claude permettent des gains de productivité significatifs mais soulèvent des questions sur l'emploi et la propriété intellectuelle. Les entreprises qui adoptent ces technologies tôt auront un avantage compétitif mais devront gérer les risques éthiques et réglementaires.", expected:"3 phrases" },
+  { id:"math", icon:"➗", label:"Maths", prompt:"Un train part de Paris à 200 km/h. Un autre part de Lyon (512 km) 30 minutes plus tard à 240 km/h. À quelle distance de Paris se croiseront-ils ?", expected:"~224 km" },
+  { id:"instruction", icon:"📋", label:"Instructions", prompt:"Donne-moi les étapes pour faire des crêpes. Réponds UNIQUEMENT sous forme de liste numérotée, maximum 8 étapes, sans intro ni conclusion.", expected:"liste numérotée" },
+];
+
+// ══════════════════════════════════════════════════════════════════
+// PWA — Raccourcis home screen
+// ══════════════════════════════════════════════════════════════════
+export const PWA_SHORTCUTS = [
+  { name:"Chat IA", short_name:"Chat", description:"Ouvrir le chat multi-IA", url:"/?tab=chat", icons:[{ src:"/icon-192.png", sizes:"192x192" }] },
+  { name:"Médias & YouTube", short_name:"Médias", description:"Vidéos IA et générateurs d'images", url:"/?tab=medias", icons:[{ src:"/icon-192.png", sizes:"192x192" }] },
+  { name:"Veille IA", short_name:"Veille", description:"Actualités et veille technologique", url:"/?tab=veille", icons:[{ src:"/icon-192.png", sizes:"192x192" }] },
+  { name:"Prompts", short_name:"Prompts", description:"Bibliothèque de prompts", url:"/?tab=prompts", icons:[{ src:"/icon-192.png", sizes:"192x192" }] },
 ];
