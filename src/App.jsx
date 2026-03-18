@@ -3876,28 +3876,8 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
       log("script","done","✅ Script généré");
     } catch(e) { log("script","error","❌ "+e.message); scriptContent = subject; }
 
-    // ÉTAPE 2 — Navigation Browser-Use (optionnel)
-    if(tools.browseruse) {
-      log("navigate","running","Browser-Use navigue vers la page…");
-      try {
-        // Cherche une vraie URL dans toutes les réponses
-        const urlRegex = /https?:\/\/[^\s]+/;
-        let url = "https://multiia-hub.vercel.app"; // défaut
-        for(const ans of Object.values(aiAnswers)) {
-          const m = String(ans).match(urlRegex);
-          if(m) { url = m[0]; break; }
-        }
-        const r = await fetch("http://localhost:5678/navigate", {
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ url, script: scriptContent }),
-          signal: AbortSignal.timeout(30000)
-        });
-        if(r.ok) log("navigate","done","✅ Browser-Use a navigué");
-        else log("navigate","skip","⚠️ Browser-Use erreur — étape ignorée");
-      } catch { log("navigate","skip","ℹ️ Browser-Use non disponible — ignoré"); }
-    } else {
-      log("navigate","skip","ℹ️ Browser-Use non installé — étape ignorée");
-    }
+    // ÉTAPE 2 — Navigation manuelle (toi tu navigues pendant qu'OBS filme)
+    log("navigate","done","🎬 OBS va démarrer — navigue dans l'app pendant l'enregistrement pour démontrer les fonctionnalités. Tu as 30 secondes.");
 
     // ÉTAPE 3 — Enregistrement OBS (optionnel)
     if(tools.obs) {
