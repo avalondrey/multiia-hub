@@ -7472,6 +7472,7 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
   const [search, setSearch]               = React.useState("");
   const [iframeLoaded, setIframeLoaded]   = React.useState(false);
   const [activeSection, setActiveSection] = React.useState("home");
+  const [tooltip, setTooltip]             = React.useState(null); // {label,desc,icon,color,x,y}
 
   const filtered = TUTORIALS.filter(t => {
     if (filterLevel !== "all" && t.level !== filterLevel) return false;
@@ -7533,187 +7534,180 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
 
   // ── MAIN LAYOUT ───────────────────────────────────────────────
   return (
-    <div style={{flex:1,overflow:"auto",scrollbarWidth:"thin",scrollbarColor:"var(--bd) transparent"}}>
+    <div style={{flex:1,overflow:"auto",scrollbarWidth:"thin",scrollbarColor:"var(--bd) transparent",position:"relative"}}>
 
-      {/* ── SOUS-NAV ── */}
+      {/* Tooltip flottant global */}
+      {tooltip && (
+        <div style={{position:"fixed",zIndex:9999,pointerEvents:"none",
+          left:Math.min(tooltip.x+12, window.innerWidth-220),
+          top:Math.max(tooltip.y-10, 8),
+          width:200,background:"var(--s2)",border:"1px solid "+tooltip.color+"55",
+          borderRadius:10,padding:"10px 12px",
+          boxShadow:"0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:5}}>
+            <span style={{fontSize:18}}>{tooltip.icon}</span>
+            <span style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:tooltip.color}}>{tooltip.label}</span>
+          </div>
+          <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.6}}>{tooltip.desc}</div>
+          <div style={{marginTop:6,fontSize:8,color:tooltip.color,opacity:.7}}>→ cliquer pour ouvrir</div>
+        </div>
+      )}
+
+      {/* ── SOUS-NAV : seulement Tutos et CLI (l'accueil = cette page) ── */}
       <div style={{position:"sticky",top:0,zIndex:20,background:"var(--s1)",borderBottom:"1px solid var(--bd)",
         display:"flex",gap:2,padding:"5px 14px",alignItems:"center",flexWrap:"wrap"}}>
-        {[["home","🏠 Accueil"],["tutos","📖 Tutos (7)"],["cli","🔌 Outils CLI"]].map(([id,label]) => (
+        {[["home","🏠"],["tutos","📖 Tutos (7)"],["cli","🔌 CLI"]].map(([id,label]) => (
           <button key={id} onClick={() => setActiveSection(id)}
-            style={{padding:"4px 12px",borderRadius:5,border:"1px solid "+(activeSection===id?"var(--ac)":"var(--bd)"),
+            style={{padding:"4px 12px",borderRadius:5,
+              border:"1px solid "+(activeSection===id?"var(--ac)":"var(--bd)"),
               background:activeSection===id?"rgba(212,168,83,.12)":"transparent",
               color:activeSection===id?"var(--ac)":"var(--mu)",
-              fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:activeSection===id?700:400,transition:"all .15s"}}>
+              fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",
+              fontWeight:activeSection===id?700:400,transition:"all .15s"}}>
             {label}
           </button>
         ))}
         {activeSection === "tutos" && <>
           <div style={{width:1,background:"var(--bd)",margin:"0 4px",height:16}}/>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Filtrer…"
-            style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,
-              padding:"3px 9px",fontFamily:"var(--font-ui)",outline:"none",width:130}}/>
+            style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",
+              fontSize:9,padding:"3px 9px",fontFamily:"var(--font-ui)",outline:"none",width:130}}/>
           {["all","Débutant","Intermédiaire"].map(lvl => (
             <button key={lvl} onClick={()=>setFilterLevel(lvl)}
-              style={{fontSize:8,padding:"3px 8px",borderRadius:4,border:"1px solid "+(filterLevel===lvl?"var(--ac)":"var(--bd)"),
+              style={{fontSize:8,padding:"3px 8px",borderRadius:4,
+                border:"1px solid "+(filterLevel===lvl?"var(--ac)":"var(--bd)"),
                 background:filterLevel===lvl?"rgba(212,168,83,.12)":"transparent",
                 color:filterLevel===lvl?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
               {lvl==="all"?"Tous":lvl}
             </button>
           ))}
         </>}
+        <div style={{marginLeft:"auto",display:"flex",gap:5}}>
+          <button onClick={() => navigateTab && navigateTab("config")}
+            style={{fontSize:8,padding:"3px 10px",borderRadius:4,border:"1px solid var(--bd)",
+              background:"transparent",color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+            ⚙ Config
+          </button>
+          <button onClick={() => setActiveSection("tutos")}
+            style={{fontSize:8,padding:"3px 10px",borderRadius:4,border:"1px solid var(--bd)",
+              background:"transparent",color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+            📖 Tutos
+          </button>
+        </div>
       </div>
 
-      <div style={{padding:"clamp(12px,2vw,20px)"}}>
+      <div style={{padding:"clamp(10px,2vw,18px)"}}>
 
         {/* ═══════════════ ACCUEIL ═══════════════ */}
         {activeSection === "home" && <>
 
-          {/* Hero banner */}
-          <div style={{marginBottom:18,padding:"clamp(16px,3vw,26px)",
+          {/* Hero compact */}
+          <div style={{marginBottom:16,padding:"18px 22px",
             background:"linear-gradient(135deg,#0D0A02,#110E03,#0A0A0F)",
-            border:"1px solid rgba(212,168,83,.22)",borderRadius:14,position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",top:-50,right:-50,width:220,height:220,
-              background:"radial-gradient(circle,rgba(212,168,83,.10),transparent 70%)",pointerEvents:"none"}}/>
-            <div style={{display:"flex",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}>
-              <div style={{flex:1,minWidth:200}}>
-                <div style={{fontFamily:"var(--font-display)",fontWeight:800,
-                  fontSize:"clamp(24px,4.5vw,36px)",color:"var(--ac)",marginBottom:4,letterSpacing:"-0.5px",lineHeight:1}}>
-                  multi<span style={{color:"var(--mu)",fontWeight:400}}>IA</span>
-                  <span style={{fontSize:"clamp(10px,1.5vw,13px)",color:"var(--ac)",fontWeight:400,
-                    background:"rgba(212,168,83,.15)",padding:"1px 8px",borderRadius:4,
-                    border:"1px solid rgba(212,168,83,.3)",marginLeft:10,verticalAlign:"middle"}}>
-                    v{typeof APP_VERSION!=="undefined"?APP_VERSION:"21.0"}
+            border:"1px solid rgba(212,168,83,.22)",borderRadius:12,
+            display:"flex",alignItems:"center",gap:20,flexWrap:"wrap",position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",top:-40,right:-40,width:180,height:180,
+              background:"radial-gradient(circle,rgba(212,168,83,.08),transparent 70%)",pointerEvents:"none"}}/>
+            <div style={{flex:1,minWidth:180}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,
+                fontSize:"clamp(20px,3.5vw,28px)",color:"var(--ac)",letterSpacing:"-0.5px",lineHeight:1,marginBottom:5}}>
+                multi<span style={{color:"var(--mu)",fontWeight:400}}>IA</span>
+                <span style={{fontSize:10,color:"var(--ac)",fontWeight:400,
+                  background:"rgba(212,168,83,.15)",padding:"1px 7px",borderRadius:3,
+                  border:"1px solid rgba(212,168,83,.3)",marginLeft:8,verticalAlign:"middle"}}>
+                  v{typeof APP_VERSION!=="undefined"?APP_VERSION:"21.0"}
+                </span>
+              </div>
+              <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.6,maxWidth:360}}>
+                <strong style={{color:"var(--tx)"}}>44 outils · 8 IAs</strong> — chat, débat, workflows, images, agents.
+                Tout gratuit avec les IAs gratuites.
+              </div>
+            </div>
+            <div style={{display:"flex",gap:7,flexShrink:0,flexWrap:"wrap"}}>
+              <button onClick={() => navigateTab && navigateTab("chat")}
+                style={{padding:"9px 20px",background:"var(--ac)",border:"none",borderRadius:7,
+                  color:"#09090B",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                ◈ Chat
+              </button>
+              <button onClick={() => navigateTab && navigateTab("router")}
+                style={{padding:"9px 14px",background:"transparent",
+                  border:"1px solid rgba(212,168,83,.35)",borderRadius:7,
+                  color:"var(--ac)",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                🧭 Router
+              </button>
+              <button onClick={() => navigateTab && navigateTab("workflows")}
+                style={{padding:"9px 14px",background:"transparent",
+                  border:"1px solid var(--bd)",borderRadius:7,
+                  color:"var(--mu)",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                🔀 Workflows
+              </button>
+            </div>
+          </div>
+
+          {/* Grille des outils avec tooltips */}
+          <div>
+            {TAB_GROUPS.map(group => (
+              <div key={group.id} style={{marginBottom:4}}>
+                {/* Header groupe */}
+                <div style={{display:"flex",alignItems:"center",gap:8,
+                  padding:"5px 0 4px",marginBottom:2}}>
+                  <div style={{width:2,height:12,background:group.color,borderRadius:2,flexShrink:0}}/>
+                  <span style={{fontSize:8,fontWeight:700,color:group.color,
+                    fontFamily:"var(--font-mono)",letterSpacing:.8,textTransform:"uppercase"}}>
+                    {group.label}
                   </span>
                 </div>
-                <div style={{fontSize:"clamp(10px,1.7vw,12px)",color:"var(--mu)",lineHeight:1.75,marginBottom:16,maxWidth:440}}>
-                  Ton cockpit multi-IAs — chat, débat, workflows, images, agents et bien plus.<br/>
-                  <strong style={{color:"var(--tx)"}}>44 onglets · 8 IAs intégrées · 100% gratuit</strong> avec les IAs gratuites.
-                </div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  <button onClick={() => navigateTab && navigateTab("chat")}
-                    style={{padding:"8px 20px",background:"var(--ac)",border:"none",borderRadius:7,
-                      color:"#09090B",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-mono)",transition:"all .2s"}}>
-                    ◈ Ouvrir le Chat
-                  </button>
-                  <button onClick={() => navigateTab && navigateTab("router")}
-                    style={{padding:"8px 16px",background:"transparent",border:"1px solid rgba(212,168,83,.4)",borderRadius:7,
-                      color:"var(--ac)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                    🧭 Smart Router
-                  </button>
-                  <button onClick={() => navigateTab && navigateTab("config")}
-                    style={{padding:"8px 14px",background:"transparent",border:"1px solid var(--bd)",borderRadius:7,
-                      color:"var(--mu)",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                    ⚙ Config
-                  </button>
+                {/* Pills avec tooltip */}
+                <div style={{display:"flex",flexWrap:"wrap",gap:4,paddingLeft:10,paddingBottom:6,
+                  borderBottom:"1px solid var(--bd)"}}>
+                  {group.tabs.map(t => (
+                    <button key={t.id}
+                      onClick={() => navigateTab && navigateTab(t.id)}
+                      onMouseEnter={e => {
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setTooltip({label:t.label,desc:t.desc,icon:t.icon,color:group.color,x:r.right,y:r.top});
+                        e.currentTarget.style.background=group.color+"22";
+                        e.currentTarget.style.borderColor=group.color+"66";
+                        e.currentTarget.style.color="var(--tx)";
+                        e.currentTarget.style.transform="translateY(-1px)";
+                      }}
+                      onMouseLeave={e => {
+                        setTooltip(null);
+                        e.currentTarget.style.background="rgba(255,255,255,.03)";
+                        e.currentTarget.style.borderColor="rgba(255,255,255,.06)";
+                        e.currentTarget.style.color="var(--mu)";
+                        e.currentTarget.style.transform="none";
+                      }}
+                      style={{display:"flex",alignItems:"center",gap:5,
+                        padding:"5px 11px",borderRadius:20,
+                        border:"1px solid rgba(255,255,255,.06)",
+                        background:"rgba(255,255,255,.03)",
+                        color:"var(--mu)",fontSize:9,cursor:"pointer",
+                        fontFamily:"var(--font-ui)",transition:"all .15s",
+                        whiteSpace:"nowrap"}}>
+                      <span style={{fontSize:12}}>{t.icon}</span>
+                      <span>{t.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
-              {/* Stats badges */}
-              <div style={{display:"flex",flexDirection:"column",gap:5,flexShrink:0}}>
-                {[["44","onglets","#D4A853"],["8","IAs","#4ADE80"],[String(configuredCount),"configurées","#60A5FA"],["11","outils CLI","#A78BFA"]].map(([val,lbl,col])=>(
-                  <div key={lbl} style={{display:"flex",alignItems:"baseline",gap:5,padding:"5px 12px",
-                    background:"rgba(255,255,255,.03)",borderRadius:7,border:"1px solid var(--bd)"}}>
-                    <span style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:18,color:col}}>{val}</span>
-                    <span style={{fontSize:9,color:"var(--mu)"}}>{lbl}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Raccourcis rapides */}
-          <div style={{marginBottom:18}}>
-            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,fontFamily:"var(--font-mono)",marginBottom:8}}>⚡ RACCOURCIS RAPIDES</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:6}}>
-              {QUICK_TABS.map(tile => (
-                <button key={tile.id} onClick={() => navigateTab && navigateTab(tile.id)}
-                  style={{padding:"9px 11px",borderRadius:8,border:"1px solid "+tile.color+"33",
-                    background:tile.bg,textAlign:"left",cursor:"pointer",transition:"all .18s",
-                    display:"flex",alignItems:"center",gap:8}}
-                  onMouseEnter={e=>{e.currentTarget.style.borderColor=tile.color+"88";e.currentTarget.style.transform="translateY(-2px)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.borderColor=tile.color+"33";e.currentTarget.style.transform="none";}}>
-                  <span style={{fontSize:16}}>{tile.icon}</span>
-                  <div>
-                    <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:10,color:tile.color,lineHeight:1.1}}>{tile.label}</div>
-                    <div style={{fontSize:7,color:"var(--mu)",marginTop:1}}>{tile.desc}</div>
-                  </div>
-                </button>
-              ))}
+          {/* Bas de page : lien tutos */}
+          <div style={{marginTop:12,display:"flex",alignItems:"center",gap:10,
+            padding:"10px 14px",background:"rgba(212,168,83,.05)",
+            border:"1px solid rgba(212,168,83,.15)",borderRadius:8}}>
+            <span style={{fontSize:16}}>📖</span>
+            <div style={{flex:1,fontSize:9,color:"var(--mu)"}}>
+              <strong style={{color:"var(--ac)"}}>7 tutoriels disponibles</strong> — Bienvenue, Chat, Router, Débat, ComfyUI, Workflows, Prompts
             </div>
-          </div>
-
-          {/* Tous les outils — groupes thématiques */}
-          <div style={{marginBottom:18}}>
-            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,fontFamily:"var(--font-mono)",marginBottom:12}}>🗂 TOUS LES OUTILS</div>
-            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              {TAB_GROUPS.map(group => (
-                <div key={group.id} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"10px 14px",
-                  background:"var(--s1)",borderRadius:10,border:"1px solid var(--bd)",
-                  borderLeft:"3px solid "+group.color}}>
-                  {/* Label groupe */}
-                  <div style={{width:90,flexShrink:0,paddingTop:1}}>
-                    <div style={{fontSize:8,fontWeight:700,color:group.color,fontFamily:"var(--font-mono)",
-                      letterSpacing:.5,lineHeight:1.4}}>{group.label}</div>
-                  </div>
-                  {/* Pills */}
-                  <div style={{display:"flex",flexWrap:"wrap",gap:5,flex:1}}>
-                    {group.tabs.map(t => (
-                      <button key={t.id} onClick={() => navigateTab && navigateTab(t.id)}
-                        title={t.desc}
-                        style={{display:"flex",alignItems:"center",gap:5,
-                          padding:"4px 10px",borderRadius:20,
-                          border:"1px solid transparent",
-                          background:"rgba(255,255,255,.04)",
-                          color:"var(--mu)",fontSize:9,cursor:"pointer",
-                          fontFamily:"var(--font-ui)",transition:"all .15s",
-                          whiteSpace:"nowrap"}}
-                        onMouseEnter={e=>{
-                          e.currentTarget.style.background=group.color+"18";
-                          e.currentTarget.style.borderColor=group.color+"55";
-                          e.currentTarget.style.color="var(--tx)";
-                        }}
-                        onMouseLeave={e=>{
-                          e.currentTarget.style.background="rgba(255,255,255,.04)";
-                          e.currentTarget.style.borderColor="transparent";
-                          e.currentTarget.style.color="var(--mu)";
-                        }}>
-                        <span style={{fontSize:11}}>{t.icon}</span>
-                        <span>{t.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Démarrage rapide */}
-          <div style={{padding:"12px 16px",background:"rgba(212,168,83,.05)",
-            border:"1px solid rgba(212,168,83,.18)",borderRadius:10,
-            display:"flex",alignItems:"center",gap:12}}>
-            <span style={{fontSize:22,flexShrink:0}}>🚀</span>
-            <div style={{flex:1}}>
-              <div style={{fontFamily:"var(--font-display)",fontWeight:700,
-                fontSize:11,color:"var(--ac)",marginBottom:2}}>Nouveau sur Multi-IA Hub ?</div>
-              <div style={{fontSize:9,color:"var(--mu)"}}>
-                Commence par le Tuto 01 — présentation complète en 6 slides.
-                Ensuite configure tes clés API dans Config.
-              </div>
-            </div>
-            <div style={{display:"flex",gap:6,flexShrink:0}}>
-              <button onClick={() => { setActiveSection("tutos"); }}
-                style={{padding:"6px 12px",background:"rgba(212,168,83,.15)",
-                  border:"1px solid rgba(212,168,83,.4)",borderRadius:6,
-                  color:"var(--ac)",fontSize:9,cursor:"pointer",
-                  fontFamily:"var(--font-mono)",fontWeight:700}}>
-                📖 Tutos
-              </button>
-              <button onClick={() => navigateTab && navigateTab("config")}
-                style={{padding:"6px 12px",background:"transparent",
-                  border:"1px solid var(--bd)",borderRadius:6,
-                  color:"var(--mu)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                ⚙ Config
-              </button>
-            </div>
+            <button onClick={() => setActiveSection("tutos")}
+              style={{padding:"5px 12px",background:"rgba(212,168,83,.12)",
+                border:"1px solid rgba(212,168,83,.3)",borderRadius:5,
+                color:"var(--ac)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
+              Voir les tutos →
+            </button>
           </div>
         </>}
 
