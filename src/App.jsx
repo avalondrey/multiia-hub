@@ -6,6 +6,8 @@ import {
   IMAGE_GENERATORS, DEFAULT_PROMPTS, DEFAULT_PERSONAS,
   REDACTION_ACTIONS, IDS, PRICING, RATE_LIMIT_COOLDOWN, CREDIT_COOLDOWN,
   getDiscoveredAIs, saveDiscoveredAIs, fetchYTVideos, DISCOVERY_SOURCES,
+  VOICE_THEMES, VEILLE_THEMES, PROJECT_TEMPLATES, EXTRA_PROMPTS,
+  GLOSSAIRE_IA, BENCHMARK_TESTS,
 } from "./config/models.js";
 import {
   fmt, classifyError, truncateForModel,
@@ -1052,12 +1054,12 @@ html, body{
   .mobile-tabbar{
     display:flex !important;
     position:fixed; bottom:0; left:0; right:0;
-    background:var(--s1);
+    background:rgba(14,14,18,.96);
     border-top:1px solid var(--bd);
     padding:5px 0 calc(5px + env(safe-area-inset-bottom));
     z-index:250;
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
   }
   .mobile-tab-btn{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
@@ -1065,10 +1067,40 @@ html, body{
     color:var(--mu); font-size:8px; font-family:'IBM Plex Mono',monospace;
     transition:all .18s; -webkit-tap-highlight-color:transparent;
   }
-  .mobile-tab-btn .ico{ font-size:19px; line-height:1; transition:transform .18s; }
+  .mobile-tab-btn .ico{ font-size:20px; line-height:1; transition:transform .18s; }
   .mobile-tab-btn.on{ color:var(--ac); }
-  .mobile-tab-btn.on .ico{ transform:scale(1.15); }
-  .mobile-tab-btn:active{ transform:scale(.92); }
+  .mobile-tab-btn.on .ico{ transform:scale(1.18); }
+  .mobile-tab-btn:active{ transform:scale(.88); }
+  /* Menu "Plus" overlay */
+  .mobile-more-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:248;
+    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+    animation:fadeIn .15s ease;
+  }
+  .mobile-more-drawer{
+    position:fixed; bottom:calc(62px + env(safe-area-inset-bottom)); left:0; right:0;
+    background:rgba(18,18,24,.98); border-top:1px solid var(--bd);
+    border-radius:18px 18px 0 0; z-index:249;
+    padding:12px 10px 6px;
+    animation:slideUp .2s cubic-bezier(.4,0,.2,1);
+    max-height:72vh; overflow-y:auto;
+  }
+  @keyframes slideUp{ from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+  .mobile-more-grid{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:6px;
+  }
+  .mobile-more-btn{
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:10px 4px; border-radius:10px; border:1px solid var(--bd);
+    background:var(--s2); cursor:pointer; color:var(--mu);
+    font-size:8px; font-family:'IBM Plex Mono',monospace;
+    transition:all .15s; -webkit-tap-highlight-color:transparent;
+    min-height:60px; justify-content:center;
+  }
+  .mobile-more-btn .mico{ font-size:20px; line-height:1; }
+  .mobile-more-btn.on{ background:rgba(212,168,83,.12); border-color:rgba(212,168,83,.4); color:var(--ac); }
+  .mobile-more-btn:active{ transform:scale(.92); background:rgba(212,168,83,.08); }
+  .mobile-more-section{ font-size:8px; color:var(--mu); font-weight:700; letter-spacing:1px; padding:8px 4px 4px; }
 }
 
 /* ── Scrolling tactile amélioré partout ── */
@@ -2431,7 +2463,7 @@ function PromptsTab({ onInject }) {
   const [search, setSearch] = React.useState("");
 
   const saveCustom = (list) => { setCustomPrompts(list); try { localStorage.setItem("multiia_prompts", JSON.stringify(list)); } catch {} };
-  const allPrompts = [...customPrompts, ...DEFAULT_PROMPTS];
+  const allPrompts = [...customPrompts, ...DEFAULT_PROMPTS, ...EXTRA_PROMPTS];
   const cats = ["Tout", ...new Set(allPrompts.map(p => p.cat))];
   const filtered = allPrompts.filter(p => {
     const matchCat = catFilter === "Tout" || p.cat === catFilter;
@@ -2846,6 +2878,7 @@ function StatsTab({ stats, onReset }) {
   const totalConvs = stats.convs || 0;
   const topIA = Object.entries(stats.msgs||{}).sort(([,a],[,b])=>b-a)[0];
   const maxTok = Math.max(...Object.values(stats.tokens||{}).map(v=>v||0),1);
+  const [activeView, setActiveView] = React.useState("overview");
 
   const estimateCost = (id) => {
     const tok = stats.tokens?.[id] || 0;
@@ -2857,47 +2890,3798 @@ function StatsTab({ stats, onReset }) {
   const fmtN = (n) => n>=1e6?(n/1e6).toFixed(1)+"M":n>=1000?(n/1000).toFixed(1)+"k":String(n||0);
   const fmtCost = (c) => c<0.01?"< $0.01":"$"+c.toFixed(3);
 
+  // ── Données par heure ──────────────────────────────────────────
+  const byHour = stats.byHour || {};
+  const maxHour = Math.max(...Array.from({length:24},(_,h)=>byHour[h]||0),1);
+  const peakHour = Array.from({length:24},(_,h)=>h).sort((a,b)=>(byHour[b]||0)-(byHour[a]||0))[0];
+  // ── Données par jour (7 derniers jours) ────────────────────────
+  const byDate = stats.byDate || {};
+  const last7 = Array.from({length:7},(_,i)=>{
+    const d = new Date(); d.setDate(d.getDate()-i);
+    return d.toISOString().slice(0,10);
+  }).reverse();
+  const maxDay = Math.max(...last7.map(d=>byDate[d]||0),1);
+
+  const views = [["overview","📊 Vue globale"],["heure","🕐 Par heure"],["jours","📅 7 jours"],["cout","💰 Coûts"]];
+
   return (
     <div className="stats-wrap">
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--tx)"}}>📊 Statistiques d'usage</div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--tx)"}}>📊 Statistiques avancées</div>
         <button style={{marginLeft:"auto",padding:"5px 12px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:9}}
           onClick={()=>{ if(window.confirm("Réinitialiser les statistiques ?")) onReset(); }}>↺ Réinitialiser</button>
       </div>
-      <div className="stats-grid">
-        <div className="stat-card"><div className="stat-val">{totalConvs}</div><div className="stat-lbl">Conversations</div></div>
-        <div className="stat-card"><div className="stat-val">{fmtN(totalMsgs)}</div><div className="stat-lbl">Messages envoyés</div></div>
-        <div className="stat-card"><div className="stat-val">{fmtN(totalTok)}</div><div className="stat-lbl">Tokens estimés</div></div>
-        <div className="stat-card"><div className="stat-val">{fmtCost(totalCost)}</div><div className="stat-lbl">Coût estimé</div></div>
-        {topIA && <div className="stat-card"><div className="stat-val">{MODEL_DEFS[topIA[0]]?.icon}</div><div className="stat-lbl">IA préférée</div><div className="stat-sub" style={{color:MODEL_DEFS[topIA[0]]?.color}}>{MODEL_DEFS[topIA[0]]?.short} — {topIA[1]} msg</div></div>}
+      {/* Sous-onglets */}
+      <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap"}}>
+        {views.map(([v,l])=>(
+          <button key={v} onClick={()=>setActiveView(v)}
+            style={{padding:"5px 12px",borderRadius:12,border:"1px solid "+(activeView===v?"var(--ac)":"var(--bd)"),background:activeView===v?"rgba(212,168,83,.12)":"transparent",color:activeView===v?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:activeView===v?700:400}}>
+            {l}
+          </button>
+        ))}
       </div>
-      <div className="stats-bar-section">
-        <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Messages par IA</div>
-        {Object.keys(MODEL_DEFS).map(id => {
-          const m = MODEL_DEFS[id]; const count = stats.msgs?.[id]||0;
-          const maxC = Math.max(...Object.values(stats.msgs||{}).map(v=>v||0),1);
-          return (<div key={id} className="stats-bar-row">
-            <div className="stats-bar-name" style={{color:m.color}}>{m.icon} {m.short}</div>
-            <div className="stats-bar-track"><div className="stats-bar-fill" style={{width:(count/maxC*100)+"%",background:m.color}}/></div>
-            <div className="stats-bar-val">{count} msg</div>
-          </div>);
-        })}
-      </div>
-      <div className="stats-bar-section">
-        <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Tokens & Coûts estimés par IA</div>
-        {Object.keys(MODEL_DEFS).map(id => {
-          const m = MODEL_DEFS[id]; const tok = stats.tokens?.[id]||0; const p = PRICING[id];
-          return (<div key={id} className="stats-bar-row">
-            <div className="stats-bar-name" style={{color:m.color}}>{m.icon} {m.short}</div>
-            <div className="stats-bar-track"><div className="stats-bar-fill" style={{width:(tok/maxTok*100)+"%",background:m.color}}/></div>
-            <div className="stats-bar-val">{fmtN(tok)}t · {fmtCost(estimateCost(id))}</div>
-          </div>);
-        })}
-        <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:700}}>
-          <span style={{color:"var(--tx)"}}>Total estimé</span><span style={{color:"var(--ac)"}}>{fmtCost(totalCost)}</span>
+
+      {activeView==="overview" && <>
+        <div className="stats-grid">
+          <div className="stat-card"><div className="stat-val">{totalConvs}</div><div className="stat-lbl">Conversations</div></div>
+          <div className="stat-card"><div className="stat-val">{fmtN(totalMsgs)}</div><div className="stat-lbl">Messages</div></div>
+          <div className="stat-card"><div className="stat-val">{fmtN(totalTok)}</div><div className="stat-lbl">Tokens</div></div>
+          <div className="stat-card"><div className="stat-val">{fmtCost(totalCost)}</div><div className="stat-lbl">Coût estimé</div></div>
+          {topIA && <div className="stat-card"><div className="stat-val">{MODEL_DEFS[topIA[0]]?.icon}</div><div className="stat-lbl">IA préférée</div><div className="stat-sub" style={{color:MODEL_DEFS[topIA[0]]?.color}}>{MODEL_DEFS[topIA[0]]?.short} — {topIA[1]} msg</div></div>}
+          {peakHour!==undefined && <div className="stat-card"><div className="stat-val">{peakHour}h</div><div className="stat-lbl">Heure de pointe</div><div className="stat-sub">{byHour[peakHour]||0} messages</div></div>}
         </div>
-        <div style={{marginTop:4,fontSize:8,color:"var(--mu)"}}>⚠️ Estimation approx. (70% input / 30% output). Claude est intégré donc sans coût API ici.</div>
+        <div className="stats-bar-section">
+          <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Messages par IA</div>
+          {Object.keys(MODEL_DEFS).map(id => {
+            const m = MODEL_DEFS[id]; const count = stats.msgs?.[id]||0;
+            const maxC = Math.max(...Object.values(stats.msgs||{}).map(v=>v||0),1);
+            return (<div key={id} className="stats-bar-row">
+              <div className="stats-bar-name" style={{color:m.color}}>{m.icon} {m.short}</div>
+              <div className="stats-bar-track"><div className="stats-bar-fill" style={{width:(count/maxC*100)+"%",background:m.color}}/></div>
+              <div className="stats-bar-val">{count} msg</div>
+            </div>);
+          })}
+        </div>
+      </>}
+
+      {activeView==="heure" && (
+        <div className="stats-bar-section">
+          <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:4,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Activité par heure de la journée</div>
+          <div style={{fontSize:8,color:"var(--mu)",marginBottom:12}}>Heure de pointe : {peakHour}h ({byHour[peakHour]||0} messages)</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(12,1fr)",gap:4,marginBottom:8}}>
+            {Array.from({length:24},(_,h)=>{
+              const count = byHour[h]||0;
+              const pct = Math.round((count/maxHour)*100);
+              const isNow = new Date().getHours()===h;
+              const isPeak = h===peakHour && count>0;
+              return <div key={h} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                <div style={{width:"100%",height:60,display:"flex",alignItems:"flex-end",background:"var(--s2)",borderRadius:"3px 3px 0 0",overflow:"hidden",border:isNow?"1px solid var(--ac)":"1px solid transparent"}}>
+                  <div style={{width:"100%",height:pct+"%",background:isPeak?"var(--ac)":isNow?"rgba(212,168,83,.6)":"var(--blue)",transition:"height .3s",minHeight:count>0?4:0,opacity:count>0?1:.2}}/>
+                </div>
+                <span style={{fontSize:7,color:isNow?"var(--ac)":"var(--mu)",fontFamily:"var(--font-mono)"}}>{h}h</span>
+                {count>0 && <span style={{fontSize:7,color:"var(--tx)"}}>{count}</span>}
+              </div>;
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeView==="jours" && (
+        <div className="stats-bar-section">
+          <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:4,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Activité — 7 derniers jours</div>
+          <div style={{display:"flex",gap:8,alignItems:"flex-end",height:120,marginBottom:8,padding:"0 4px"}}>
+            {last7.map(d=>{
+              const count = byDate[d]||0;
+              const pct = Math.round((count/maxDay)*100);
+              const isToday = d===new Date().toISOString().slice(0,10);
+              const label = new Date(d).toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"});
+              return <div key={d} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <span style={{fontSize:8,color:"var(--tx)",fontWeight:700}}>{count>0?count:""}</span>
+                <div style={{width:"100%",flex:1,display:"flex",alignItems:"flex-end",background:"var(--s2)",borderRadius:"4px 4px 0 0",overflow:"hidden",border:isToday?"1px solid var(--ac)":"none"}}>
+                  <div style={{width:"100%",height:Math.max(pct,count>0?8:0)+"%",background:isToday?"var(--ac)":"var(--blue)",transition:"height .4s"}}/>
+                </div>
+                <span style={{fontSize:7,color:isToday?"var(--ac)":"var(--mu)",textAlign:"center",lineHeight:1.2}}>{label}</span>
+              </div>;
+            })}
+          </div>
+          <div style={{fontSize:8,color:"var(--mu)"}}>Total 7 jours : {last7.reduce((a,d)=>a+(byDate[d]||0),0)} messages</div>
+        </div>
+      )}
+
+      {activeView==="cout" && (
+        <div className="stats-bar-section">
+          <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Tokens & Coûts estimés par IA</div>
+          {Object.keys(MODEL_DEFS).map(id => {
+            const m = MODEL_DEFS[id]; const tok = stats.tokens?.[id]||0; const p = PRICING[id];
+            return (<div key={id} className="stats-bar-row">
+              <div className="stats-bar-name" style={{color:m.color}}>{m.icon} {m.short}</div>
+              <div className="stats-bar-track"><div className="stats-bar-fill" style={{width:(tok/maxTok*100)+"%",background:m.color}}/></div>
+              <div className="stats-bar-val">{fmtN(tok)}t · {fmtCost(estimateCost(id))}</div>
+            </div>);
+          })}
+          <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:700}}>
+            <span style={{color:"var(--tx)"}}>Total estimé</span><span style={{color:"var(--ac)"}}>{fmtCost(totalCost)}</span>
+          </div>
+          <div style={{marginTop:4,fontSize:8,color:"var(--mu)"}}>⚠️ Estimation approx. (70% input / 30% output). Claude est intégré donc sans coût API ici.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── GlossaireTab ─────────────────────────────────────────────────
+function GlossaireTab({ navigateTab, setChatInput }) {
+  const [search, setSearch] = React.useState("");
+  const [cat, setCat] = React.useState("Tout");
+  const [expanded, setExpanded] = React.useState(null);
+  const cats = ["Tout", ...new Set(GLOSSAIRE_IA.map(g => g.cat))];
+  const filtered = GLOSSAIRE_IA.filter(g => {
+    const matchCat = cat === "Tout" || g.cat === cat;
+    const q = search.toLowerCase();
+    const matchSearch = !q || g.terme.toLowerCase().includes(q) || g.simple.toLowerCase().includes(q) || g.def.toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)"}}>📖 Glossaire IA</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— {GLOSSAIRE_IA.length} termes expliqués simplement</div>
       </div>
+      {/* Search + filtre */}
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un terme…"
+          style={{flex:1,minWidth:160,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 11px",outline:"none"}}/>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {cats.map(c=>(
+            <button key={c} onClick={()=>setCat(c)}
+              style={{padding:"5px 10px",borderRadius:12,border:"1px solid "+(cat===c?"var(--ac)":"var(--bd)"),background:cat===c?"rgba(212,168,83,.12)":"transparent",color:cat===c?"var(--ac)":"var(--mu)",fontSize:8,cursor:"pointer",fontWeight:cat===c?700:400}}>
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Grille */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:8}}>
+        {filtered.map(g=>(
+          <div key={g.terme} onClick={()=>setExpanded(expanded===g.terme?null:g.terme)}
+            style={{background:"var(--s1)",border:"1px solid "+(expanded===g.terme?"rgba(212,168,83,.4)":"var(--bd)"),borderRadius:10,padding:"12px 14px",cursor:"pointer",transition:"all .15s"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <span style={{fontSize:18}}>{g.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:12,color:"var(--tx)",fontFamily:"var(--font-display)"}}>{g.terme}</div>
+                <div style={{fontSize:9,color:"var(--ac)",fontStyle:"italic"}}>{g.simple}</div>
+              </div>
+              <span style={{fontSize:7,padding:"2px 6px",background:"rgba(167,139,250,.1)",color:"#A78BFA",borderRadius:8,fontWeight:700,flexShrink:0}}>{g.cat}</span>
+            </div>
+            <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.6}}>{g.def}</div>
+            {expanded===g.terme && (
+              <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid var(--bd)"}}>
+                <div style={{fontSize:8,color:"var(--green)",fontWeight:700,marginBottom:3}}>EXEMPLE</div>
+                <div style={{fontSize:9,color:"var(--tx)",fontStyle:"italic",lineHeight:1.5}}>{g.exemple}</div>
+                <button onClick={e=>{e.stopPropagation();setChatInput("Explique-moi le concept de "+g.terme+" en IA avec des exemples concrets.");navigateTab("chat");}}
+                  style={{marginTop:8,fontSize:8,padding:"3px 9px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>
+                  💬 Approfondir dans le Chat
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {filtered.length===0 && <div style={{gridColumn:"1/-1",textAlign:"center",padding:32,color:"var(--mu)",fontSize:10}}>Aucun terme trouvé pour "{search}"</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── BenchmarkTab ──────────────────────────────────────────────────
+function BenchmarkTab({ enabled, apiKeys }) {
+  const [results, setResults] = React.useState({}); // {iaId: {testId: {response, time, score}}}
+  const [running, setRunning] = React.useState(false);
+  const [selectedTest, setSelectedTest] = React.useState("reasoning");
+  const [customPrompt, setCustomPrompt] = React.useState("");
+  const [useCustom, setUseCustom] = React.useState(false);
+  const [progress, setProgress] = React.useState({});
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && MODEL_DEFS[id].apiType !== "pollinations" && !MODEL_DEFS[id].serial);
+  const test = BENCHMARK_TESTS.find(t => t.id === selectedTest) || BENCHMARK_TESTS[0];
+  const prompt = useCustom ? customPrompt : test.prompt;
+
+  const runBenchmark = async () => {
+    if (!prompt.trim() || !activeIds.length) return;
+    setRunning(true); setResults({}); setProgress({});
+    const newResults = {};
+    await Promise.all(activeIds.map(async (id) => {
+      setProgress(p => ({...p, [id]:"running"}));
+      const start = Date.now();
+      try {
+        const resp = await callModel(id, [{role:"user", content:prompt}], apiKeys, "Tu es un assistant concis. Réponds directement sans intro.");
+        const time = ((Date.now() - start) / 1000).toFixed(1);
+        newResults[id] = { response: resp, time: parseFloat(time), status:"ok" };
+        setProgress(p => ({...p, [id]:"done"}));
+      } catch(e) {
+        newResults[id] = { response: "❌ "+e.message, time: null, status:"error" };
+        setProgress(p => ({...p, [id]:"error"}));
+      }
+      setResults({...newResults});
+    }));
+    setRunning(false);
+  };
+
+  const sorted = Object.entries(results)
+    .filter(([,r]) => r.status==="ok")
+    .sort(([,a],[,b]) => (a.time||99)-(b.time||99));
+
+  const medals = ["🥇","🥈","🥉"];
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)"}}>⚡ Benchmark Live</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Teste toutes tes IAs en parallèle sur le même prompt</div>
+      </div>
+      {/* Sélecteur de test */}
+      <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>TESTS PRÉDÉFINIS</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:useCustom?0:10}}>
+          {BENCHMARK_TESTS.map(t=>(
+            <button key={t.id} onClick={()=>{setSelectedTest(t.id);setUseCustom(false);}}
+              style={{padding:"5px 11px",borderRadius:12,border:"1px solid "+(selectedTest===t.id&&!useCustom?"var(--ac)":"var(--bd)"),background:selectedTest===t.id&&!useCustom?"rgba(212,168,83,.12)":"transparent",color:selectedTest===t.id&&!useCustom?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:selectedTest===t.id&&!useCustom?700:400}}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+          <button onClick={()=>setUseCustom(true)}
+            style={{padding:"5px 11px",borderRadius:12,border:"1px solid "+(useCustom?"var(--ac)":"var(--bd)"),background:useCustom?"rgba(212,168,83,.12)":"transparent",color:useCustom?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:useCustom?700:400}}>
+            ✏️ Prompt perso
+          </button>
+        </div>
+        {!useCustom && <div style={{fontSize:9,color:"var(--mu)",fontStyle:"italic",lineHeight:1.5,marginTop:6,padding:"8px 10px",background:"var(--s2)",borderRadius:6}}>{test.prompt.slice(0,120)}…</div>}
+        {useCustom && <textarea value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} placeholder="Tape ton prompt ici…" rows={3}
+          style={{width:"100%",marginTop:8,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>}
+      </div>
+      {/* Lancer */}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <button onClick={runBenchmark} disabled={running||!activeIds.length}
+          style={{padding:"8px 20px",background:running?"var(--s2)":"rgba(212,168,83,.15)",border:"1px solid "+(running?"var(--bd)":"rgba(212,168,83,.4)"),borderRadius:6,color:running?"var(--mu)":"var(--ac)",fontSize:10,cursor:running?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)"}}>
+          {running ? "⏳ Benchmark en cours…" : "▶ Lancer le benchmark"}
+        </button>
+        {activeIds.length===0 && <span style={{fontSize:9,color:"var(--red)"}}>Active au moins une IA dans Config</span>}
+        {activeIds.length>0 && !running && <span style={{fontSize:9,color:"var(--mu)"}}>{activeIds.length} IAs testées en parallèle</span>}
+      </div>
+      {/* Progression */}
+      {running && (
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+          {activeIds.map(id=>{
+            const m=MODEL_DEFS[id]; const s=progress[id];
+            return <div key={id} style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+(s==="done"?"var(--green)":s==="error"?"var(--red)":m.color+"44"),background:s==="done"?"rgba(74,222,128,.08)":s==="error"?"rgba(248,113,113,.08)":"rgba(255,255,255,.03)",fontSize:9,color:s==="done"?"var(--green)":s==="error"?"var(--red)":m.color,display:"flex",alignItems:"center",gap:5}}>
+              {s==="running"?<span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⟳</span>:s==="done"?"✓":s==="error"?"✕":"…"}
+              {m.short}
+            </div>;
+          })}
+        </div>
+      )}
+      {/* Podium vitesse */}
+      {sorted.length>0 && (
+        <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8,padding:"12px"}}>
+          <div style={{fontSize:9,color:"var(--ac)",fontWeight:700,marginBottom:8}}>🏆 CLASSEMENT VITESSE</div>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {sorted.map(([id,r],i)=>{
+              const m=MODEL_DEFS[id];
+              const fastest=sorted[0][1].time;
+              const pct=fastest?Math.round((fastest/r.time)*100):100;
+              return <div key={id} style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:16,width:24,textAlign:"center"}}>{medals[i]||"·"}</span>
+                <span style={{color:m.color,fontSize:11,width:20}}>{m.icon}</span>
+                <span style={{fontSize:10,color:"var(--tx)",width:80,flexShrink:0}}>{m.short}</span>
+                <div style={{flex:1,height:6,background:"var(--s2)",borderRadius:3,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:pct+"%",background:m.color,borderRadius:3,transition:"width .5s"}}/>
+                </div>
+                <span style={{fontSize:9,color:"var(--mu)",fontFamily:"var(--font-mono)",width:40,textAlign:"right"}}>{r.time}s</span>
+              </div>;
+            })}
+          </div>
+        </div>
+      )}
+      {/* Réponses détaillées */}
+      {Object.keys(results).length>0 && (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10}}>
+          {Object.entries(results).sort(([,a],[,b])=>(a.time||99)-(b.time||99)).map(([id,r],i)=>{
+            const m=MODEL_DEFS[id];
+            return <div key={id} style={{background:"var(--s1)",border:"1px solid "+(r.status==="error"?"rgba(248,113,113,.3)":m.color+"33"),borderRadius:8,padding:"12px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                <span style={{fontSize:16}}>{medals[i]||"·"}</span>
+                <span style={{color:m.color,fontSize:14}}>{m.icon}</span>
+                <span style={{fontWeight:700,fontSize:11,color:m.color}}>{m.name}</span>
+                {r.time && <span style={{marginLeft:"auto",fontSize:9,fontFamily:"var(--font-mono)",color:"var(--mu)"}}>{r.time}s</span>}
+              </div>
+              <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.6,maxHeight:120,overflow:"auto"}}>{r.response.slice(0,400)}{r.response.length>400?"…":""}</div>
+            </div>;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  1. PROMPT AUTOPSY                                           ║
+// ╚══════════════════════════════════════════════════════════════╝
+function PromptAutopsyTab({ enabled, apiKeys, conversations }) {
+  const [badResponse, setBadResponse] = React.useState("");
+  const [originalPrompt, setOriginalPrompt] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  // Pré-remplir depuis la dernière réponse du chat
+  const lastResponses = React.useMemo(() => {
+    return activeIds.map(id => {
+      const msgs = conversations[id] || [];
+      const last = [...msgs].reverse().find(m => m.role === "assistant");
+      const q = [...msgs].reverse().find(m => m.role === "user");
+      return last ? { id, text: last.content, question: q?.content || "" } : null;
+    }).filter(Boolean);
+  }, [conversations, activeIds]);
+
+  const runAutopsy = async () => {
+    if (!badResponse.trim()) return;
+    setLoading(true); setResult(null);
+    const judge = activeIds.find(id => ["groq","mistral","cerebras"].includes(id)) || activeIds[0];
+    if (!judge) { setLoading(false); return; }
+    const prompt = `Tu es un expert en prompt engineering et évaluation de LLMs. Analyse cette réponse d'IA qui a déçu l'utilisateur.
+
+PROMPT ORIGINAL : ${originalPrompt || "(non fourni)"}
+RÉPONSE DÉCEVANTE :
+${badResponse.slice(0, 1500)}
+
+Effectue une autopsie complète. Réponds UNIQUEMENT en JSON valide :
+{
+  "verdict": "phrase de 1 ligne résumant le problème principal",
+  "score_mauvais": 3,
+  "biais": [{"nom":"Nom du biais","description":"ce qui s'est passé","gravite":"haute|moyenne|faible"}],
+  "erreurs_raisonnement": ["erreur 1","erreur 2"],
+  "problemes_prompt": ["problème dans le prompt qui a causé ça"],
+  "prompt_ameliore": "version améliorée du prompt original qui évite ces problèmes",
+  "prompt_v2": "deuxième variante encore plus précise",
+  "lecon": "conseil principal à retenir pour éviter ce problème"
+}`;
+    try {
+      const { callModel: cm } = await import("./api/ai-service.js");
+      const reply = await cm(judge, [{role:"user", content:prompt}], apiKeys, "Expert analyse IA. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0] || clean);
+      setResult(data);
+    } catch(e) { setResult({ verdict:"Erreur d'analyse : "+e.message, biais:[], erreurs_raisonnement:[], problemes_prompt:[], prompt_ameliore:"", prompt_v2:"", lecon:"" }); }
+    setLoading(false);
+  };
+
+  const graviteColor = g => g==="haute"?"var(--red)":g==="moyenne"?"var(--orange)":"var(--mu)";
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#F87171"}}>🔬 Prompt Autopsy</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Disséquer pourquoi une réponse d'IA était mauvaise</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(248,113,113,.06)",border:"1px solid rgba(248,113,113,.15)",borderRadius:6}}>
+        Colle une réponse d'IA qui t'a déçu. L'autopsie identifie les biais, erreurs de raisonnement, et génère un prompt amélioré qui évite ces problèmes.
+      </div>
+
+      {/* Pré-remplir depuis le chat */}
+      {lastResponses.length > 0 && (
+        <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>PRÉ-REMPLIR DEPUIS LE CHAT</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {lastResponses.slice(0,5).map(r=>{
+              const m = MODEL_DEFS[r.id];
+              return <button key={r.id} onClick={()=>{setBadResponse(r.text.slice(0,1500));setOriginalPrompt(r.question.slice(0,500));}}
+                style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+m.color+"44",background:m.color+"11",color:m.color,fontSize:8,cursor:"pointer"}}>
+                {m.icon} Dernière réponse {m.short}
+              </button>;
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <div>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>PROMPT ORIGINAL (optionnel)</div>
+          <textarea value={originalPrompt} onChange={e=>setOriginalPrompt(e.target.value)} placeholder="Le prompt que tu avais envoyé…" rows={3}
+            style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+        </div>
+        <div>
+          <div style={{fontSize:8,color:"var(--red)",fontWeight:700,marginBottom:5}}>RÉPONSE DÉCEVANTE *</div>
+          <textarea value={badResponse} onChange={e=>setBadResponse(e.target.value)} placeholder="Colle ici la réponse qui t'a déçu…" rows={3}
+            style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(248,113,113,.3)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+        </div>
+      </div>
+
+      <button onClick={runAutopsy} disabled={loading||!badResponse.trim()||!activeIds.length}
+        style={{padding:"9px 22px",background:loading?"var(--s2)":"rgba(248,113,113,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(248,113,113,.4)"),borderRadius:6,color:loading?"var(--mu)":"var(--red)",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)",marginBottom:16}}>
+        {loading?"🔬 Autopsie en cours…":"🔬 Lancer l'autopsie"}
+      </button>
+
+      {result && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {/* Verdict */}
+          <div style={{padding:"12px 16px",background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.3)",borderRadius:8}}>
+            <div style={{fontSize:8,color:"var(--red)",fontWeight:700,marginBottom:4}}>VERDICT</div>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",lineHeight:1.5}}>{result.verdict}</div>
+            {result.lecon && <div style={{marginTop:6,fontSize:9,color:"var(--mu)",fontStyle:"italic"}}>💡 {result.lecon}</div>}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+            {/* Biais */}
+            {result.biais?.length > 0 && (
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+                <div style={{fontSize:8,color:"var(--orange)",fontWeight:700,marginBottom:8}}>🧠 BIAIS DÉTECTÉS</div>
+                {result.biais.map((b,i)=>(
+                  <div key={i} style={{marginBottom:8,paddingBottom:8,borderBottom:i<result.biais.length-1?"1px solid var(--bd)":"none"}}>
+                    <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3}}>
+                      <span style={{fontWeight:700,fontSize:10,color:graviteColor(b.gravite)}}>{b.nom}</span>
+                      <span style={{fontSize:7,padding:"1px 5px",borderRadius:8,background:graviteColor(b.gravite)+"22",color:graviteColor(b.gravite),fontWeight:700}}>{b.gravite}</span>
+                    </div>
+                    <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5}}>{b.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Erreurs */}
+            {result.erreurs_raisonnement?.length > 0 && (
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+                <div style={{fontSize:8,color:"var(--red)",fontWeight:700,marginBottom:8}}>⚠️ ERREURS DE RAISONNEMENT</div>
+                {result.erreurs_raisonnement.map((e,i)=>(
+                  <div key={i} style={{display:"flex",gap:6,marginBottom:5,fontSize:9,color:"var(--tx)"}}>
+                    <span style={{color:"var(--red)",flexShrink:0}}>✗</span>{e}
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Problèmes prompt */}
+            {result.problemes_prompt?.length > 0 && (
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+                <div style={{fontSize:8,color:"var(--ac)",fontWeight:700,marginBottom:8}}>📝 PROBLÈMES DANS TON PROMPT</div>
+                {result.problemes_prompt.map((p,i)=>(
+                  <div key={i} style={{display:"flex",gap:6,marginBottom:5,fontSize:9,color:"var(--tx)"}}>
+                    <span style={{color:"var(--ac)",flexShrink:0}}>→</span>{p}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Prompts améliorés */}
+          {(result.prompt_ameliore||result.prompt_v2) && (
+            <div style={{background:"var(--s1)",border:"1px solid rgba(74,222,128,.25)",borderRadius:8,padding:"12px"}}>
+              <div style={{fontSize:8,color:"var(--green)",fontWeight:700,marginBottom:10}}>✨ PROMPTS AMÉLIORÉS</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {[["Version 1",result.prompt_ameliore],["Version 2",result.prompt_v2]].filter(([,t])=>t).map(([label,text])=>(
+                  <div key={label}>
+                    <div style={{fontSize:8,color:"var(--mu)",marginBottom:4}}>{label}</div>
+                    <div style={{background:"var(--s2)",borderRadius:6,padding:"8px 10px",fontSize:9,color:"var(--tx)",lineHeight:1.6,position:"relative"}}>
+                      {text}
+                      <button onClick={()=>{navigator.clipboard.writeText(text);}}
+                        style={{position:"absolute",top:4,right:4,fontSize:8,padding:"2px 6px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  2. IA MENTOR — Apprentissage progressif                     ║
+// ╚══════════════════════════════════════════════════════════════╝
+function IaMentorTab({ enabled, apiKeys }) {
+  const MENTOR_KEY = "multiia_mentor_sessions";
+  const [sessions, setSessions] = React.useState(() => { try { return JSON.parse(localStorage.getItem(MENTOR_KEY)||"[]"); } catch { return []; } });
+  const [activeSession, setActiveSession] = React.useState(null);
+  const [creating, setCreating] = React.useState(false);
+  const [topic, setTopic] = React.useState("");
+  const [level, setLevel] = React.useState("débutant");
+  const [sessionCount, setSessionCount] = React.useState(6);
+  const [generating, setGenerating] = React.useState(false);
+  const [currentStep, setCurrentStep] = React.useState(null); // {type:"lesson"|"exercise"|"quiz", content, answer:"", result}
+  const [stepLoading, setStepLoading] = React.useState(false);
+  const [userAnswer, setUserAnswer] = React.useState("");
+
+  const saveS = (s) => { setSessions(s); try { localStorage.setItem(MENTOR_KEY, JSON.stringify(s)); } catch {} };
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const judge = activeIds.find(id=>["groq","mistral","cerebras","sambanova"].includes(id)) || activeIds[0];
+
+  const createSession = async () => {
+    if (!topic.trim() || !judge) return;
+    setGenerating(true);
+    const prompt = `Tu es un pédagogue expert. Crée un programme d'apprentissage de ${sessionCount} sessions pour apprendre : "${topic}" (niveau ${level}).
+
+Réponds UNIQUEMENT en JSON valide :
+{
+  "titre": "titre du programme",
+  "description": "2 phrases de description",
+  "objectif_final": "ce que l'apprenant saura faire à la fin",
+  "sessions": [
+    {
+      "num": 1,
+      "titre": "titre de la session",
+      "objectif": "objectif de cette session",
+      "concepts": ["concept 1","concept 2"],
+      "duree_min": 15
+    }
+  ]
+}`;
+    try {
+      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Pédagogue expert. JSON uniquement.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      const session = {
+        id: Date.now().toString(),
+        topic, level, createdAt: new Date().toISOString(),
+        ...data,
+        sessions: (data.sessions||[]).map(s=>({...s, completed:false, score:null})),
+        currentSession: 0,
+        xp: 0,
+      };
+      const updated = [session, ...sessions];
+      saveS(updated);
+      setActiveSession(session.id);
+      setCreating(false); setTopic("");
+    } catch(e) { alert("Erreur : "+e.message); }
+    setGenerating(false);
+  };
+
+  const launchStep = async (session, stepType) => {
+    if (!judge) return;
+    setStepLoading(true); setCurrentStep(null); setUserAnswer("");
+    const sess = session.sessions[session.currentSession];
+    const prompts = {
+      lesson: `Tu es un professeur expert en "${session.topic}". Donne une leçon complète sur : "${sess.titre}" pour niveau ${session.level}.
+Structure : 1) Explication claire (avec analogies), 2) Exemple concret, 3) Résumé en 3 points clés. Maximum 400 mots.`,
+      exercise: `Crée un exercice pratique sur "${sess.titre}" pour niveau ${session.level}.
+Format : Présente l'exercice clairement, sans donner la solution. Termine par "Ta réponse :"`,
+      quiz: `Crée une question de quiz à choix multiples (A/B/C/D) sur "${sess.titre}".
+Format : La question, puis A) B) C) D). Termine par "Ta réponse (A/B/C/D) :"`
+    };
+    try {
+      const reply = await callModel(judge, [{role:"user",content:prompts[stepType]}], apiKeys, `Tu es un mentor pédagogue expert en "${session.topic}".`);
+      setCurrentStep({ type:stepType, content:reply, answer:"", result:null, sessInfo:sess });
+    } catch(e) { setCurrentStep({ type:stepType, content:"Erreur : "+e.message, answer:"", result:null }); }
+    setStepLoading(false);
+  };
+
+  const submitAnswer = async () => {
+    if (!currentStep || !userAnswer.trim() || !judge) return;
+    setStepLoading(true);
+    const evalPrompt = `L'apprenant a répondu à cet ${currentStep.type==="quiz"?"quiz":"exercice"} :
+
+CONTENU : ${currentStep.content}
+RÉPONSE DE L'APPRENANT : ${userAnswer}
+
+Évalue la réponse. Réponds en JSON :
+{"correct":true/false,"score":0-10,"feedback":"explication en 2-3 phrases","points_forts":["..."],"a_ameliorer":["..."],"bonne_reponse":"la réponse correcte complète"}`;
+    try {
+      const reply = await callModel(judge, [{role:"user",content:evalPrompt}], apiKeys, "Évaluateur pédagogique. JSON uniquement.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const eval_ = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      setCurrentStep(prev=>({...prev, result:eval_, answer:userAnswer}));
+      // Update session XP + progression
+      const xpGained = eval_.correct ? 30 : 10;
+      setSessions(prev => {
+        const updated = prev.map(s => {
+          if (s.id !== activeSession) return s;
+          return { ...s, xp: (s.xp||0) + xpGained };
+        });
+        saveS(updated);
+        return updated;
+      });
+    } catch(e) { setCurrentStep(prev=>({...prev, result:{correct:false, feedback:"Erreur d'évaluation : "+e.message, score:0}})); }
+    setStepLoading(false);
+  };
+
+  const completeSession = () => {
+    setSessions(prev => {
+      const updated = prev.map(s => {
+        if (s.id !== activeSession) return s;
+        const newSessions = s.sessions.map((sess,i) => i===s.currentSession ? {...sess, completed:true, score: currentStep?.result?.score||5} : sess);
+        const nextIdx = Math.min(s.currentSession+1, s.sessions.length-1);
+        return { ...s, sessions:newSessions, currentSession:nextIdx, xp:(s.xp||0)+50 };
+      });
+      saveS(updated);
+      return updated;
+    });
+    setCurrentStep(null); setUserAnswer("");
+  };
+
+  const active = sessions.find(s=>s.id===activeSession);
+  const levels = ["débutant","intermédiaire","avancé","expert"];
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar sessions */}
+      <div style={{width:200,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--s1)"}}>
+        <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:12,color:"var(--ac)",marginBottom:8}}>🎓 IA Mentor</div>
+          <button onClick={()=>setCreating(true)}
+            style={{width:"100%",padding:"6px 10px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+            + Nouveau programme
+          </button>
+        </div>
+        <div style={{flex:1,overflow:"auto"}}>
+          {sessions.length===0&&<div style={{padding:16,fontSize:9,color:"var(--mu)",textAlign:"center"}}>Aucun programme</div>}
+          {sessions.map(s=>{
+            const done = s.sessions?.filter(x=>x.completed).length||0;
+            const total = s.sessions?.length||0;
+            const pct = total>0?Math.round(done/total*100):0;
+            return <div key={s.id} onClick={()=>{setActiveSession(s.id);setCreating(false);setCurrentStep(null);}}
+              style={{padding:"9px 12px",cursor:"pointer",borderBottom:"1px solid var(--bd)",background:activeSession===s.id?"rgba(212,168,83,.08)":"transparent",borderLeft:"3px solid "+(activeSession===s.id?"var(--ac)":"transparent")}}>
+              <div style={{fontSize:10,fontWeight:600,color:activeSession===s.id?"var(--ac)":"var(--tx)",marginBottom:3}}>{s.titre||s.topic}</div>
+              <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
+                <div style={{flex:1,height:3,background:"var(--s2)",borderRadius:2}}><div style={{height:"100%",width:pct+"%",background:"var(--green)",borderRadius:2}}/></div>
+                <span style={{fontSize:7,color:"var(--mu)"}}>{pct}%</span>
+              </div>
+              <div style={{fontSize:7,color:"var(--mu)"}}>{s.level} · ⚡{s.xp||0} XP · {done}/{total}</div>
+            </div>;
+          })}
+        </div>
+      </div>
+
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"14px 16px"}}>
+        {/* Créer un programme */}
+        {creating && (
+          <div style={{maxWidth:500}}>
+            <div style={{fontWeight:700,fontSize:14,color:"var(--ac)",marginBottom:14,fontFamily:"var(--font-display)"}}>🆕 Nouveau programme d'apprentissage</div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>JE VEUX APPRENDRE</div>
+              <input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="Ex: Python, Marketing digital, Photographie…"
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:11,padding:"8px 11px",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div>
+                <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>MON NIVEAU</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {levels.map(l=><button key={l} onClick={()=>setLevel(l)}
+                    style={{padding:"4px 9px",borderRadius:10,border:"1px solid "+(level===l?"var(--ac)":"var(--bd)"),background:level===l?"rgba(212,168,83,.12)":"transparent",color:level===l?"var(--ac)":"var(--mu)",fontSize:8,cursor:"pointer"}}>{l}</button>)}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>NOMBRE DE SESSIONS</div>
+                <div style={{display:"flex",gap:4}}>
+                  {[4,6,8,10].map(n=><button key={n} onClick={()=>setSessionCount(n)}
+                    style={{flex:1,padding:"4px",borderRadius:6,border:"1px solid "+(sessionCount===n?"var(--ac)":"var(--bd)"),background:sessionCount===n?"rgba(212,168,83,.12)":"transparent",color:sessionCount===n?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer"}}>{n}</button>)}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={createSession} disabled={generating||!topic.trim()||!judge}
+                style={{flex:1,padding:"8px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                {generating?"⏳ Génération du programme…":"✨ Créer le programme"}
+              </button>
+              <button onClick={()=>setCreating(false)} style={{padding:"8px 14px",background:"transparent",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>Annuler</button>
+            </div>
+          </div>
+        )}
+
+        {/* Session active */}
+        {active && !creating && (
+          <>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:15,color:"var(--tx)"}}>{active.titre}</div>
+              <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:9,color:"var(--green)",fontWeight:700}}>⚡ {active.xp} XP</span>
+                <span style={{fontSize:9,color:"var(--mu)"}}>{active.sessions?.filter(s=>s.completed).length||0}/{active.sessions?.length||0} sessions</span>
+              </div>
+            </div>
+            {/* Barre de progression globale */}
+            <div style={{marginBottom:14}}>
+              <div style={{height:6,background:"var(--s2)",borderRadius:3,overflow:"hidden"}}>
+                <div style={{height:"100%",width:((active.sessions?.filter(s=>s.completed).length||0)/(active.sessions?.length||1)*100)+"%",background:"var(--green)",borderRadius:3,transition:"width .5s"}}/>
+              </div>
+            </div>
+            {/* Sessions roadmap */}
+            <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+              {active.sessions?.map((s,i)=>(
+                <div key={i} style={{flexShrink:0,width:110,padding:"8px 10px",borderRadius:8,border:"2px solid "+(i===active.currentSession?"var(--ac)":s.completed?"var(--green)":"var(--bd)"),background:i===active.currentSession?"rgba(212,168,83,.08)":s.completed?"rgba(74,222,128,.06)":"var(--s1)",cursor:"pointer",opacity:i>active.currentSession+1?.6:1}}
+                  onClick={()=>{setSessions(prev=>{const u=prev.map(x=>x.id===active.id?{...x,currentSession:i}:x);saveS(u);return u;});setCurrentStep(null);}}>
+                  <div style={{fontSize:9,color:s.completed?"var(--green)":i===active.currentSession?"var(--ac)":"var(--mu)",fontWeight:700,marginBottom:2}}>{s.completed?"✓":i===active.currentSession?"▶":"○"} S{i+1}</div>
+                  <div style={{fontSize:8,color:"var(--tx)",lineHeight:1.3}}>{s.titre}</div>
+                  {s.score!==null&&<div style={{fontSize:7,color:"var(--ac)",marginTop:2}}>★ {s.score}/10</div>}
+                </div>
+              ))}
+            </div>
+
+            {/* Session courante */}
+            {active.sessions?.[active.currentSession] && (
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"14px 16px",marginBottom:14}}>
+                <div style={{fontWeight:700,fontSize:13,color:"var(--ac)",marginBottom:4}}>
+                  Session {active.currentSession+1} : {active.sessions[active.currentSession].titre}
+                </div>
+                <div style={{fontSize:9,color:"var(--mu)",marginBottom:10}}>{active.sessions[active.currentSession].objectif}</div>
+                {!currentStep && !stepLoading && (
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {[["📖","lesson","Leçon"],["✏️","exercise","Exercice"],["❓","quiz","Quiz"]].map(([ico,type,label])=>(
+                      <button key={type} onClick={()=>launchStep(active,type)}
+                        style={{padding:"8px 16px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                        {ico} {label}
+                      </button>
+                    ))}
+                    {active.sessions[active.currentSession].completed && (
+                      <div style={{fontSize:9,color:"var(--green)",padding:"8px",display:"flex",alignItems:"center",gap:4}}>✅ Session complétée</div>
+                    )}
+                  </div>
+                )}
+                {stepLoading && <div style={{fontSize:10,color:"var(--mu)",padding:"12px 0"}}>⏳ Génération en cours…</div>}
+                {currentStep && !stepLoading && (
+                  <div>
+                    <div style={{fontSize:8,color:"var(--ac)",fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>
+                      {currentStep.type==="lesson"?"📖 Leçon":currentStep.type==="exercise"?"✏️ Exercice":"❓ Quiz"}
+                    </div>
+                    <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,marginBottom:12,whiteSpace:"pre-wrap"}}>{currentStep.content}</div>
+                    {currentStep.type !== "lesson" && !currentStep.result && (
+                      <>
+                        <textarea value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} placeholder="Ta réponse…" rows={3}
+                          style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+                        <button onClick={submitAnswer} disabled={!userAnswer.trim()}
+                          style={{padding:"7px 18px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                          Soumettre ma réponse
+                        </button>
+                      </>
+                    )}
+                    {currentStep.result && (
+                      <div style={{padding:"10px 12px",borderRadius:8,background:currentStep.result.correct?"rgba(74,222,128,.08)":"rgba(248,113,113,.08)",border:"1px solid "+(currentStep.result.correct?"rgba(74,222,128,.3)":"rgba(248,113,113,.3)"),marginTop:8}}>
+                        <div style={{fontWeight:700,fontSize:11,color:currentStep.result.correct?"var(--green)":"var(--red)",marginBottom:4}}>
+                          {currentStep.result.correct?"✅ Correct !":"❌ Pas tout à fait…"} — {currentStep.result.score}/10
+                        </div>
+                        <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.6,marginBottom:6}}>{currentStep.result.feedback}</div>
+                        {currentStep.result.bonne_reponse && <div style={{fontSize:9,color:"var(--ac)",padding:"6px 8px",background:"rgba(212,168,83,.06)",borderRadius:5}}>✨ {currentStep.result.bonne_reponse}</div>}
+                      </div>
+                    )}
+                    <div style={{display:"flex",gap:8,marginTop:10}}>
+                      <button onClick={()=>{setCurrentStep(null);setUserAnswer("");}} style={{fontSize:9,padding:"5px 12px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>↺ Réessayer</button>
+                      {(currentStep.type==="lesson"||currentStep.result) && (
+                        <button onClick={completeSession} style={{fontSize:9,padding:"5px 12px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",cursor:"pointer",fontWeight:700}}>
+                          ✓ Session suivante →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+        {!active && !creating && <div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Sélectionne ou crée un programme d'apprentissage</div>}
+      </div>
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  3. PROMPT DNA — Généalogie des meilleurs prompts            ║
+// ╚══════════════════════════════════════════════════════════════╝
+function PromptDNATab({ onInject }) {
+  const DNA_KEY = "multiia_prompt_dna";
+  const [nodes, setNodes] = React.useState(() => { try { return JSON.parse(localStorage.getItem(DNA_KEY)||"[]"); } catch { return []; } });
+  const [selected, setSelected] = React.useState(null);
+  const [adding, setAdding] = React.useState(false);
+  const [newPrompt, setNewPrompt] = React.useState("");
+  const [newTitle, setNewTitle] = React.useState("");
+  const [parentId, setParentId] = React.useState(null);
+  const [search, setSearch] = React.useState("");
+
+  const saveN = (n) => { setNodes(n); try { localStorage.setItem(DNA_KEY, JSON.stringify(n)); } catch {} };
+
+  const addNode = () => {
+    if (!newPrompt.trim()) return;
+    const node = {
+      id: Date.now().toString(),
+      title: newTitle || newPrompt.slice(0,40)+"…",
+      prompt: newPrompt,
+      parentId: parentId || null,
+      children: [],
+      stars: 0,
+      uses: 0,
+      createdAt: new Date().toISOString(),
+      tags: [],
+    };
+    const updated = [...nodes, node];
+    // Ajouter l'enfant dans le parent
+    if (parentId) {
+      const withChild = updated.map(n => n.id===parentId ? {...n, children:[...n.children, node.id]} : n);
+      saveN(withChild);
+    } else {
+      saveN(updated);
+    }
+    setAdding(false); setNewPrompt(""); setNewTitle(""); setParentId(null);
+    setSelected(node.id);
+  };
+
+  const starNode = (id) => {
+    const updated = nodes.map(n => n.id===id ? {...n, stars:(n.stars||0)+1} : n);
+    saveN(updated);
+  };
+
+  const useNode = (id) => {
+    const updated = nodes.map(n => n.id===id ? {...n, uses:(n.uses||0)+1} : n);
+    saveN(updated);
+    const node = nodes.find(n=>n.id===id);
+    if (node) onInject(node.prompt);
+  };
+
+  const deleteNode = (id) => {
+    const updated = nodes.filter(n=>n.id!==id).map(n=>({...n, children:n.children.filter(c=>c!==id)}));
+    saveN(updated); if(selected===id) setSelected(null);
+  };
+
+  // Racines (nodes sans parent)
+  const roots = nodes.filter(n=>!n.parentId);
+  const getChildren = (id) => nodes.filter(n=>n.parentId===id);
+  const filtered = search ? nodes.filter(n=>n.title.toLowerCase().includes(search.toLowerCase())||n.prompt.toLowerCase().includes(search.toLowerCase())) : null;
+  const sel = nodes.find(n=>n.id===selected);
+
+  const renderNode = (node, depth=0) => (
+    <div key={node.id} style={{marginLeft:depth*16}}>
+      <div onClick={()=>setSelected(node.id)}
+        style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:6,cursor:"pointer",border:"1px solid "+(selected===node.id?"rgba(212,168,83,.4)":"transparent"),background:selected===node.id?"rgba(212,168,83,.06)":"transparent",marginBottom:2}}>
+        {depth>0&&<span style={{color:"var(--mu)",fontSize:10,flexShrink:0}}>└</span>}
+        <span style={{fontSize:9,color:"var(--tx)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{node.title}</span>
+        {node.stars>0&&<span style={{fontSize:8,color:"var(--ac)"}}>★{node.stars}</span>}
+        {node.uses>0&&<span style={{fontSize:7,color:"var(--mu)"}}>×{node.uses}</span>}
+        {getChildren(node.id).length>0&&<span style={{fontSize:7,color:"var(--blue)",flexShrink:0}}>⬡{getChildren(node.id).length}</span>}
+      </div>
+      {getChildren(node.id).map(c=>renderNode(c, depth+1))}
+    </div>
+  );
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar arbre */}
+      <div style={{width:220,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:12,color:"var(--ac)",marginBottom:8}}>🧬 Prompt DNA</div>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher…"
+            style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:8,padding:"5px 8px",outline:"none",boxSizing:"border-box",marginBottom:6}}/>
+          <button onClick={()=>{setAdding(true);setParentId(null);}}
+            style={{width:"100%",padding:"5px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:8,cursor:"pointer",fontWeight:700}}>
+            + Nouveau prompt racine
+          </button>
+        </div>
+        <div style={{flex:1,overflow:"auto",padding:"6px 4px"}}>
+          {nodes.length===0&&<div style={{padding:12,fontSize:9,color:"var(--mu)",textAlign:"center"}}>Aucun prompt.<br/>Ajoute ton premier !</div>}
+          {(filtered||roots).map(n=>renderNode(n))}
+        </div>
+        {nodes.length>0&&(
+          <div style={{padding:"8px 12px",borderTop:"1px solid var(--bd)",fontSize:8,color:"var(--mu)"}}>
+            {nodes.length} prompts · {nodes.reduce((a,n)=>a+(n.stars||0),0)} ★ total
+          </div>
+        )}
+      </div>
+
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"14px 16px"}}>
+        {/* Formulaire d'ajout */}
+        {adding && (
+          <div style={{background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:10,padding:"14px 16px",marginBottom:14}}>
+            <div style={{fontWeight:700,fontSize:12,color:"var(--ac)",marginBottom:10}}>{parentId?"🌿 Variante de :"+nodes.find(n=>n.id===parentId)?.title:"🌱 Nouveau prompt racine"}</div>
+            <input value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder="Titre court (optionnel)"
+              style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 10px",outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            <textarea value={newPrompt} onChange={e=>setNewPrompt(e.target.value)} placeholder="Le prompt complet…" rows={4}
+              style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={addNode} disabled={!newPrompt.trim()}
+                style={{padding:"7px 16px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                💾 Enregistrer
+              </button>
+              <button onClick={()=>{setAdding(false);setNewPrompt("");setNewTitle("");setParentId(null);}}
+                style={{padding:"7px 12px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,cursor:"pointer"}}>Annuler</button>
+            </div>
+          </div>
+        )}
+
+        {/* Détail du prompt sélectionné */}
+        {sel && !adding && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"var(--tx)",flex:1}}>{sel.title}</div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>starNode(sel.id)} style={{padding:"5px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer"}}>★ Star ({sel.stars||0})</button>
+                <button onClick={()=>useNode(sel.id)} style={{padding:"5px 10px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:9,cursor:"pointer",fontWeight:700}}>▶ Utiliser</button>
+                <button onClick={()=>{setAdding(true);setParentId(sel.id);setNewPrompt(sel.prompt+" ");}} style={{padding:"5px 10px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",fontSize:9,cursor:"pointer"}}>⬡ Créer variante</button>
+                <button onClick={()=>deleteNode(sel.id)} style={{padding:"5px 10px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",fontSize:9,cursor:"pointer"}}>🗑</button>
+              </div>
+            </div>
+            {/* Généalogie */}
+            {sel.parentId && (
+              <div style={{marginBottom:10,fontSize:9,color:"var(--mu)",display:"flex",alignItems:"center",gap:4}}>
+                <span>Dérivé de :</span>
+                <button onClick={()=>setSelected(sel.parentId)} style={{background:"transparent",border:"none",color:"var(--blue)",fontSize:9,cursor:"pointer",textDecoration:"underline"}}>
+                  {nodes.find(n=>n.id===sel.parentId)?.title||"parent"}
+                </button>
+              </div>
+            )}
+            {/* Stats */}
+            <div style={{display:"flex",gap:10,marginBottom:12}}>
+              {[["★","Stars",sel.stars||0],["▶","Utilisations",sel.uses||0],["⬡","Variantes",getChildren(sel.id).length],["📅","Créé",new Date(sel.createdAt).toLocaleDateString("fr-FR")]].map(([ico,l,v])=>(
+                <div key={l} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,padding:"6px 10px",textAlign:"center",minWidth:60}}>
+                  <div style={{fontSize:14}}>{ico}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:"var(--ac)"}}>{v}</div>
+                  <div style={{fontSize:7,color:"var(--mu)"}}>{l}</div>
+                </div>
+              ))}
+            </div>
+            {/* Prompt */}
+            <div style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px",marginBottom:12,position:"relative"}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>PROMPT COMPLET</div>
+              <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{sel.prompt}</div>
+              <button onClick={()=>navigator.clipboard.writeText(sel.prompt)}
+                style={{position:"absolute",top:8,right:8,fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋</button>
+            </div>
+            {/* Variantes enfants */}
+            {getChildren(sel.id).length>0 && (
+              <div>
+                <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>⬡ VARIANTES ({getChildren(sel.id).length})</div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  {getChildren(sel.id).map(c=>(
+                    <div key={c.id} onClick={()=>setSelected(c.id)}
+                      style={{padding:"8px 10px",borderRadius:6,border:"1px solid var(--bd)",background:"var(--s1)",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:9,color:"var(--blue)"}}>└</span>
+                      <span style={{fontSize:9,color:"var(--tx)",flex:1}}>{c.title}</span>
+                      <span style={{fontSize:8,color:"var(--ac)"}}>★{c.stars||0}</span>
+                      <span style={{fontSize:8,color:"var(--mu)"}}>×{c.uses||0}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {!sel&&!adding&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Sélectionne un prompt ou crée-en un nouveau</div>}
+      </div>
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  4. MODE CONFÉRENCE — IAs en chaîne collaborative            ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ConferenceTab({ enabled, apiKeys }) {
+  const [question, setQuestion] = React.useState("");
+  const [chain, setChain] = React.useState([]); // [{iaId, role, output, loading}]
+  const [running, setRunning] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  const [synthesis, setSynthesis] = React.useState("");
+  const [synthLoading, setSynthLoading] = React.useState(false);
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  const ROLES = [
+    { id:"explorateur", label:"🔭 Explorateur", color:"#60A5FA", instruction:"Tu es l'Explorateur. Ton rôle : explorer toutes les pistes, angles et perspectives possibles sur le sujet. Sois large, créatif, ne t'autocensure pas. Propose des idées inattendues." },
+    { id:"critique",    label:"🔍 Critique",    color:"#F87171", instruction:"Tu es le Critique. Ton rôle : analyser rigoureusement ce qu'a dit l'Explorateur. Identifie les failles, les imprécisions, les angles manquants. Sois précis et constructif." },
+    { id:"constructeur",label:"🔨 Constructeur",color:"#4ADE80", instruction:"Tu es le Constructeur. En tenant compte de ce qu'ont dit l'Explorateur ET le Critique, construis la meilleure réponse possible. Synthétise, enrichis, structure clairement." },
+  ];
+
+  const runConference = async () => {
+    if (!question.trim() || activeIds.length < 1) return;
+    setRunning(true); setDone(false); setSynthesis(""); setChain([]);
+    const steps = ROLES.slice(0, Math.min(ROLES.length, activeIds.length));
+    let context = "";
+    const results = [];
+    for (let i = 0; i < steps.length; i++) {
+      const role = steps[i];
+      const iaId = activeIds[i % activeIds.length];
+      const m = MODEL_DEFS[iaId];
+      const newEntry = { iaId, roleId:role.id, roleLabel:role.label, roleColor:role.color, output:"", loading:true };
+      setChain(prev=>[...prev, newEntry]);
+      const prompt = i===0
+        ? `Question : "${question}"\n\n${role.instruction}`
+        : `Question originale : "${question}"\n\nÉchanges précédents :\n${context}\n\n${role.instruction}\n\nAppuie-toi sur ce qui précède pour aller plus loin.`;
+      try {
+        const reply = await callModel(iaId, [{role:"user", content:prompt}], apiKeys, role.instruction);
+        context += `\n\n[${role.label} — ${m.short}]:\n${reply}`;
+        results.push({ ...newEntry, output:reply, loading:false });
+        setChain([...results]);
+      } catch(e) {
+        results.push({ ...newEntry, output:"❌ "+e.message, loading:false });
+        setChain([...results]);
+      }
+    }
+    setRunning(false); setDone(true);
+  };
+
+  const runSynthesis = async () => {
+    if (!chain.length) return;
+    setSynthLoading(true);
+    const judge = activeIds[activeIds.length-1] || activeIds[0];
+    const fullContext = chain.map(c=>`[${c.roleLabel}]:\n${c.output}`).join("\n\n");
+    const prompt = `Voici une conférence IA en 3 étapes sur : "${question}"\n\n${fullContext}\n\nTu es le Synthétiseur Final. Produis une réponse définitive, claire et actionnable qui capitalise sur toute cette réflexion collective. Structure : 1) Réponse principale, 2) Points clés, 3) Prochaines étapes concrètes.`;
+    try {
+      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Tu es le Synthétiseur Final d'une conférence IA.");
+      setSynthesis(reply);
+    } catch(e) { setSynthesis("❌ "+e.message); }
+    setSynthLoading(false);
+  };
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#A78BFA"}}>🎙 Mode Conférence</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— 3 IAs en chaîne : Explorateur → Critique → Constructeur</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(167,139,250,.06)",border:"1px solid rgba(167,139,250,.15)",borderRadius:6}}>
+        Contrairement au Débat (positions opposées), ici chaque IA <strong style={{color:"var(--tx)"}}>construit sur la précédente</strong>. Le résultat final est collectivement meilleur que n'importe quelle IA seule.
+      </div>
+
+      {/* Rôles visuels */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {ROLES.map((r,i)=>{
+          const iaId = activeIds[i%activeIds.length];
+          const m = iaId ? MODEL_DEFS[iaId] : null;
+          return <div key={r.id} style={{flex:1,minWidth:140,padding:"10px 12px",background:"var(--s1)",border:"1px solid "+r.color+"33",borderRadius:8}}>
+            <div style={{fontSize:12,color:r.color,fontWeight:700,marginBottom:3}}>{r.label}</div>
+            <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.4}}>{r.instruction.split(":")[1]?.trim().slice(0,80)}…</div>
+            {m&&<div style={{marginTop:5,fontSize:8,color:m.color,fontWeight:700}}>→ {m.icon} {m.short}</div>}
+          </div>;
+        })}
+      </div>
+
+      {/* Input */}
+      <div style={{marginBottom:12}}>
+        <textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Pose ta question ou sujet à la conférence…"
+          rows={3} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+      </div>
+      <button onClick={runConference} disabled={running||!question.trim()||!activeIds.length}
+        style={{padding:"9px 22px",background:running?"var(--s2)":"rgba(167,139,250,.15)",border:"1px solid "+(running?"var(--bd)":"rgba(167,139,250,.4)"),borderRadius:6,color:running?"var(--mu)":"#A78BFA",fontSize:10,cursor:running?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)",marginBottom:16}}>
+        {running?"🎙 Conférence en cours…":"🎙 Lancer la conférence"}
+      </button>
+
+      {/* Chaîne de réponses */}
+      {chain.length>0 && (
+        <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16,position:"relative"}}>
+          {/* Ligne verticale */}
+          <div style={{position:"absolute",left:20,top:20,bottom:20,width:2,background:"linear-gradient(to bottom,#60A5FA,#F87171,#4ADE80)",borderRadius:2,zIndex:0}}/>
+          {chain.map((c,i)=>(
+            <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",position:"relative",zIndex:1}}>
+              <div style={{width:40,height:40,borderRadius:"50%",background:"var(--bg)",border:"2px solid "+c.roleColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+                {c.roleLabel.slice(0,2)}
+              </div>
+              <div style={{flex:1,background:"var(--s1)",border:"1px solid "+c.roleColor+"33",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                  <span style={{fontWeight:700,fontSize:10,color:c.roleColor}}>{c.roleLabel}</span>
+                  <span style={{fontSize:8,color:MODEL_DEFS[c.iaId]?.color,fontWeight:600}}>— {MODEL_DEFS[c.iaId]?.icon} {MODEL_DEFS[c.iaId]?.short}</span>
+                  {i<chain.length-1&&<span style={{fontSize:8,color:"var(--mu)",marginLeft:"auto"}}>↓ transmis au suivant</span>}
+                </div>
+                {c.loading
+                  ? <div style={{fontSize:9,color:"var(--mu)"}}>⏳ En cours…</div>
+                  : <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{c.output}</div>
+                }
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Synthèse finale */}
+      {done && (
+        <div style={{background:"var(--s1)",border:"1px solid rgba(167,139,250,.3)",borderRadius:10,padding:"14px 16px"}}>
+          {!synthesis && !synthLoading && (
+            <button onClick={runSynthesis}
+              style={{padding:"8px 20px",background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.4)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>
+              ✨ Générer la synthèse finale
+            </button>
+          )}
+          {synthLoading && <div style={{fontSize:10,color:"var(--mu)"}}>⏳ Synthèse en cours…</div>}
+          {synthesis && (
+            <>
+              <div style={{fontSize:9,color:"#A78BFA",fontWeight:700,marginBottom:8}}>✨ SYNTHÈSE FINALE</div>
+              <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{synthesis}</div>
+              <button onClick={()=>navigator.clipboard.writeText(synthesis)} style={{marginTop:10,fontSize:8,padding:"3px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋 Copier la synthèse</button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  5. CONSENSUS SCORE — Fiabilité par vote croisé              ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ConsensusTab({ enabled, apiKeys, conversations }) {
+  const [claim, setClaim] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  // Pré-remplir depuis le chat
+  const lastResponses = React.useMemo(() => {
+    return activeIds.map(id => {
+      const msgs = conversations[id]||[];
+      const last = [...msgs].reverse().find(m=>m.role==="assistant");
+      return last ? {id, text:last.content.slice(0,300)} : null;
+    }).filter(Boolean).slice(0,3);
+  }, [conversations, activeIds]);
+
+  const runConsensus = async () => {
+    if (!claim.trim() || activeIds.length < 2) return;
+    setLoading(true); setResult(null);
+    const voters = activeIds.filter(id=>!MODEL_DEFS[id]?.serial).slice(0, 6);
+    const votes = await Promise.all(voters.map(async (id) => {
+      const prompt = `Évalue cette affirmation : "${claim.slice(0,500)}"
+
+Réponds UNIQUEMENT en JSON :
+{"verdict":"vrai|faux|partiel|incertain","confiance":85,"raison":"1 phrase","sources_suggérées":["source 1","source 2"]}
+
+- vrai = tu es certain que c'est correct
+- faux = tu es certain que c'est incorrect  
+- partiel = partiellement vrai/faux
+- incertain = tu ne peux pas vérifier`;
+      try {
+        const reply = await callModel(id, [{role:"user",content:prompt}], apiKeys, "Vérificateur de faits. JSON uniquement.");
+        const clean = reply.replace(/```json|```/g,"").trim();
+        const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+        return { id, ...data, ok:true };
+      } catch(e) { return { id, verdict:"incertain", confiance:0, raison:"Erreur: "+e.message, ok:false }; }
+    }));
+
+    // Calcul du score de consensus
+    const verdictCounts = {vrai:0, faux:0, partiel:0, incertain:0};
+    votes.forEach(v=>{ if(verdictCounts[v.verdict]!==undefined) verdictCounts[v.verdict]++; });
+    const total = votes.length;
+    const topVerdict = Object.entries(verdictCounts).sort(([,a],[,b])=>b-a)[0];
+    const consensusRate = Math.round((topVerdict[1]/total)*100);
+    const avgConfidence = Math.round(votes.reduce((a,v)=>a+(v.confiance||0),0)/total);
+    const reliabilityScore = Math.round((consensusRate*0.6 + avgConfidence*0.4));
+    const sources = [...new Set(votes.flatMap(v=>v.sources_suggérées||[]))].slice(0,5);
+
+    setResult({ votes, verdictCounts, topVerdict:topVerdict[0], consensusRate, avgConfidence, reliabilityScore, sources, total });
+    setLoading(false);
+  };
+
+  const verdictColor = v => ({vrai:"var(--green)",faux:"var(--red)",partiel:"var(--orange)",incertain:"var(--mu)"}[v]||"var(--mu)");
+  const verdictLabel = v => ({vrai:"✅ Vrai",faux:"❌ Faux",partiel:"⚠️ Partiel",incertain:"❓ Incertain"}[v]||v);
+  const scoreColor = s => s>=75?"var(--green)":s>=50?"var(--orange)":"var(--red)";
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#34D399"}}>🔎 Consensus Score</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Fiabilité d'une affirmation par vote croisé de toutes tes IAs</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(52,211,153,.06)",border:"1px solid rgba(52,211,153,.15)",borderRadius:6}}>
+        Colle une affirmation, un fait, ou la réponse d'une IA. Toutes tes IAs actives votent indépendamment. Plus le consensus est élevé, plus l'affirmation est fiable.
+      </div>
+
+      {/* Pré-remplir */}
+      {lastResponses.length>0 && (
+        <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>VÉRIFIER UNE RÉPONSE DU CHAT</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {lastResponses.map(r=>{
+              const m=MODEL_DEFS[r.id];
+              return <button key={r.id} onClick={()=>setClaim(r.text)}
+                style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+m.color+"44",background:m.color+"11",color:m.color,fontSize:8,cursor:"pointer"}}>
+                {m.icon} Réponse {m.short}
+              </button>;
+            })}
+          </div>
+        </div>
+      )}
+
+      <textarea value={claim} onChange={e=>setClaim(e.target.value)}
+        placeholder="Ex: La Terre est plus vieille que le Soleil. / Ex: colle ici la réponse d'une IA à vérifier…"
+        rows={3} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+      <button onClick={runConsensus} disabled={loading||!claim.trim()||activeIds.length<2}
+        style={{padding:"9px 22px",background:loading?"var(--s2)":"rgba(52,211,153,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(52,211,153,.4)"),borderRadius:6,color:loading?"var(--mu)":"#34D399",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)",marginBottom:16}}>
+        {loading?"🔎 Vote en cours…":"🔎 Lancer le vote de fiabilité"}
+      </button>
+      {activeIds.length<2&&<div style={{fontSize:9,color:"var(--red)",marginBottom:10}}>Active au moins 2 IAs pour le vote croisé</div>}
+
+      {result && (
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {/* Score principal */}
+          <div style={{padding:"16px 20px",background:"var(--s1)",border:"2px solid "+scoreColor(result.reliabilityScore)+"55",borderRadius:12,textAlign:"center"}}>
+            <div style={{fontSize:48,fontWeight:900,color:scoreColor(result.reliabilityScore),fontFamily:"var(--font-display)",lineHeight:1}}>
+              {result.reliabilityScore}%
+            </div>
+            <div style={{fontSize:12,color:"var(--tx)",marginTop:4,fontWeight:700}}>Score de fiabilité</div>
+            <div style={{fontSize:10,color:verdictColor(result.topVerdict),marginTop:4,fontWeight:700}}>
+              {verdictLabel(result.topVerdict)} · {result.consensusRate}% de consensus · Confiance moy. {result.avgConfidence}%
+            </div>
+            <div style={{marginTop:10,height:8,background:"var(--s2)",borderRadius:4,overflow:"hidden",maxWidth:300,margin:"10px auto 0"}}>
+              <div style={{height:"100%",width:result.reliabilityScore+"%",background:scoreColor(result.reliabilityScore),borderRadius:4,transition:"width .8s"}}/>
+            </div>
+          </div>
+
+          {/* Distribution des votes */}
+          <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:10}}>DISTRIBUTION DES VOTES ({result.total} IAs)</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {Object.entries(result.verdictCounts).filter(([,v])=>v>0).map(([verdict,count])=>(
+                <div key={verdict} style={{flex:1,minWidth:80,padding:"8px",background:verdictColor(verdict)+"11",border:"1px solid "+verdictColor(verdict)+"33",borderRadius:8,textAlign:"center"}}>
+                  <div style={{fontSize:18}}>{verdictLabel(verdict).split(" ")[0]}</div>
+                  <div style={{fontSize:16,fontWeight:900,color:verdictColor(verdict)}}>{count}</div>
+                  <div style={{fontSize:8,color:"var(--mu)",textTransform:"capitalize"}}>{verdict}</div>
+                  <div style={{fontSize:9,color:verdictColor(verdict),fontWeight:700}}>{Math.round(count/result.total*100)}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Votes détaillés */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8}}>
+            {result.votes.map((v,i)=>{
+              const m=MODEL_DEFS[v.id];
+              return <div key={i} style={{background:"var(--s1)",border:"1px solid "+verdictColor(v.verdict)+"33",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+                  <span style={{color:m.color,fontSize:12}}>{m.icon}</span>
+                  <span style={{fontWeight:700,fontSize:10,color:m.color}}>{m.short}</span>
+                  <span style={{marginLeft:"auto",padding:"2px 7px",borderRadius:8,background:verdictColor(v.verdict)+"22",color:verdictColor(v.verdict),fontSize:8,fontWeight:700}}>{verdictLabel(v.verdict)}</span>
+                </div>
+                <div style={{fontSize:9,color:"var(--mu)",marginBottom:4}}>Confiance : <span style={{color:v.confiance>70?"var(--green)":v.confiance>40?"var(--orange)":"var(--red)",fontWeight:700}}>{v.confiance}%</span></div>
+                <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.5}}>{v.raison}</div>
+              </div>;
+            })}
+          </div>
+
+          {/* Sources suggérées */}
+          {result.sources.length>0 && (
+            <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>📚 SOURCES SUGGÉRÉES POUR VÉRIFIER</div>
+              {result.sources.map((s,i)=><div key={i} style={{fontSize:9,color:"var(--blue)",marginBottom:3}}>• {s}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  MORNING BRIEF — Briefing IA proactif personnalisé           ║
+// ╚══════════════════════════════════════════════════════════════╝
+function MorningBriefTab({ enabled, apiKeys, projects, memFacts, usageStats }) {
+  const BRIEF_KEY = "multiia_morning_brief";
+  const BRIEF_CONF = "multiia_brief_config";
+
+  const [config, setConfig] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(BRIEF_CONF) || "{}"); } catch { return {}; }
+  });
+  const [brief, setBrief] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(BRIEF_KEY) || "null"); } catch { return null; }
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [editConfig, setEditConfig] = React.useState(false);
+
+  const saveConfig = (c) => { setConfig(c); try { localStorage.setItem(BRIEF_CONF, JSON.stringify(c)); } catch {} };
+  const saveBrief  = (b) => { setBrief(b);  try { localStorage.setItem(BRIEF_KEY, JSON.stringify(b)); } catch {} };
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const bestIA    = activeIds.find(id => ["groq","mistral","cerebras","sambanova"].includes(id)) || activeIds[0];
+
+  // Vérification auto chaque minute — génère le brief si l'heure est atteinte
+  React.useEffect(() => {
+    if (!config.autoTime || !config.enabled) return;
+    const iv = setInterval(() => {
+      const now  = new Date();
+      const hhmm = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
+      const today = now.toISOString().slice(0,10);
+      if (hhmm === config.autoTime && brief?.date !== today) {
+        generateBrief(true); // silent auto-generation
+      }
+    }, 60000);
+    return () => clearInterval(iv);
+  }, [config, brief]);
+
+  const generateBrief = async (silent = false) => {
+    if (!bestIA) return;
+    if (!silent) setLoading(true);
+
+    // Contexte personnalisé
+    const topIA = Object.entries(usageStats?.msgs || {}).sort(([,a],[,b])=>b-a)[0];
+    const activeProjects = (projects || []).filter(p => p.context || p.notes).slice(0,2);
+    const memories = (memFacts || []).slice(0,5).map(f => "- " + f.text).join("\n");
+
+    const date = new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+    const sections = config.sections || ["actu","taches","conseil","citation"];
+
+    const sectionPrompts = {
+      actu:     "📰 ACTUALITÉS IA DU JOUR (3 tendances ou nouvelles importantes du monde de l'IA aujourd'hui)",
+      taches:   "✅ TOP 3 TÂCHES (basé sur les projets actifs, suggère les 3 actions les plus impactantes pour aujourd'hui)",
+      conseil:  "💡 CONSEIL IA DU JOUR (1 astuce pratique pour mieux utiliser les LLMs aujourd'hui)",
+      citation: "✨ INSPIRATION (1 citation motivante en lien avec l'IA ou la créativité)",
+      meteo_ia: "🌡️ MÉTÉO IA (température du marché IA : chaud/tiède/calme, et pourquoi en 1 phrase)",
+      prompt:   "🎯 PROMPT DU JOUR (1 prompt prêt à l'emploi, utile et original)",
+    };
+
+    const prompt = `Tu es l'assistant personnel de quelqu'un qui utilise des IAs tous les jours. Génère son briefing du matin pour ${date}.
+
+CONTEXTE UTILISATEUR :
+- IA préférée : ${topIA ? MODEL_DEFS[topIA[0]]?.name : "non définie"}
+- Projets actifs : ${activeProjects.map(p=>p.name+"("+p.desc+")").join(", ") || "aucun"}
+- Mémoire personnelle : ${memories || "vide"}
+- Sections demandées : ${sections.join(", ")}
+
+Génère UNIQUEMENT un JSON valide :
+{
+  "salutation": "Bonjour [prénom si connu, sinon utilisateur] !",
+  "date_str": "${date}",
+  "sections": {
+    ${sections.map(s => `"${s}": ${s === "taches" ? '["tâche 1","tâche 2","tâche 3"]' : s === "actu" ? '["actu 1","actu 2","actu 3"]' : '"contenu"'}`).join(",\n    ")}
+  },
+  "ia_du_jour": {"id":"${bestIA}","raison":"pourquoi utiliser cette IA aujourd'hui"},
+  "minute_a_retenir": "1 chose importante à savoir aujourd'hui en IA (max 2 phrases)"
+}`;
+
+    try {
+      const reply = await callModel(bestIA, [{role:"user", content:prompt}], apiKeys, "Assistant personnel briefing. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data  = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0] || clean);
+      const result = { ...data, generatedAt: new Date().toISOString(), date: new Date().toISOString().slice(0,10), ia: bestIA };
+      saveBrief(result);
+    } catch(e) {
+      if (!silent) saveBrief({ error: e.message, generatedAt: new Date().toISOString(), date: new Date().toISOString().slice(0,10) });
+    }
+    if (!silent) setLoading(false);
+  };
+
+  const SECTION_LABELS = {
+    actu:     { icon:"📰", label:"Actualités IA" },
+    taches:   { icon:"✅", label:"Mes 3 tâches" },
+    conseil:  { icon:"💡", label:"Conseil du jour" },
+    citation: { icon:"✨", label:"Inspiration" },
+    meteo_ia: { icon:"🌡️", label:"Météo IA" },
+    prompt:   { icon:"🎯", label:"Prompt du jour" },
+  };
+
+  const isToday = brief?.date === new Date().toISOString().slice(0,10);
+  const m = MODEL_DEFS[brief?.ia];
+
+  return (
+    <div style={{flex:1, overflow:"auto", padding:"clamp(10px,2vw,16px)"}}>
+      {/* Header */}
+      <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:6, flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)", fontWeight:800, fontSize:"clamp(14px,2.5vw,20px)", color:"var(--ac)"}}>☀️ Morning Brief</div>
+        <div style={{fontSize:9, color:"var(--mu)"}}>— Ton briefing IA personnalisé, chaque matin</div>
+        <div style={{marginLeft:"auto", display:"flex", gap:8}}>
+          <button onClick={()=>setEditConfig(v=>!v)}
+            style={{padding:"5px 12px", background:"transparent", border:"1px solid var(--bd)", borderRadius:5, color:"var(--mu)", fontSize:9, cursor:"pointer"}}>
+            ⚙ Configurer
+          </button>
+          <button onClick={()=>generateBrief()} disabled={loading||!bestIA}
+            style={{padding:"5px 14px", background:"rgba(212,168,83,.15)", border:"1px solid rgba(212,168,83,.4)", borderRadius:5, color:"var(--ac)", fontSize:9, cursor:"pointer", fontWeight:700}}>
+            {loading ? "⏳ Génération…" : "🔄 Générer maintenant"}
+          </button>
+        </div>
+      </div>
+
+      {/* Config panel */}
+      {editConfig && (
+        <div style={{marginBottom:14, background:"var(--s1)", border:"1px solid var(--bd)", borderRadius:10, padding:"14px 16px"}}>
+          <div style={{fontWeight:700, fontSize:11, color:"var(--tx)", marginBottom:12}}>⚙ Configuration du brief</div>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12}}>
+            <div>
+              <div style={{fontSize:8, color:"var(--mu)", fontWeight:700, marginBottom:5}}>GÉNÉRATION AUTO</div>
+              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                <input type="checkbox" checked={!!config.enabled} onChange={e=>saveConfig({...config, enabled:e.target.checked})}/>
+                <label style={{fontSize:9, color:"var(--tx)"}}>Activer le brief automatique</label>
+              </div>
+              <div style={{marginTop:6, display:"flex", alignItems:"center", gap:6}}>
+                <span style={{fontSize:9, color:"var(--mu)"}}>Heure :</span>
+                <input type="time" value={config.autoTime||"08:00"} onChange={e=>saveConfig({...config, autoTime:e.target.value})}
+                  style={{background:"var(--s2)", border:"1px solid var(--bd)", borderRadius:4, color:"var(--tx)", fontSize:9, padding:"3px 8px", outline:"none"}}/>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:8, color:"var(--mu)", fontWeight:700, marginBottom:5}}>SECTIONS INCLUSES</div>
+              <div style={{display:"flex", flexWrap:"wrap", gap:4}}>
+                {Object.entries(SECTION_LABELS).map(([k,{icon,label}])=>{
+                  const active = (config.sections||["actu","taches","conseil","citation"]).includes(k);
+                  return <button key={k} onClick={()=>{
+                    const cur = config.sections||["actu","taches","conseil","citation"];
+                    const next = active ? cur.filter(s=>s!==k) : [...cur,k];
+                    saveConfig({...config, sections:next});
+                  }} style={{padding:"3px 8px", borderRadius:8, border:"1px solid "+(active?"var(--ac)":"var(--bd)"), background:active?"rgba(212,168,83,.12)":"transparent", color:active?"var(--ac)":"var(--mu)", fontSize:8, cursor:"pointer"}}>
+                    {icon} {label}
+                  </button>;
+                })}
+              </div>
+            </div>
+          </div>
+          <div style={{fontSize:8, color:"var(--mu)", fontStyle:"italic"}}>
+            💡 Le brief utilise tes projets actifs, ta mémoire personnelle et ton historique d'usage pour personnaliser le contenu.
+          </div>
+        </div>
+      )}
+
+      {/* Pas de brief */}
+      {!brief && !loading && (
+        <div style={{textAlign:"center", padding:"60px 20px"}}>
+          <div style={{fontSize:48, marginBottom:12}}>☀️</div>
+          <div style={{fontSize:14, fontWeight:700, color:"var(--tx)", marginBottom:6}}>Aucun brief généré</div>
+          <div style={{fontSize:10, color:"var(--mu)", marginBottom:20}}>Clique sur "Générer maintenant" pour recevoir ton premier briefing personnalisé.</div>
+          <button onClick={()=>generateBrief()} disabled={!bestIA}
+            style={{padding:"10px 24px", background:"rgba(212,168,83,.15)", border:"1px solid rgba(212,168,83,.4)", borderRadius:8, color:"var(--ac)", fontSize:11, cursor:"pointer", fontWeight:700}}>
+            ☀️ Créer mon premier brief
+          </button>
+          {!bestIA && <div style={{marginTop:8, fontSize:9, color:"var(--red)"}}>Active au moins une IA dans Config</div>}
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div style={{textAlign:"center", padding:"60px 20px"}}>
+          <div style={{fontSize:32, marginBottom:10, animation:"spin 2s linear infinite", display:"inline-block"}}>⚙️</div>
+          <div style={{fontSize:11, color:"var(--mu)"}}>Génération de ton briefing personnalisé…</div>
+        </div>
+      )}
+
+      {/* Brief affiché */}
+      {brief && !loading && !brief.error && (
+        <div>
+          {/* En-tête */}
+          <div style={{marginBottom:16, padding:"16px 20px", background:"linear-gradient(135deg, rgba(212,168,83,.12), rgba(212,168,83,.04))", border:"1px solid rgba(212,168,83,.3)", borderRadius:12}}>
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:6}}>
+              <div>
+                <div style={{fontFamily:"var(--font-display)", fontWeight:800, fontSize:"clamp(16px,3vw,22px)", color:"var(--ac)", marginBottom:2}}>{brief.salutation || "Bonjour !"}</div>
+                <div style={{fontSize:10, color:"var(--mu)"}}>{brief.date_str}</div>
+              </div>
+              <div style={{display:"flex", alignItems:"center", gap:6, fontSize:9, color:"var(--mu)"}}>
+                {m && <><span style={{color:m.color}}>{m.icon} {m.short}</span> · </>}
+                {isToday ? <span style={{color:"var(--green)"}}>✓ Aujourd'hui</span> : <span style={{color:"var(--orange)"}}>Hier</span>}
+              </div>
+            </div>
+            {brief.minute_a_retenir && (
+              <div style={{marginTop:10, padding:"8px 12px", background:"rgba(212,168,83,.08)", borderRadius:6, fontSize:10, color:"var(--tx)", lineHeight:1.6, fontStyle:"italic"}}>
+                🔑 {brief.minute_a_retenir}
+              </div>
+            )}
+          </div>
+
+          {/* IA du jour */}
+          {brief.ia_du_jour && MODEL_DEFS[brief.ia_du_jour.id] && (
+            <div style={{marginBottom:12, padding:"10px 14px", background:"var(--s1)", border:"1px solid "+MODEL_DEFS[brief.ia_du_jour.id].color+"33", borderRadius:8, display:"flex", alignItems:"center", gap:10}}>
+              <span style={{fontSize:20}}>{MODEL_DEFS[brief.ia_du_jour.id].icon}</span>
+              <div>
+                <div style={{fontSize:9, color:"var(--mu)", fontWeight:700}}>IA DU JOUR</div>
+                <div style={{fontSize:10, fontWeight:700, color:MODEL_DEFS[brief.ia_du_jour.id].color}}>{MODEL_DEFS[brief.ia_du_jour.id].name}</div>
+                <div style={{fontSize:9, color:"var(--mu)"}}>{brief.ia_du_jour.raison}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Sections */}
+          <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:10}}>
+            {Object.entries(brief.sections || {}).map(([key, content]) => {
+              const meta = SECTION_LABELS[key] || {icon:"📌", label:key};
+              const isList = Array.isArray(content);
+              return (
+                <div key={key} style={{background:"var(--s1)", border:"1px solid var(--bd)", borderRadius:10, padding:"12px 14px"}}>
+                  <div style={{fontSize:9, fontWeight:700, color:"var(--ac)", marginBottom:8}}>{meta.icon} {meta.label.toUpperCase()}</div>
+                  {isList
+                    ? content.map((item,i) => (
+                        <div key={i} style={{display:"flex", gap:8, marginBottom:6, fontSize:10, color:"var(--tx)", lineHeight:1.5}}>
+                          <span style={{color:"var(--ac)", flexShrink:0, fontWeight:700}}>{i+1}.</span>{item}
+                        </div>
+                      ))
+                    : <div style={{fontSize:10, color:"var(--tx)", lineHeight:1.7}}>{content}</div>
+                  }
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div style={{marginTop:12, display:"flex", gap:8, justifyContent:"flex-end"}}>
+            <button onClick={()=>{ const txt = `☀️ Morning Brief — ${brief.date_str}\n\n`+Object.entries(brief.sections||{}).map(([k,v])=>`${SECTION_LABELS[k]?.icon} ${SECTION_LABELS[k]?.label}\n${Array.isArray(v)?v.map((x,i)=>(i+1)+". "+x).join("\n"):v}`).join("\n\n"); navigator.clipboard.writeText(txt); }}
+              style={{fontSize:9, padding:"5px 12px", background:"transparent", border:"1px solid var(--bd)", borderRadius:5, color:"var(--mu)", cursor:"pointer"}}>📋 Copier</button>
+            <button onClick={()=>generateBrief()}
+              style={{fontSize:9, padding:"5px 12px", background:"rgba(212,168,83,.1)", border:"1px solid rgba(212,168,83,.3)", borderRadius:5, color:"var(--ac)", cursor:"pointer"}}>🔄 Regénérer</button>
+          </div>
+        </div>
+      )}
+
+      {brief?.error && <div style={{padding:20, color:"var(--red)", fontSize:10}}>Erreur : {brief.error}</div>}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  TASK TO IAs — Décomposition + routage multi-modèle          ║
+// ╚══════════════════════════════════════════════════════════════╝
+function TaskToIAsTab({ enabled, apiKeys, navigateTab, setChatInput }) {
+  const [task, setTask] = React.useState("");
+  const [plan, setPlan] = React.useState(null);       // [{id,title,type,ia,prompt,status,output}]
+  const [planning, setPlanning] = React.useState(false);
+  const [running, setRunning] = React.useState(false);
+  const [results, setResults] = React.useState([]);
+  const [assembly, setAssembly] = React.useState("");
+  const [assembling, setAssembling] = React.useState(false);
+  const [editingPlan, setEditingPlan] = React.useState(false);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  // Spécialités par IA pour le routage intelligent
+  const IA_SPECIALTIES = {
+    groq:       { best:["vitesse","brainstorming","idées","recherche rapide","liste"], icon:"⚡" },
+    mistral:    { best:["français","rédaction","reformulation","mail","rapport"], icon:"▲" },
+    cohere:     { best:["résumé","extraction","analyse document","rag","structured"], icon:"⌘" },
+    cerebras:   { best:["code","débogage","algorithme","fonction","script"], icon:"◉" },
+    sambanova:  { best:["raisonnement","analyse complexe","stratégie","décision"], icon:"∞" },
+    qwen3:      { best:["code","maths","multilingue","calcul","logique"], icon:"◈" },
+    llama4s:    { best:["multimodal","image","vision","créatif","diversité"], icon:"🦙" },
+    gemma2:     { best:["synthèse rapide","classification","catégorie","format"], icon:"◎" },
+    poll_gpt:   { best:["polyvalent","créatif","général","conversation"], icon:"◈" },
+    poll_claude:{ best:["analyse","nuance","éthique","long texte","profond"], icon:"✦" },
+  };
+
+  const TASK_TYPES = [
+    { id:"recherche",  label:"🔍 Recherche",  color:"#60A5FA", desc:"Trouver, analyser, synthétiser" },
+    { id:"redaction",  label:"✍️ Rédaction",  color:"#34D399", desc:"Écrire, reformuler, structurer" },
+    { id:"code",       label:"💻 Code",       color:"#A78BFA", desc:"Programmer, déboguer, optimiser" },
+    { id:"strategie",  label:"🎯 Stratégie",  color:"#F97316", desc:"Planifier, décider, prioriser" },
+    { id:"analyse",    label:"🔬 Analyse",    color:"#F87171", desc:"Critiquer, évaluer, comparer" },
+    { id:"creation",   label:"🎨 Création",   color:"#EC4899", desc:"Générer, inventer, brainstormer" },
+  ];
+
+  // Routage intelligent : trouve la meilleure IA pour un type de tâche
+  const routeTask = (taskType) => {
+    const available = activeIds;
+    if (!available.length) return available[0];
+    // Cherche l'IA dont les spécialités matchent le type
+    const scored = available.map(id => {
+      const spec = IA_SPECIALTIES[id]?.best || [];
+      const score = spec.filter(s => taskType.toLowerCase().includes(s) || s.includes(taskType.toLowerCase())).length;
+      return { id, score };
+    }).sort((a,b) => b.score - a.score);
+    return scored[0]?.id || available[0];
+  };
+
+  const generatePlan = async () => {
+    if (!task.trim() || !activeIds.length) return;
+    setPlanning(true); setPlan(null); setResults([]); setAssembly("");
+
+    const plannerIA = activeIds.find(id=>["groq","mistral","sambanova"].includes(id)) || activeIds[0];
+    const availableIAs = activeIds.map(id => `- ${id} (${MODEL_DEFS[id]?.short}): spécialités ${IA_SPECIALTIES[id]?.best?.join(", ")||"généraliste"}`).join("\n");
+
+    const prompt = `Tu es un orchestrateur d'agents IA. L'utilisateur veut accomplir cette tâche complexe :
+"${task}"
+
+IAs disponibles :
+${availableIAs}
+
+Décompose cette tâche en 3 à 6 sous-tâches, en assignant chaque sous-tâche à l'IA la plus adaptée.
+Types disponibles : recherche, redaction, code, strategie, analyse, creation.
+
+Réponds UNIQUEMENT en JSON valide :
+[
+  {
+    "id": "step1",
+    "title": "Titre court de la sous-tâche",
+    "type": "recherche|redaction|code|strategie|analyse|creation",
+    "ia": "id_de_lia",
+    "rationale": "pourquoi cette IA pour cette tâche (1 phrase)",
+    "prompt": "Le prompt complet et précis à envoyer à cette IA pour accomplir SA partie"
+  }
+]`;
+
+    try {
+      const reply = await callModel(plannerIA, [{role:"user",content:prompt}], apiKeys, "Orchestrateur d'agents. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const steps = JSON.parse(clean.match(/\[[\s\S]*\]/)?.[0] || clean);
+      // Override le routage avec notre logique si l'IA suggérée n'est pas disponible
+      const validatedSteps = steps.map((s,i) => ({
+        ...s,
+        id: `step${i+1}`,
+        ia: activeIds.includes(s.ia) ? s.ia : routeTask(s.type),
+        status: "pending",
+        output: null,
+      }));
+      setPlan(validatedSteps);
+    } catch(e) {
+      alert("Erreur lors de la planification : " + e.message);
+    }
+    setPlanning(false);
+  };
+
+  const runPlan = async () => {
+    if (!plan?.length) return;
+    setRunning(true); setResults([]); setAssembly("");
+
+    const newResults = [];
+    for (const step of plan) {
+      // Mettre à jour le statut
+      setPlan(prev => prev.map(s => s.id===step.id ? {...s, status:"running"} : s));
+
+      // Enrichir le prompt avec les outputs précédents si pertinent
+      const prevOutputs = newResults.map(r => `[${r.title}]:\n${r.output}`).join("\n\n");
+      const enrichedPrompt = prevOutputs
+        ? `Contexte des étapes précédentes :\n${prevOutputs}\n\n---\nTa mission :\n${step.prompt}`
+        : step.prompt;
+
+      try {
+        const start = Date.now();
+        const output = await callModel(step.ia, [{role:"user", content:enrichedPrompt}], apiKeys,
+          `Tu es un expert spécialisé en ${step.type}. Tu travailles sur la tâche : "${task}". Sois précis et actionnable.`
+        );
+        const duration = ((Date.now()-start)/1000).toFixed(1);
+        const result = { ...step, output, status:"done", duration };
+        newResults.push(result);
+        setPlan(prev => prev.map(s => s.id===step.id ? result : s));
+        setResults([...newResults]);
+      } catch(e) {
+        const result = { ...step, output:`❌ ${e.message}`, status:"error" };
+        newResults.push(result);
+        setPlan(prev => prev.map(s => s.id===step.id ? result : s));
+        setResults([...newResults]);
+      }
+    }
+    setRunning(false);
+  };
+
+  const assembleResults = async () => {
+    if (!results.length) return;
+    setAssembling(true);
+    const assemblerIA = activeIds.find(id=>["mistral","groq","sambanova","poll_claude"].includes(id)) || activeIds[0];
+    const allOutputs = results.filter(r=>r.status==="done").map((r,i) => `## Étape ${i+1} — ${r.title}\n${r.output}`).join("\n\n");
+
+    const prompt = `Tu es un expert en synthèse. Voici les résultats d'un pipeline multi-IA pour accomplir :
+"${task}"
+
+Résultats des différentes IAs :
+${allOutputs}
+
+Assemble ces résultats en un livrable final cohérent, structuré et actionnable. 
+Format : titre, introduction, sections claires, conclusion avec prochaines étapes.`;
+
+    try {
+      const output = await callModel(assemblerIA, [{role:"user",content:prompt}], apiKeys, "Expert en assemblage et synthèse. Produis un document final professionnel.");
+      setAssembly(output);
+    } catch(e) { setAssembly("❌ " + e.message); }
+    setAssembling(false);
+  };
+
+  const typeInfo = (type) => TASK_TYPES.find(t=>t.id===type) || {label:type, color:"var(--mu)", icon:"📌"};
+  const statusIcon = s => ({pending:"○", running:"⟳", done:"✓", error:"✗"}[s]||"○");
+  const statusColor = s => ({pending:"var(--mu)", running:"var(--ac)", done:"var(--green)", error:"var(--red)"}[s]||"var(--mu)");
+
+  return (
+    <div style={{flex:1, overflow:"auto", padding:"clamp(10px,2vw,16px)"}}>
+      {/* Header */}
+      <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:6, flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)", fontWeight:800, fontSize:"clamp(14px,2.5vw,18px)", color:"#F97316"}}>🔀 Task to IAs</div>
+        <div style={{fontSize:9, color:"var(--mu)"}}>— Décompose une tâche complexe et route chaque partie vers la meilleure IA</div>
+      </div>
+      <div style={{fontSize:9, color:"var(--mu)", marginBottom:14, padding:"8px 12px", background:"rgba(249,115,22,.06)", border:"1px solid rgba(249,115,22,.15)", borderRadius:6}}>
+        Tu décris une tâche complexe. Une IA orchestre et décompose en sous-tâches. <strong style={{color:"var(--tx)"}}>Chaque sous-tâche est automatiquement routée vers l'IA la plus adaptée</strong> (vitesse, rédaction, code, analyse…). Les résultats sont assemblés en un livrable final.
+      </div>
+
+      {/* IAs disponibles + spécialités */}
+      <div style={{marginBottom:12, display:"flex", gap:6, flexWrap:"wrap"}}>
+        {activeIds.map(id => {
+          const m = MODEL_DEFS[id];
+          const spec = IA_SPECIALTIES[id]?.best?.slice(0,2).join(", ") || "généraliste";
+          return <div key={id} style={{padding:"4px 10px", borderRadius:8, border:"1px solid "+m.color+"33", background:m.color+"0A", fontSize:8}}>
+            <span style={{color:m.color, fontWeight:700}}>{m.icon} {m.short}</span>
+            <span style={{color:"var(--mu)"}}> · {spec}</span>
+          </div>;
+        })}
+        {activeIds.length === 0 && <span style={{fontSize:9, color:"var(--red)"}}>Active des IAs dans Config</span>}
+      </div>
+
+      {/* Input */}
+      {!plan && !planning && (
+        <>
+          <textarea value={task} onChange={e=>setTask(e.target.value)}
+            placeholder="Décris ta tâche complexe…&#10;Ex: Lancer une newsletter IA hebdomadaire&#10;Ex: Créer un cours en ligne sur Python pour débutants&#10;Ex: Analyser et améliorer ma stratégie LinkedIn"
+            rows={4} style={{width:"100%", background:"var(--s2)", border:"1px solid var(--bd)", borderRadius:8, color:"var(--tx)", fontSize:11, padding:"10px 12px", resize:"vertical", outline:"none", boxSizing:"border-box", marginBottom:10}}/>
+
+          {/* Exemples rapides */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:8, color:"var(--mu)", fontWeight:700, marginBottom:6}}>EXEMPLES RAPIDES</div>
+            <div style={{display:"flex", gap:6, flexWrap:"wrap"}}>
+              {[
+                "Lancer une newsletter IA hebdomadaire",
+                "Créer un tutoriel vidéo sur React",
+                "Préparer une présentation business pour investisseurs",
+                "Rédiger un plan de formation Python débutants",
+                "Analyser et améliorer une stratégie marketing",
+              ].map(ex => (
+                <button key={ex} onClick={()=>setTask(ex)}
+                  style={{padding:"4px 10px", borderRadius:10, border:"1px solid var(--bd)", background:"var(--s1)", color:"var(--mu)", fontSize:8, cursor:"pointer"}}>
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={generatePlan} disabled={planning||!task.trim()||activeIds.length<1}
+            style={{padding:"9px 22px", background:"rgba(249,115,22,.15)", border:"1px solid rgba(249,115,22,.4)", borderRadius:6, color:"#F97316", fontSize:10, cursor:"pointer", fontWeight:700, fontFamily:"var(--font-mono)"}}>
+            🧠 Planifier et router les tâches
+          </button>
+        </>
+      )}
+
+      {planning && (
+        <div style={{textAlign:"center", padding:"40px 20px"}}>
+          <div style={{fontSize:28, marginBottom:8, display:"inline-block", animation:"spin 1.5s linear infinite"}}>🔀</div>
+          <div style={{fontSize:11, color:"var(--mu)"}}>Analyse de la tâche et création du plan d'exécution…</div>
+        </div>
+      )}
+
+      {/* Plan d'exécution */}
+      {plan && (
+        <div style={{marginBottom:16}}>
+          {/* Tâche + actions */}
+          <div style={{display:"flex", alignItems:"flex-start", gap:10, marginBottom:12, padding:"10px 14px", background:"var(--s1)", border:"1px solid rgba(249,115,22,.3)", borderRadius:8, flexWrap:"wrap"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:8, color:"#F97316", fontWeight:700, marginBottom:2}}>TÂCHE PRINCIPALE</div>
+              <div style={{fontSize:11, color:"var(--tx)", fontWeight:600}}>{task}</div>
+              <div style={{fontSize:8, color:"var(--mu)", marginTop:3}}>{plan.length} sous-tâches · {activeIds.length} IAs disponibles</div>
+            </div>
+            <div style={{display:"flex", gap:6, flexShrink:0}}>
+              <button onClick={()=>{setPlan(null);setResults([]);setAssembly("");}}
+                style={{fontSize:8, padding:"4px 10px", background:"transparent", border:"1px solid var(--bd)", borderRadius:5, color:"var(--mu)", cursor:"pointer"}}>
+                ✕ Recréer
+              </button>
+              {!running && results.length === 0 && (
+                <button onClick={runPlan}
+                  style={{fontSize:9, padding:"6px 16px", background:"rgba(249,115,22,.15)", border:"1px solid rgba(249,115,22,.4)", borderRadius:5, color:"#F97316", cursor:"pointer", fontWeight:700}}>
+                  ▶ Exécuter le plan
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Étapes avec pipeline visuel */}
+          <div style={{position:"relative"}}>
+            <div style={{position:"absolute", left:19, top:0, bottom:0, width:2, background:"linear-gradient(to bottom,#F97316,#A78BFA,#34D399)", borderRadius:2, zIndex:0}}/>
+            {plan.map((step, i) => {
+              const m = MODEL_DEFS[step.ia];
+              const type = typeInfo(step.type);
+              const isDone = step.status === "done";
+              const isRunning = step.status === "running";
+              return (
+                <div key={step.id} style={{display:"flex", gap:12, alignItems:"flex-start", marginBottom:10, position:"relative", zIndex:1}}>
+                  {/* Numéro step */}
+                  <div style={{width:38, height:38, borderRadius:"50%", background:"var(--bg)", border:"2px solid "+(isDone?"var(--green)":isRunning?"var(--ac)":"var(--bd)"), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:isRunning?16:12, color:statusColor(step.status), fontWeight:700, transition:"all .3s"}}>
+                    {isRunning ? <span style={{animation:"spin 1s linear infinite", display:"inline-block"}}>⟳</span> : isDone ? "✓" : i+1}
+                  </div>
+                  {/* Contenu */}
+                  <div style={{flex:1, background:"var(--s1)", border:"1px solid "+(isDone?"var(--green)33":isRunning?"rgba(212,168,83,.3)":"var(--bd)"), borderRadius:10, padding:"10px 14px", marginBottom:2, transition:"border-color .3s"}}>
+                    <div style={{display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap"}}>
+                      <span style={{fontSize:9, fontWeight:700, color:type.color, padding:"2px 6px", background:type.color+"18", borderRadius:6}}>{type.label}</span>
+                      <span style={{fontSize:10, fontWeight:700, color:"var(--tx)", flex:1}}>{step.title}</span>
+                      {m && <span style={{fontSize:8, color:m.color, fontWeight:600, display:"flex", alignItems:"center", gap:3}}>{m.icon} {m.short}</span>}
+                      {step.duration && <span style={{fontSize:7, color:"var(--mu)", fontFamily:"var(--font-mono)"}}>{step.duration}s</span>}
+                    </div>
+                    {step.rationale && <div style={{fontSize:8, color:"var(--mu)", marginBottom:step.output?6:0, fontStyle:"italic"}}>{step.rationale}</div>}
+                    {step.output && isDone && (
+                      <div style={{fontSize:9, color:"var(--tx)", lineHeight:1.6, maxHeight:120, overflow:"auto", paddingTop:6, borderTop:"1px solid var(--bd)"}}>
+                        {step.output.slice(0,400)}{step.output.length>400?"…":""}
+                      </div>
+                    )}
+                    {step.output && step.status==="error" && (
+                      <div style={{fontSize:9, color:"var(--red)", paddingTop:4}}>{step.output}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Assemblage */}
+          {results.filter(r=>r.status==="done").length >= 2 && !running && (
+            <div style={{marginTop:16, background:"var(--s1)", border:"1px solid rgba(52,211,153,.25)", borderRadius:10, padding:"14px 16px"}}>
+              {!assembly && !assembling && (
+                <button onClick={assembleResults}
+                  style={{padding:"8px 20px", background:"rgba(52,211,153,.12)", border:"1px solid rgba(52,211,153,.35)", borderRadius:6, color:"var(--green)", fontSize:10, cursor:"pointer", fontWeight:700}}>
+                  ✨ Assembler le livrable final
+                </button>
+              )}
+              {assembling && <div style={{fontSize:10, color:"var(--mu)"}}>⏳ Assemblage en cours…</div>}
+              {assembly && (
+                <>
+                  <div style={{fontSize:9, color:"var(--green)", fontWeight:700, marginBottom:10}}>✨ LIVRABLE FINAL</div>
+                  <div style={{fontSize:10, color:"var(--tx)", lineHeight:1.8, whiteSpace:"pre-wrap"}}>{assembly}</div>
+                  <div style={{display:"flex", gap:8, marginTop:12}}>
+                    <button onClick={()=>navigator.clipboard.writeText(assembly)}
+                      style={{fontSize:9, padding:"5px 12px", background:"transparent", border:"1px solid var(--bd)", borderRadius:5, color:"var(--mu)", cursor:"pointer"}}>📋 Copier</button>
+                    <button onClick={()=>{setChatInput(assembly); navigateTab("chat");}}
+                      style={{fontSize:9, padding:"5px 12px", background:"rgba(212,168,83,.1)", border:"1px solid rgba(212,168,83,.3)", borderRadius:5, color:"var(--ac)", cursor:"pointer"}}>→ Continuer dans le Chat</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  IA JOURNALISTE — Rapport de recherche multi-angles          ║
+// ╚══════════════════════════════════════════════════════════════╝
+function JournalisteTab({ enabled, apiKeys }) {
+  const [subject, setSubject] = React.useState("");
+  const [depth, setDepth] = React.useState("standard"); // rapide|standard|approfondi
+  const [angles, setAngles] = React.useState([]);
+  const [report, setReport] = React.useState(null);
+  const [running, setRunning] = React.useState(false);
+  const [phase, setPhase] = React.useState("idle"); // idle|planning|researching|writing|done
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const SAVED_KEY = "multiia_journalist_reports";
+  const [savedReports, setSavedReports] = React.useState(() => { try { return JSON.parse(localStorage.getItem(SAVED_KEY)||"[]"); } catch { return []; } });
+  const [viewReport, setViewReport] = React.useState(null);
+
+  const ANGLES_PRESETS = {
+    rapide:    ["📰 Faits essentiels", "🔍 Analyse critique", "🎯 Conclusions pratiques"],
+    standard:  ["📰 Actualité & contexte", "📊 Données & chiffres", "🔍 Analyse experte", "🎯 Impact pratique", "🔮 Perspectives"],
+    approfondi:["📰 Contexte historique", "📊 Données & sources", "🔍 Angles contradictoires", "🌍 Dimension internationale", "⚖️ Enjeux éthiques", "🎯 Applications concrètes", "🔮 Scénarios futurs"],
+  };
+
+  const QUICK_SUBJECTS = [
+    "L'impact de l'IA générative sur l'emploi en 2026",
+    "DeepSeek vs GPT-4 : qui domine vraiment ?",
+    "Faut-il réguler les LLMs open source ?",
+    "L'IA dans la santé : promesses et dangers",
+    "Le marché des agents IA autonomes en 2026",
+    "Mistral AI : l'espoir européen face à OpenAI",
+  ];
+
+  const generateReport = async () => {
+    if (!subject.trim() || !activeIds.length) return;
+    setRunning(true); setReport(null); setPhase("planning");
+    const selectedAngles = ANGLES_PRESETS[depth];
+    const numAngles = selectedAngles.length;
+    const results = [];
+
+    // Phase 1 : Chaque IA couvre un angle différent en parallèle
+    setPhase("researching");
+    await Promise.all(selectedAngles.map(async (angle, i) => {
+      const iaId = activeIds[i % activeIds.length];
+      const prompt = `Tu es un journaliste expert. Rédige une section d'article sur : "${subject}"
+      
+ANGLE ASSIGNÉ : ${angle}
+
+Règles :
+- 200-350 mots maximum
+- Commence directement par le contenu (pas d'intro type "Dans cette section...")
+- Inclus des faits concrets, des chiffres ou des exemples précis si possible
+- Sois percutant et informatif
+- Termine par 1 phrase de transition vers la suite`;
+
+      try {
+        const output = await callModel(iaId, [{role:"user", content:prompt}], apiKeys,
+          `Tu es un journaliste expert spécialisé en ${angle.replace(/[^a-zA-ZÀ-ÿ\s]/g,"")}. Réponds directement avec le contenu.`
+        );
+        results[i] = { angle, iaId, output, ok:true };
+      } catch(e) {
+        results[i] = { angle, iaId, output:`⚠️ Erreur : ${e.message}`, ok:false };
+      }
+    }));
+
+    // Phase 2 : IA rédactrice en chef assemble le rapport final
+    setPhase("writing");
+    const redacIa = activeIds.find(id => ["mistral","poll_claude","sambanova","groq"].includes(id)) || activeIds[0];
+    const sections = results.map((r,i) => `### ${r.angle}\n${r.output}`).join("\n\n");
+
+    const assemblPrompt = `Tu es rédacteur en chef. Voici les sections rédigées par différents journalistes sur : "${subject}"
+
+${sections}
+
+Assemble ces sections en un rapport journalistique cohérent et professionnel :
+1. Ajoute un **titre accrocheur**
+2. Écris un **chapeau** (2-3 phrases d'intro percutantes)
+3. Intègre les sections en fluidifiant les transitions
+4. Ajoute une **conclusion** avec les 3 points à retenir
+5. Génère 3 **questions ouvertes** pour approfondir le sujet
+
+Format Markdown propre.`;
+
+    let finalReport = "";
+    try {
+      finalReport = await callModel(redacIa, [{role:"user", content:assemblPrompt}], apiKeys,
+        "Tu es rédacteur en chef senior. Tu produis des rapports journalistiques clairs et percutants."
+      );
+    } catch(e) {
+      finalReport = sections;
+    }
+
+    const reportObj = {
+      id: Date.now().toString(),
+      subject,
+      depth,
+      angles: selectedAngles,
+      sections: results,
+      finalReport,
+      redacIa,
+      date: new Date().toISOString(),
+      ias: [...new Set(results.map(r=>r.iaId))],
+    };
+
+    setReport(reportObj);
+    const updated = [reportObj, ...savedReports].slice(0, 10);
+    setSavedReports(updated);
+    try { localStorage.setItem(SAVED_KEY, JSON.stringify(updated)); } catch {}
+    setPhase("done");
+    setRunning(false);
+  };
+
+  const DEPTH_OPTIONS = [
+    { id:"rapide",     label:"⚡ Flash",      desc:"3 angles · ~1 min", color:"#4ADE80" },
+    { id:"standard",   label:"📰 Standard",   desc:"5 angles · ~2 min", color:"#60A5FA" },
+    { id:"approfondi", label:"🔬 Approfondi", desc:"7 angles · ~4 min", color:"#A78BFA" },
+  ];
+
+  const PHASE_LABELS = {
+    planning:"🧠 Analyse du sujet…", researching:"📰 Journalistes en cours…", writing:"✍️ Rédaction du rapport final…"
+  };
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar rapports sauvegardés */}
+      {savedReports.length > 0 && (
+        <div style={{width:180,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--s1)"}}>
+          <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)",fontSize:8,color:"var(--mu)",fontWeight:700}}>RAPPORTS SAUVEGARDÉS</div>
+          <div style={{flex:1,overflow:"auto"}}>
+            {savedReports.map(r=>(
+              <div key={r.id} onClick={()=>setViewReport(r.id===viewReport?null:r.id)}
+                style={{padding:"8px 12px",cursor:"pointer",borderBottom:"1px solid var(--bd)",background:viewReport===r.id?"rgba(212,168,83,.08)":"transparent",borderLeft:"3px solid "+(viewReport===r.id?"var(--ac)":"transparent")}}>
+                <div style={{fontSize:9,fontWeight:600,color:viewReport===r.id?"var(--ac)":"var(--tx)",lineHeight:1.3,marginBottom:2}}>{r.subject.slice(0,45)}{r.subject.length>45?"…":""}</div>
+                <div style={{fontSize:7,color:"var(--mu)"}}>{new Date(r.date).toLocaleDateString("fr-FR")} · {r.angles.length} angles</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#60A5FA"}}>📰 IA Journaliste</div>
+          <div style={{fontSize:9,color:"var(--mu)"}}>— Rapport complet multi-angles généré par tes IAs en équipe</div>
+        </div>
+        <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(96,165,250,.06)",border:"1px solid rgba(96,165,250,.15)",borderRadius:6}}>
+          Chaque IA couvre un angle différent (faits, données, analyse, impact…) en parallèle. Une IA rédactrice en chef assemble le tout en un rapport professionnel.
+        </div>
+
+        {/* Rapport sauvegardé affiché */}
+        {viewReport && (() => {
+          const r = savedReports.find(x=>x.id===viewReport);
+          if (!r) return null;
+          return (
+            <div>
+              <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
+                <button onClick={()=>setViewReport(null)} style={{fontSize:9,padding:"4px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>← Retour</button>
+                <button onClick={()=>navigator.clipboard.writeText(r.finalReport)} style={{fontSize:9,padding:"4px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",cursor:"pointer"}}>📋 Copier</button>
+                <button onClick={()=>{setSavedReports(prev=>{const u=prev.filter(x=>x.id!==viewReport);try{localStorage.setItem(SAVED_KEY,JSON.stringify(u));}catch{}return u;});setViewReport(null);}} style={{fontSize:9,padding:"4px 10px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer"}}>🗑</button>
+              </div>
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"16px",fontSize:10,lineHeight:1.8,color:"var(--tx)",whiteSpace:"pre-wrap"}}>{r.finalReport}</div>
+            </div>
+          );
+        })()}
+
+        {/* Formulaire */}
+        {!viewReport && !running && !report && (
+          <>
+            <textarea value={subject} onChange={e=>setSubject(e.target.value)}
+              placeholder="Sur quel sujet veux-tu un rapport complet ?"
+              rows={3} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+            {/* Exemples */}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>SUJETS POPULAIRES</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {QUICK_SUBJECTS.map(s=>(
+                  <button key={s} onClick={()=>setSubject(s)}
+                    style={{padding:"4px 10px",borderRadius:10,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+                    {s.slice(0,40)}{s.length>40?"…":""}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Profondeur */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>PROFONDEUR D'ANALYSE</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {DEPTH_OPTIONS.map(d=>(
+                  <button key={d.id} onClick={()=>setDepth(d.id)}
+                    style={{flex:1,minWidth:100,padding:"10px 12px",borderRadius:8,border:"2px solid "+(depth===d.id?d.color:"var(--bd)"),background:depth===d.id?d.color+"15":"transparent",cursor:"pointer",textAlign:"center",transition:"all .15s"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:depth===d.id?d.color:"var(--tx)"}}>{d.label}</div>
+                    <div style={{fontSize:8,color:"var(--mu)",marginTop:2}}>{d.desc}</div>
+                    <div style={{marginTop:6,display:"flex",gap:3,justifyContent:"center"}}>
+                      {ANGLES_PRESETS[d.id].map((a,i)=>(
+                        <div key={i} style={{width:6,height:6,borderRadius:"50%",background:depth===d.id?d.color:"var(--bd)"}}/>
+                      ))}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* IAs assignées */}
+            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>IAs ASSIGNÉES AUX ANGLES</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {ANGLES_PRESETS[depth].map((angle,i)=>{
+                  const iaId = activeIds[i%activeIds.length];
+                  const m = iaId ? MODEL_DEFS[iaId] : null;
+                  return (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:9}}>
+                      <span style={{width:160,color:"var(--tx)"}}>{angle}</span>
+                      <span style={{color:"var(--bd)"}}>→</span>
+                      {m ? <span style={{color:m.color,fontWeight:700}}>{m.icon} {m.short}</span> : <span style={{color:"var(--red)"}}>Aucune IA active</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button onClick={generateReport} disabled={!subject.trim()||!activeIds.length}
+              style={{padding:"10px 24px",background:"rgba(96,165,250,.15)",border:"1px solid rgba(96,165,250,.4)",borderRadius:6,color:"#60A5FA",fontSize:11,cursor:"pointer",fontWeight:700,fontFamily:"var(--font-mono)"}}>
+              📰 Lancer la rédaction en équipe
+            </button>
+          </>
+        )}
+
+        {/* Loading */}
+        {running && (
+          <div style={{textAlign:"center",padding:"50px 20px"}}>
+            <div style={{fontSize:32,marginBottom:12,display:"inline-block",animation:"spin 2s linear infinite"}}>📰</div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--tx)",marginBottom:6}}>{PHASE_LABELS[phase]}</div>
+            <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap",marginTop:12}}>
+              {ANGLES_PRESETS[depth].map((a,i)=>(
+                <div key={i} style={{fontSize:8,padding:"4px 10px",borderRadius:8,background:"var(--s1)",border:"1px solid var(--bd)",color:"var(--mu)"}}>{a}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Rapport généré */}
+        {report && !running && !viewReport && (
+          <div>
+            <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
+              <div style={{fontSize:9,color:"var(--mu)"}}>
+                {report.ias.map(id=>MODEL_DEFS[id]?.icon+""+MODEL_DEFS[id]?.short).join(" · ")}
+                <span style={{marginLeft:6}}>· {report.angles.length} angles couverts</span>
+              </div>
+              <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+                <button onClick={()=>navigator.clipboard.writeText(report.finalReport)} style={{fontSize:9,padding:"4px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",cursor:"pointer"}}>📋 Copier</button>
+                <button onClick={()=>{setReport(null);setSubject("");setPhase("idle");}} style={{fontSize:9,padding:"4px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>+ Nouveau rapport</button>
+              </div>
+            </div>
+            <div style={{background:"var(--s1)",border:"1px solid rgba(96,165,250,.2)",borderRadius:10,padding:"16px",fontSize:10,lineHeight:1.9,color:"var(--tx)",whiteSpace:"pre-wrap"}}>{report.finalReport}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  SKILL BUILDER — Crée tes automatisations en langage naturel ║
+// ╚══════════════════════════════════════════════════════════════╝
+function SkillBuilderTab({ enabled, apiKeys, navigateTab, setChatInput }) {
+  const SKILLS_KEY = "multiia_skills";
+  const [skills, setSkills] = React.useState(() => { try { return JSON.parse(localStorage.getItem(SKILLS_KEY)||"[]"); } catch { return []; } });
+  const [creating, setCreating] = React.useState(false);
+  const [description, setDescription] = React.useState("");
+  const [generating, setGenerating] = React.useState(false);
+  const [draft, setDraft] = React.useState(null);
+  const [selected, setSelected] = React.useState(null);
+  const [running, setRunning] = React.useState({});
+  const [outputs, setOutputs] = React.useState({});
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const bestIA = activeIds.find(id=>["groq","mistral","sambanova"].includes(id)) || activeIds[0];
+
+  const saveSkills = (s) => { setSkills(s); try { localStorage.setItem(SKILLS_KEY, JSON.stringify(s)); } catch {} };
+
+  const SKILL_TEMPLATES = [
+    { desc:"Chaque matin, génère-moi 3 idées de posts LinkedIn sur les actualités IA" },
+    { desc:"Analyse n'importe quel texte que je colle et donne-moi ses points forts et faiblesses" },
+    { desc:"Quand je colle une URL d'article, fais-en un résumé en 5 points avec une opinion critique" },
+    { desc:"Transforme n'importe quelle idée brute en plan de projet structuré en 5 étapes" },
+    { desc:"Lis mon texte et réécris-le dans un style professionnel adapté à LinkedIn" },
+    { desc:"Prends n'importe quelle question technique et explique-la avec une analogie du quotidien" },
+  ];
+
+  const generateSkill = async () => {
+    if (!description.trim() || !bestIA) return;
+    setGenerating(true); setDraft(null);
+
+    const prompt = `Tu es un expert en prompt engineering et automatisation IA. L'utilisateur veut créer ce skill automatisé :
+"${description}"
+
+Génère la configuration complète de ce skill. Réponds UNIQUEMENT en JSON valide :
+{
+  "name": "Nom court du skill (3-5 mots)",
+  "icon": "emoji représentatif",
+  "description": "Ce que fait ce skill en 1 phrase",
+  "category": "Productivité|Rédaction|Analyse|Code|Créatif|Recherche",
+  "color": "#hexcolor",
+  "trigger": "Manuel|Auto-matin|Auto-soir|Sur texte collé",
+  "inputLabel": "Ce que l'utilisateur doit fournir (ex: Ton texte à analyser)",
+  "inputPlaceholder": "Exemple de ce qu'on peut coller ici",
+  "needsInput": true,
+  "systemPrompt": "Le system prompt complet pour ce skill (role, ton, règles)",
+  "userPromptTemplate": "Le template de prompt avec {{input}} pour le contenu de l'utilisateur",
+  "outputFormat": "Texte|Liste|JSON|Markdown|Tableau",
+  "estimatedTime": "~10s|~30s|~1min",
+  "tips": ["Conseil d'utilisation 1", "Conseil d'utilisation 2"]
+}`;
+
+    try {
+      const reply = await callModel(bestIA, [{role:"user",content:prompt}], apiKeys, "Expert prompt engineering. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      setDraft({ ...data, id:Date.now().toString(), createdAt:new Date().toISOString(), uses:0 });
+    } catch(e) {
+      alert("Erreur : "+e.message);
+    }
+    setGenerating(false);
+  };
+
+  const saveSkill = () => {
+    if (!draft) return;
+    const updated = [draft, ...skills];
+    saveSkills(updated);
+    setSelected(draft.id);
+    setDraft(null); setCreating(false); setDescription("");
+  };
+
+  const runSkill = async (skill, userInput="") => {
+    if (!activeIds.length) return;
+    const ia = activeIds.find(id=>["groq","mistral","cerebras"].includes(id)) || activeIds[0];
+    setRunning(prev=>({...prev,[skill.id]:true}));
+    setOutputs(prev=>({...prev,[skill.id]:""}));
+    try {
+      const prompt = skill.needsInput
+        ? skill.userPromptTemplate.replace("{{input}}", userInput || "[Aucune entrée fournie]")
+        : skill.userPromptTemplate;
+      const output = await callModel(ia, [{role:"user",content:prompt}], apiKeys, skill.systemPrompt);
+      setOutputs(prev=>({...prev,[skill.id]:output}));
+      // Incrémenter les uses
+      saveSkills(skills.map(s => s.id===skill.id ? {...s, uses:(s.uses||0)+1} : s));
+    } catch(e) {
+      setOutputs(prev=>({...prev,[skill.id]:"❌ "+e.message}));
+    }
+    setRunning(prev=>({...prev,[skill.id]:false}));
+  };
+
+  const deleteSkill = (id) => {
+    saveSkills(skills.filter(s=>s.id!==id));
+    if (selected===id) setSelected(null);
+  };
+
+  const CATS = ["Tout", ...new Set(skills.map(s=>s.category||"Autre"))];
+  const [catFilter, setCatFilter] = React.useState("Tout");
+  const [userInputs, setUserInputs] = React.useState({});
+  const filteredSkills = catFilter==="Tout" ? skills : skills.filter(s=>s.category===catFilter);
+  const sel = skills.find(s=>s.id===selected);
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar */}
+      <div style={{width:200,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--s1)"}}>
+        <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:12,color:"var(--ac)",marginBottom:8}}>🛠 Mes Skills</div>
+          <button onClick={()=>{setCreating(true);setSelected(null);setDraft(null);}}
+            style={{width:"100%",padding:"6px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+            + Créer un skill
+          </button>
+        </div>
+        {/* Filtre catégories */}
+        {CATS.length > 1 && (
+          <div style={{padding:"6px 8px",borderBottom:"1px solid var(--bd)",display:"flex",gap:3,flexWrap:"wrap"}}>
+            {CATS.map(c=>(
+              <button key={c} onClick={()=>setCatFilter(c)}
+                style={{padding:"2px 6px",borderRadius:6,border:"1px solid "+(catFilter===c?"var(--ac)":"transparent"),background:catFilter===c?"rgba(212,168,83,.12)":"transparent",color:catFilter===c?"var(--ac)":"var(--mu)",fontSize:7,cursor:"pointer"}}>
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{flex:1,overflow:"auto"}}>
+          {filteredSkills.length===0 && <div style={{padding:16,fontSize:9,color:"var(--mu)",textAlign:"center"}}>Aucun skill.<br/>Crée le tien !</div>}
+          {filteredSkills.map(s=>(
+            <div key={s.id} onClick={()=>{setSelected(s.id);setCreating(false);}}
+              style={{padding:"9px 12px",cursor:"pointer",borderBottom:"1px solid var(--bd)",background:selected===s.id?"rgba(212,168,83,.08)":"transparent",borderLeft:"3px solid "+(selected===s.id?s.color||"var(--ac)":"transparent")}}>
+              <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:2}}>
+                <span style={{fontSize:12}}>{s.icon}</span>
+                <span style={{fontSize:9,fontWeight:600,color:selected===s.id?"var(--ac)":"var(--tx)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</span>
+              </div>
+              <div style={{fontSize:7,color:"var(--mu)"}}>{s.category||"Général"} · ×{s.uses||0}</div>
+            </div>
+          ))}
+        </div>
+        {skills.length>0 && (
+          <div style={{padding:"6px 12px",borderTop:"1px solid var(--bd)",fontSize:7,color:"var(--mu)"}}>
+            {skills.length} skills · {skills.reduce((a,s)=>a+(s.uses||0),0)} utilisations
+          </div>
+        )}
+      </div>
+
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"14px 16px"}}>
+
+        {/* Créer */}
+        {creating && (
+          <div style={{maxWidth:580}}>
+            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"var(--ac)",marginBottom:14}}>🆕 Nouveau Skill</div>
+            <div style={{fontSize:9,color:"var(--mu)",marginBottom:10,padding:"8px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6}}>
+              Décris ce que tu veux automatiser en langage naturel. L'IA génère automatiquement le prompt, les paramètres et la configuration.
+            </div>
+
+            {/* Templates */}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>EXEMPLES D'AUTOMATISATIONS</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {SKILL_TEMPLATES.map((t,i)=>(
+                  <button key={i} onClick={()=>setDescription(t.desc)}
+                    style={{padding:"6px 10px",textAlign:"left",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:9,cursor:"pointer",lineHeight:1.4}}>
+                    → {t.desc}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <textarea value={description} onChange={e=>setDescription(e.target.value)}
+              placeholder="Décris ton automatisation en langage naturel…"
+              rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:11,padding:"9px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+            {!draft && (
+              <button onClick={generateSkill} disabled={generating||!description.trim()||!bestIA}
+                style={{padding:"8px 20px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                {generating?"⏳ Génération…":"✨ Générer le skill"}
+              </button>
+            )}
+
+            {/* Aperçu du draft */}
+            {draft && (
+              <div style={{marginTop:12,background:"var(--s1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:10,padding:"14px 16px"}}>
+                <div style={{fontSize:9,color:"var(--green)",fontWeight:700,marginBottom:10}}>✓ Skill généré — Aperçu</div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                  <span style={{fontSize:24}}>{draft.icon}</span>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:13,color:"var(--tx)"}}>{draft.name}</div>
+                    <div style={{fontSize:9,color:"var(--mu)"}}>{draft.category} · {draft.trigger} · {draft.estimatedTime}</div>
+                  </div>
+                </div>
+                <div style={{fontSize:9,color:"var(--tx)",marginBottom:8,lineHeight:1.5}}>{draft.description}</div>
+                <div style={{fontSize:8,color:"var(--mu)",marginBottom:4,fontWeight:700}}>PROMPT SYSTÈME</div>
+                <div style={{fontSize:9,color:"var(--mu)",background:"var(--s2)",borderRadius:5,padding:"6px 10px",marginBottom:10,lineHeight:1.5}}>{draft.systemPrompt?.slice(0,150)}…</div>
+                {draft.tips?.length>0 && (
+                  <div style={{fontSize:8,color:"var(--ac)",marginBottom:10}}>
+                    {draft.tips.map((t,i)=><div key={i}>💡 {t}</div>)}
+                  </div>
+                )}
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={saveSkill}
+                    style={{padding:"7px 18px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                    💾 Sauvegarder ce skill
+                  </button>
+                  <button onClick={()=>setDraft(null)}
+                    style={{padding:"7px 12px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,cursor:"pointer"}}>Regénérer</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Skill sélectionné */}
+        {sel && !creating && (() => {
+          const skillOutput = outputs[sel.id];
+          const isRunning = running[sel.id];
+          const userInput = userInputs[sel.id]||"";
+          return (
+            <div>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:14,flexWrap:"wrap"}}>
+                <span style={{fontSize:32}}>{sel.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:16,color:sel.color||"var(--ac)",marginBottom:2}}>{sel.name}</div>
+                  <div style={{fontSize:9,color:"var(--mu)",marginBottom:4}}>{sel.category} · {sel.trigger} · {sel.estimatedTime} · ×{sel.uses||0} utilisation{sel.uses!==1?"s":""}</div>
+                  <div style={{fontSize:10,color:"var(--tx)"}}>{sel.description}</div>
+                </div>
+                <button onClick={()=>deleteSkill(sel.id)} style={{fontSize:9,padding:"4px 10px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer"}}>🗑</button>
+              </div>
+
+              {/* Input utilisateur */}
+              {sel.needsInput && (
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>{sel.inputLabel||"ENTRÉE"}</div>
+                  <textarea value={userInput} onChange={e=>setUserInputs(prev=>({...prev,[sel.id]:e.target.value}))}
+                    placeholder={sel.inputPlaceholder||"Colle ton contenu ici…"}
+                    rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                </div>
+              )}
+
+              <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+                <button onClick={()=>runSkill(sel, userInput)} disabled={isRunning||(sel.needsInput&&!userInput.trim())}
+                  style={{padding:"8px 20px",background:isRunning?"var(--s2)":`${sel.color||"#D4A853"}22`,border:`1px solid ${sel.color||"var(--ac)"}66`,borderRadius:6,color:isRunning?"var(--mu)":(sel.color||"var(--ac)"),fontSize:10,cursor:isRunning?"default":"pointer",fontWeight:700}}>
+                  {isRunning?"⏳ Exécution…":`${sel.icon} Exécuter`}
+                </button>
+              </div>
+
+              {/* Résultat */}
+              {skillOutput && (
+                <div style={{background:"var(--s1)",border:`1px solid ${sel.color||"var(--ac)"}33`,borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <div style={{fontSize:9,color:sel.color||"var(--ac)",fontWeight:700}}>RÉSULTAT</div>
+                    <button onClick={()=>navigator.clipboard.writeText(skillOutput)} style={{fontSize:8,padding:"2px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋</button>
+                    <button onClick={()=>{setChatInput(skillOutput);navigateTab("chat");}} style={{fontSize:8,padding:"2px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>→ Chat</button>
+                  </div>
+                  <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{skillOutput}</div>
+                </div>
+              )}
+
+              {/* Conseils */}
+              {sel.tips?.length>0 && !skillOutput && (
+                <div style={{marginTop:10,padding:"10px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8}}>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>CONSEILS D'UTILISATION</div>
+                  {sel.tips.map((t,i)=><div key={i} style={{fontSize:9,color:"var(--tx)",marginBottom:3}}>💡 {t}</div>)}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {!creating && !sel && (
+          <div style={{textAlign:"center",padding:"50px 20px"}}>
+            <div style={{fontSize:40,marginBottom:10}}>🛠</div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Skill Builder</div>
+            <div style={{fontSize:10,color:"var(--mu)",marginBottom:20,maxWidth:360,margin:"0 auto 20px"}}>Crée des automatisations IA personnalisées en décrivant ce que tu veux en langage naturel. L'IA génère le prompt parfait.</div>
+            <button onClick={()=>setCreating(true)} style={{padding:"10px 24px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:8,color:"var(--ac)",fontSize:11,cursor:"pointer",fontWeight:700}}>
+              ✨ Créer mon premier skill
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  CONTRADICTION DETECTOR — Scan de contradictions & biais     ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ContradictionTab({ enabled, apiKeys, conversations }) {
+  const [textA, setTextA] = React.useState("");
+  const [textB, setTextB] = React.useState("");
+  const [labelA, setLabelA] = React.useState("Texte A");
+  const [labelB, setLabelB] = React.useState("Texte B");
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [mode, setMode] = React.useState("compare"); // compare|single
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const judge = activeIds.find(id=>["sambanova","mistral","groq","poll_claude"].includes(id)) || activeIds[0];
+
+  // Pré-remplir depuis les réponses du chat
+  const lastResponses = React.useMemo(() => {
+    return activeIds.map(id => {
+      const msgs = conversations[id]||[];
+      const last = [...msgs].reverse().find(m=>m.role==="assistant");
+      return last ? {id, text:last.content, name:MODEL_DEFS[id]?.short} : null;
+    }).filter(Boolean).slice(0,4);
+  }, [conversations, activeIds]);
+
+  const analyze = async () => {
+    if (mode==="compare" && (!textA.trim()||!textB.trim())) return;
+    if (mode==="single" && !textA.trim()) return;
+    if (!judge) return;
+    setLoading(true); setResult(null);
+
+    const prompt = mode==="compare"
+      ? `Tu es un expert en logique, rhétorique et analyse critique. Analyse ces deux textes :
+
+TEXTE A (${labelA}) :
+${textA.slice(0,1500)}
+
+TEXTE B (${labelB}) :
+${textB.slice(0,1500)}
+
+Identifie toutes les contradictions, désaccords factuels et incohérences logiques entre eux.
+Réponds UNIQUEMENT en JSON valide :
+{
+  "score_coherence": 75,
+  "resume": "Résumé de la relation entre les deux textes (2 phrases)",
+  "contradictions": [
+    {
+      "type": "Factuel|Logique|Rhétorique|Nuance",
+      "gravite": "haute|moyenne|faible",
+      "claim_a": "Ce que dit le texte A",
+      "claim_b": "Ce que dit le texte B",
+      "explication": "Pourquoi c'est contradictoire",
+      "verdict": "A a raison|B a raison|Les deux|Aucun des deux|Contextuel"
+    }
+  ],
+  "points_communs": ["Point sur lequel ils s'accordent"],
+  "recommandation": "Que faire face à ces contradictions ?"
+}`
+      : `Tu es un expert en analyse critique et détection de biais. Analyse ce texte :
+
+${textA.slice(0,2000)}
+
+Effectue une analyse complète : contradictions internes, biais cognitifs, arguments fallacieux.
+Réponds UNIQUEMENT en JSON valide :
+{
+  "score_coherence": 75,
+  "resume": "Résumé de la qualité argumentative (2 phrases)",
+  "contradictions": [
+    {
+      "type": "Contradiction interne|Biais cognitif|Argument fallacieux|Généralisation",
+      "gravite": "haute|moyenne|faible",
+      "passage": "Le passage problématique (courte citation)",
+      "explication": "Pourquoi c'est problématique",
+      "suggestion": "Comment l'améliorer"
+    }
+  ],
+  "biais_detectes": ["Biais 1", "Biais 2"],
+  "points_forts": ["Ce qui est bien argumenté"],
+  "recommandation": "Conseil global pour améliorer ce texte"
+}`;
+
+    try {
+      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Expert logique et analyse critique. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      setResult(data);
+    } catch(e) {
+      setResult({score_coherence:0, resume:"Erreur d'analyse : "+e.message, contradictions:[], points_communs:[], recommandation:""});
+    }
+    setLoading(false);
+  };
+
+  const graviteColor = g => ({haute:"var(--red)",moyenne:"var(--orange)",faible:"var(--mu)"}[g]||"var(--mu)");
+  const scoreColor   = s => s>=75?"var(--green)":s>=50?"var(--orange)":"var(--red)";
+  const typeColors   = {"Factuel":"#F87171","Logique":"#F97316","Rhétorique":"#A78BFA","Nuance":"#60A5FA","Contradiction interne":"#F87171","Biais cognitif":"#F97316","Argument fallacieux":"#A78BFA","Généralisation":"#FCD34D"};
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#F97316"}}>⚡ Contradiction Detector</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Contradictions, biais et incohérences logiques détectés par IA</div>
+      </div>
+
+      {/* Mode switch */}
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        {[["compare","⚖️ Comparer 2 textes"],["single","🔬 Analyser 1 texte"]].map(([m,l])=>(
+          <button key={m} onClick={()=>{setMode(m);setResult(null);}}
+            style={{padding:"6px 14px",borderRadius:8,border:"1px solid "+(mode===m?"var(--ac)":"var(--bd)"),background:mode===m?"rgba(212,168,83,.12)":"transparent",color:mode===m?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:mode===m?700:400}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Pré-remplir depuis le chat */}
+      {lastResponses.length>=2 && (
+        <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>COMPARER LES RÉPONSES DU CHAT</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {lastResponses.map((r,i)=>{
+              const m=MODEL_DEFS[r.id];
+              return <button key={r.id} onClick={()=>{
+                if(i===0||mode==="single"){setTextA(r.text.slice(0,1500));setLabelA(m.short);}
+                else{setTextB(r.text.slice(0,1500));setLabelB(m.short);}
+              }}
+                style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+m.color+"44",background:m.color+"11",color:m.color,fontSize:8,cursor:"pointer"}}>
+                {i===0||mode==="single"?"A":"B"}: {m.icon} {m.short}
+              </button>;
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Inputs */}
+      <div style={{display:"grid",gridTemplateColumns:mode==="compare"?"1fr 1fr":"1fr",gap:10,marginBottom:12}}>
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+            <input value={mode==="compare"?labelA:"Texte à analyser"} readOnly={mode==="single"} onChange={e=>setLabelA(e.target.value)}
+              style={{flex:1,background:"transparent",border:"none",color:"var(--ac)",fontSize:9,fontWeight:700,outline:"none",fontFamily:"var(--font-mono)"}}/>
+          </div>
+          <textarea value={textA} onChange={e=>setTextA(e.target.value)}
+            placeholder={mode==="compare"?"Colle le premier texte, article ou réponse IA…":"Colle le texte à analyser…"}
+            rows={6} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+          <div style={{fontSize:7,color:"var(--mu)",marginTop:2}}>{textA.length} caractères</div>
+        </div>
+        {mode==="compare" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+              <input value={labelB} onChange={e=>setLabelB(e.target.value)}
+                style={{flex:1,background:"transparent",border:"none",color:"#60A5FA",fontSize:9,fontWeight:700,outline:"none",fontFamily:"var(--font-mono)"}}/>
+            </div>
+            <textarea value={textB} onChange={e=>setTextB(e.target.value)}
+              placeholder="Colle le deuxième texte, article ou réponse IA…"
+              rows={6} style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            <div style={{fontSize:7,color:"var(--mu)",marginTop:2}}>{textB.length} caractères</div>
+          </div>
+        )}
+      </div>
+
+      <button onClick={analyze} disabled={loading||!judge||(mode==="compare"?(!textA.trim()||!textB.trim()):!textA.trim())}
+        style={{padding:"9px 22px",background:loading?"var(--s2)":"rgba(249,115,22,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(249,115,22,.4)"),borderRadius:6,color:loading?"var(--mu)":"#F97316",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)",marginBottom:16}}>
+        {loading?"⚡ Analyse en cours…":"⚡ Lancer l'analyse"}
+      </button>
+
+      {/* Résultats */}
+      {result && (
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {/* Score */}
+          <div style={{padding:"14px 18px",background:"var(--s1)",border:"2px solid "+scoreColor(result.score_coherence)+"44",borderRadius:12,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+            <div style={{textAlign:"center",minWidth:70}}>
+              <div style={{fontSize:36,fontWeight:900,color:scoreColor(result.score_coherence),fontFamily:"var(--font-display)",lineHeight:1}}>{result.score_coherence}%</div>
+              <div style={{fontSize:8,color:"var(--mu)"}}>Cohérence</div>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:6}}>{result.resume}</div>
+              {result.recommandation && <div style={{fontSize:9,color:"var(--ac)",fontStyle:"italic"}}>→ {result.recommandation}</div>}
+            </div>
+          </div>
+
+          {/* Contradictions */}
+          {result.contradictions?.length>0 && (
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--red)",marginBottom:8}}>⚡ {result.contradictions.length} contradiction{result.contradictions.length>1?"s":""} détectée{result.contradictions.length>1?"s":""}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {result.contradictions.map((c,i)=>(
+                  <div key={i} style={{background:"var(--s1)",border:"1px solid "+graviteColor(c.gravite)+"44",borderRadius:10,padding:"12px 14px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                      <span style={{padding:"2px 8px",borderRadius:8,background:(typeColors[c.type]||"var(--mu)")+"22",color:typeColors[c.type]||"var(--mu)",fontSize:8,fontWeight:700}}>{c.type}</span>
+                      <span style={{padding:"2px 8px",borderRadius:8,background:graviteColor(c.gravite)+"22",color:graviteColor(c.gravite),fontSize:8,fontWeight:700}}>Gravité {c.gravite}</span>
+                      {c.verdict && <span style={{fontSize:8,color:"var(--mu)",marginLeft:"auto"}}>Verdict : <strong style={{color:"var(--tx)"}}>{c.verdict}</strong></span>}
+                    </div>
+                    {mode==="compare" ? (
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                        <div style={{background:"rgba(212,168,83,.06)",borderRadius:6,padding:"6px 8px"}}>
+                          <div style={{fontSize:7,color:"var(--ac)",fontWeight:700,marginBottom:3}}>{labelA}</div>
+                          <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.5}}>{c.claim_a}</div>
+                        </div>
+                        <div style={{background:"rgba(96,165,250,.06)",borderRadius:6,padding:"6px 8px"}}>
+                          <div style={{fontSize:7,color:"#60A5FA",fontWeight:700,marginBottom:3}}>{labelB}</div>
+                          <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.5}}>{c.claim_b}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{background:"rgba(248,113,113,.06)",borderRadius:6,padding:"6px 8px",marginBottom:8}}>
+                        <div style={{fontSize:7,color:"var(--red)",fontWeight:700,marginBottom:3}}>PASSAGE PROBLÉMATIQUE</div>
+                        <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.5,fontStyle:"italic"}}>"{c.passage}"</div>
+                      </div>
+                    )}
+                    <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5}}>{c.explication}</div>
+                    {c.suggestion && <div style={{marginTop:5,fontSize:9,color:"var(--green)"}}>✓ {c.suggestion}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Points communs ou forts */}
+          {(result.points_communs||result.points_forts||result.biais_detectes) && (
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:8}}>
+              {(result.points_communs||result.points_forts)?.length>0 && (
+                <div style={{background:"var(--s1)",border:"1px solid rgba(74,222,128,.2)",borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{fontSize:8,color:"var(--green)",fontWeight:700,marginBottom:6}}>{mode==="compare"?"✓ POINTS COMMUNS":"✓ POINTS FORTS"}</div>
+                  {(result.points_communs||result.points_forts||[]).map((p,i)=><div key={i} style={{fontSize:9,color:"var(--tx)",marginBottom:3}}>• {p}</div>)}
+                </div>
+              )}
+              {result.biais_detectes?.length>0 && (
+                <div style={{background:"var(--s1)",border:"1px solid rgba(249,115,22,.2)",borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{fontSize:8,color:"var(--orange)",fontWeight:700,marginBottom:6}}>🧠 BIAIS DÉTECTÉS</div>
+                  {result.biais_detectes.map((b,i)=><div key={i} style={{fontSize:9,color:"var(--tx)",marginBottom:3}}>• {b}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  SECOND BRAIN EXPORT — Export total vers Obsidian/Notion/MD  ║
+// ╚══════════════════════════════════════════════════════════════╝
+function SecondBrainTab({ savedConvs, projects, memFacts, usageStats, apiKeys, enabled }) {
+  const [generating, setGenerating] = React.useState(false);
+  const [preview, setPreview] = React.useState(null);
+  const [exportFormat, setExportFormat] = React.useState("obsidian");
+  const [includeOptions, setIncludeOptions] = React.useState({
+    conversations:true, projects:true, memory:true, prompts:true, stats:true, profile:true
+  });
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const bestIA = activeIds.find(id=>["groq","mistral","cerebras"].includes(id)) || activeIds[0];
+
+  const FORMATS = [
+    { id:"obsidian", label:"🟣 Obsidian", ext:".md", desc:"Vault Markdown avec liens [[wikilinks]]" },
+    { id:"notion",   label:"⬜ Notion",   ext:".md", desc:"Markdown compatible import Notion" },
+    { id:"markdown", label:"📄 Markdown", ext:".md", desc:"Markdown universel" },
+    { id:"json",     label:"📦 JSON",     ext:".json", desc:"Données structurées complètes" },
+  ];
+
+  const buildExport = async () => {
+    setGenerating(true); setPreview(null);
+    const fmt = exportFormat;
+    const sections = [];
+    const now = new Date().toLocaleDateString("fr-FR", {day:"2-digit",month:"long",year:"numeric"});
+
+    if (fmt === "json") {
+      const data = {
+        exportDate: new Date().toISOString(),
+        source: "Multi-IA Hub",
+        version: "export-v1",
+        memory: includeOptions.memory ? memFacts : [],
+        projects: includeOptions.projects ? projects : [],
+        conversations: includeOptions.conversations ? (savedConvs||[]).slice(0,20).map(c=>({
+          id:c.id, title:c.title, date:c.date, ias:c.ias,
+          summary: Object.values(c.conversations||{}).flat().filter(m=>m.role==="user").slice(0,1).map(m=>m.content?.slice(0,100)).join("")
+        })) : [],
+        stats: includeOptions.stats ? usageStats : {},
+      };
+      setPreview(JSON.stringify(data, null, 2));
+      setGenerating(false);
+      return;
+    }
+
+    const h = fmt==="obsidian" ? (n,l) => "#".repeat(l)+" "+n+"\n" : (n,l) => "#".repeat(l)+" "+n+"\n";
+    const link = fmt==="obsidian" ? (t) => `[[${t}]]` : (t) => `**${t}**`;
+
+    sections.push(`${h("🧠 Second Brain — Multi-IA Hub",1)}`);
+    sections.push(`> Exporté le ${now} depuis Multi-IA Hub\n`);
+
+    // Profil utilisateur généré par IA
+    if (includeOptions.profile && bestIA && memFacts?.length > 0) {
+      try {
+        const facts = memFacts.map(f=>"- "+f.text).join("\n");
+        const topIA = Object.entries(usageStats?.msgs||{}).sort(([,a],[,b])=>b-a)[0];
+        const profilePrompt = `À partir de ces informations sur un utilisateur de Multi-IA Hub, génère un profil utilisateur en 3-5 phrases qui capture qui il est, ses intérêts et sa façon d'utiliser l'IA :\n\nMémoires :\n${facts}\n\nIA préférée : ${topIA?MODEL_DEFS[topIA[0]]?.name:"inconnue"}\nNombre de conversations : ${usageStats?.convs||0}\n\nRéponds directement avec le profil, sans intro.`;
+        const profile = await callModel(bestIA, [{role:"user",content:profilePrompt}], apiKeys, "Tu génères des profils utilisateurs concis et précis.");
+        sections.push(`${h("👤 Mon Profil IA",2)}\n${profile}\n`);
+      } catch {}
+    }
+
+    // Mémoire
+    if (includeOptions.memory && memFacts?.length > 0) {
+      sections.push(`${h("📌 Mémoire Persistante",2)}`);
+      memFacts.forEach(f => sections.push(`- ${f.text}`));
+      sections.push("");
+    }
+
+    // Projets
+    if (includeOptions.projects && projects?.length > 0) {
+      sections.push(`${h("📁 Projets",2)}`);
+      projects.forEach(p => {
+        sections.push(`${h(p.name, 3)}`);
+        if (p.desc) sections.push(`> ${p.desc}\n`);
+        if (p.context) sections.push(`**Contexte IA :**\n${p.context}\n`);
+        if (p.notes) sections.push(`**Notes :**\n${p.notes}\n`);
+        sections.push(`*Créé le ${new Date(p.createdAt).toLocaleDateString("fr-FR")}*\n`);
+      });
+    }
+
+    // Historique conversations
+    if (includeOptions.conversations && savedConvs?.length > 0) {
+      sections.push(`${h("💬 Historique des Conversations",2)}`);
+      const convs = savedConvs.slice(0, 30);
+      convs.forEach(c => {
+        sections.push(`${h(c.title||"Sans titre", 3)}`);
+        sections.push(`*${c.date} · IAs : ${(c.ias||[]).map(id=>MODEL_DEFS[id]?.short||id).join(", ")}*\n`);
+        // Premier message utilisateur
+        const firstUserMsg = Object.values(c.conversations||{}).flat().find(m=>m.role==="user");
+        if (firstUserMsg) sections.push(`**Question :** ${firstUserMsg.content?.slice(0,200)}${firstUserMsg.content?.length>200?"…":""}\n`);
+      });
+    }
+
+    // Stats
+    if (includeOptions.stats) {
+      const totalMsgs = Object.values(usageStats?.msgs||{}).reduce((a,b)=>a+b,0);
+      const totalTok = Object.values(usageStats?.tokens||{}).reduce((a,b)=>a+b,0);
+      const topIA = Object.entries(usageStats?.msgs||{}).sort(([,a],[,b])=>b-a)[0];
+      sections.push(`${h("📊 Mes Statistiques",2)}`);
+      sections.push(`| Métrique | Valeur |`);
+      sections.push(`|----------|--------|`);
+      sections.push(`| Conversations | ${usageStats?.convs||0} |`);
+      sections.push(`| Messages envoyés | ${totalMsgs.toLocaleString()} |`);
+      sections.push(`| Tokens estimés | ${(totalTok/1000).toFixed(1)}k |`);
+      if (topIA) sections.push(`| IA préférée | ${MODEL_DEFS[topIA[0]]?.name} (${topIA[1]} msgs) |`);
+      sections.push("");
+      // Top IAs
+      sections.push(`${h("Utilisation par IA", 3)}`);
+      Object.entries(usageStats?.msgs||{}).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a).forEach(([id,count])=>{
+        const m = MODEL_DEFS[id];
+        if (m) sections.push(`- **${m.name}** : ${count} messages`);
+      });
+    }
+
+    setPreview(sections.join("\n"));
+    setGenerating(false);
+  };
+
+  const downloadExport = () => {
+    if (!preview) return;
+    const fmt = FORMATS.find(f=>f.id===exportFormat);
+    const blob = new Blob([preview], {type:"text/plain;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=`second-brain-multiia${fmt.ext}`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const totalItems = (savedConvs?.length||0) + (projects?.length||0) + (memFacts?.length||0);
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#A78BFA"}}>🧠 Second Brain Export</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Exporte tout ton Multi-IA Hub vers Obsidian, Notion ou Markdown</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(167,139,250,.06)",border:"1px solid rgba(167,139,250,.15)",borderRadius:6}}>
+        Toutes tes données (conversations, projets, mémoire, stats) sont compilées en un fichier structuré. Une IA génère aussi ton <strong style={{color:"var(--tx)"}}>profil utilisateur</strong> basé sur ton usage.
+      </div>
+
+      {/* Inventaire */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["💬",savedConvs?.length||0,"Conversations"],["📁",projects?.length||0,"Projets"],["📌",memFacts?.length||0,"Souvenirs"],["📊",Object.values(usageStats?.msgs||{}).reduce((a,b)=>a+b,0),"Messages"]].map(([ico,n,l])=>(
+          <div key={l} style={{flex:1,minWidth:80,padding:"10px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,textAlign:"center"}}>
+            <div style={{fontSize:18}}>{ico}</div>
+            <div style={{fontSize:16,fontWeight:900,color:"var(--ac)",fontFamily:"var(--font-display)"}}>{n}</div>
+            <div style={{fontSize:8,color:"var(--mu)"}}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+        {/* Format */}
+        <div>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>FORMAT D'EXPORT</div>
+          {FORMATS.map(f=>(
+            <button key={f.id} onClick={()=>setExportFormat(f.id)}
+              style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"7px 10px",marginBottom:4,borderRadius:6,border:"1px solid "+(exportFormat===f.id?"rgba(167,139,250,.4)":"var(--bd)"),background:exportFormat===f.id?"rgba(167,139,250,.08)":"transparent",cursor:"pointer",textAlign:"left"}}>
+              <span style={{fontSize:12,flexShrink:0}}>{f.label.slice(0,2)}</span>
+              <div>
+                <div style={{fontSize:9,fontWeight:700,color:exportFormat===f.id?"#A78BFA":"var(--tx)"}}>{f.label.slice(2).trim()}</div>
+                <div style={{fontSize:7,color:"var(--mu)"}}>{f.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        {/* Contenu */}
+        <div>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>CONTENU INCLUS</div>
+          {Object.entries({conversations:"💬 Conversations",projects:"📁 Projets",memory:"📌 Mémoire",stats:"📊 Statistiques",profile:"🤖 Profil IA généré"}).map(([k,l])=>(
+            <label key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,cursor:"pointer"}}>
+              <input type="checkbox" checked={!!includeOptions[k]} onChange={e=>setIncludeOptions(p=>({...p,[k]:e.target.checked}))}/>
+              <span style={{fontSize:9,color:"var(--tx)"}}>{l}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        <button onClick={buildExport} disabled={generating||totalItems===0}
+          style={{padding:"9px 22px",background:generating?"var(--s2)":"rgba(167,139,250,.15)",border:"1px solid "+(generating?"var(--bd)":"rgba(167,139,250,.4)"),borderRadius:6,color:generating?"var(--mu)":"#A78BFA",fontSize:10,cursor:generating?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)"}}>
+          {generating?"⏳ Génération…":"🧠 Générer le Second Brain"}
+        </button>
+        {preview && (
+          <button onClick={downloadExport}
+            style={{padding:"9px 22px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,color:"var(--green)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+            ⬇️ Télécharger {FORMATS.find(f=>f.id===exportFormat)?.ext}
+          </button>
+        )}
+      </div>
+
+      {preview && (
+        <div style={{background:"var(--s1)",border:"1px solid rgba(167,139,250,.2)",borderRadius:10,padding:"14px",maxHeight:400,overflow:"auto"}}>
+          <div style={{fontSize:8,color:"#A78BFA",fontWeight:700,marginBottom:8}}>APERÇU</div>
+          <pre style={{fontSize:9,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap",fontFamily:"var(--font-mono)"}}>{preview.slice(0,3000)}{preview.length>3000?"\n\n[… "+Math.round((preview.length-3000)/1000)+"k caractères supplémentaires …]":""}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  LIVE DEBATE TIMER — Débat Oxford gamifié                    ║
+// ╚══════════════════════════════════════════════════════════════╝
+function LiveDebateTimerTab({ enabled, apiKeys }) {
+  const [topic, setTopic] = React.useState("");
+  const [phase, setPhase] = React.useState("setup"); // setup|running|done
+  const [rounds, setRounds] = React.useState([]);
+  const [currentRound, setCurrentRound] = React.useState(0);
+  const [timer, setTimer] = React.useState(0);
+  const [timerRunning, setTimerRunning] = React.useState(false);
+  const [scores, setScores] = React.useState({});
+  const [userVotes, setUserVotes] = React.useState([]);
+  const [finalScore, setFinalScore] = React.useState(null);
+  const [scoringIA, setScoringIA] = React.useState(null);
+  const timerRef = React.useRef(null);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const MAX_TOKENS = 300; // ~300 mots par réponse pour le timer
+  const TIME_PER_ROUND = 90; // 90 secondes par tour
+
+  const ROUND_STRUCTURE = [
+    { label:"🎙 Ouverture",    role:"Pour",   desc:"Argumente EN FAVEUR de la proposition. Sois convaincant, concis, cite des faits. MAX 300 mots." },
+    { label:"🎙 Ouverture",    role:"Contre", desc:"Argumente CONTRE la proposition. Démonte les arguments précédents. MAX 300 mots." },
+    { label:"🔁 Réplique",     role:"Pour",   desc:"Réponds aux arguments adverses. Défends ta position et attaque les faiblesses de l'adversaire. MAX 250 mots." },
+    { label:"🔁 Réplique",     role:"Contre", desc:"Réponds aux répliques. Renforce ta position avec des exemples concrets. MAX 250 mots." },
+    { label:"🏁 Conclusion",   role:"Pour",   desc:"Conclusion finale POUR. Résume tes 3 arguments les plus forts. MAX 150 mots." },
+    { label:"🏁 Conclusion",   role:"Contre", desc:"Conclusion finale CONTRE. Résume tes 3 contre-arguments. MAX 150 mots." },
+  ];
+
+  const QUICK_TOPICS = [
+    "L'IA remplacera plus d'emplois qu'elle n'en créera d'ici 2030",
+    "Les LLMs open source représentent un danger pour la société",
+    "L'IA générative va tuer la créativité humaine",
+    "Les réseaux sociaux font plus de mal que de bien",
+    "Le travail à distance devrait être la norme par défaut",
+    "La vie sur Mars est une priorité plus urgente que les problèmes terrestres",
+  ];
+
+  // Timer
+  React.useEffect(() => {
+    if (timerRunning) {
+      timerRef.current = setInterval(() => {
+        setTimer(t => {
+          if (t <= 1) { clearInterval(timerRef.current); setTimerRunning(false); return 0; }
+          return t - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [timerRunning]);
+
+  const startDebate = async () => {
+    if (!topic.trim() || activeIds.length < 1) return;
+    setPhase("running"); setRounds([]); setCurrentRound(0); setScores({}); setUserVotes([]); setFinalScore(null);
+    const iaFor = activeIds[0];
+    const iaAgainst = activeIds[1] || activeIds[0];
+    // Générer le premier tour immédiatement
+    await generateRound(0, iaFor, iaAgainst, []);
+  };
+
+  const generateRound = async (roundIdx, iaFor, iaAgainst, prevRounds) => {
+    if (roundIdx >= ROUND_STRUCTURE.length) { setPhase("done"); return; }
+    const roundDef = ROUND_STRUCTURE[roundIdx];
+    const iaId = roundDef.role === "Pour" ? iaFor : iaAgainst;
+    const m = MODEL_DEFS[iaId];
+    setScoringIA(iaId);
+    setTimer(TIME_PER_ROUND); setTimerRunning(true);
+
+    const context = prevRounds.length > 0
+      ? `\n\nÉchanges précédents :\n${prevRounds.map(r=>`[${r.role} — ${r.label}]: ${r.content.slice(0,200)}`).join("\n")}`
+      : "";
+
+    const prompt = `Débat Oxford sur : "${topic}"
+Tu défends la position : ${roundDef.role==="Pour"?"EN FAVEUR":"CONTRE"}
+${roundDef.desc}${context}
+
+Commence directement par ton argument. Sois percutant et convaincant.`;
+
+    try {
+      const content = await callModel(iaId, [{role:"user",content:prompt}], apiKeys,
+        `Tu es un débatteur expert. Tu défends la position "${roundDef.role==="Pour"?"POUR":"CONTRE"}" de façon convaincante et factuelle.`
+      );
+      const newRound = { roundIdx, label:roundDef.label, role:roundDef.role, iaId, iaName:m?.short||iaId, iaColor:m?.color||"#D4A853", content, ts:Date.now() };
+      setRounds(prev => {
+        const updated = [...prev, newRound];
+        return updated;
+      });
+      setScoringIA(null);
+    } catch(e) {
+      setRounds(prev => [...prev, { roundIdx, label:roundDef.label, role:roundDef.role, iaId, content:`❌ ${e.message}`, ts:Date.now() }]);
+    }
+    setCurrentRound(roundIdx+1);
+  };
+
+  const nextRound = async () => {
+    if (currentRound >= ROUND_STRUCTURE.length) { await computeFinalScore(); return; }
+    const iaFor = activeIds[0];
+    const iaAgainst = activeIds[1] || activeIds[0];
+    await generateRound(currentRound, iaFor, iaAgainst, rounds);
+  };
+
+  const voteRound = (roundIdx, vote) => {
+    setUserVotes(prev => {
+      const filtered = prev.filter(v=>v.roundIdx!==roundIdx);
+      return [...filtered, {roundIdx, vote}]; // "pour"|"contre"|"nul"
+    });
+  };
+
+  const computeFinalScore = async () => {
+    const judge = activeIds.find(id=>!activeIds.slice(0,2).includes(id)) || activeIds[activeIds.length-1] || activeIds[0];
+    const transcript = rounds.map(r=>`[${r.role} — ${r.label}]:\n${r.content.slice(0,300)}`).join("\n\n");
+    const userVotesSummary = userVotes.map(v=>`Tour ${v.roundIdx+1}: ${v.vote}`).join(", ");
+
+    try {
+      const reply = await callModel(judge, [{role:"user",content:`Tu es arbitre d'un débat Oxford sur : "${topic}"\n\nTranscript complet :\n${transcript}\n\nVotes du public : ${userVotesSummary||"aucun vote"}\n\nDécide du vainqueur. Réponds en JSON :\n{"winner":"Pour|Contre|Match nul","score_pour":7,"score_contre":6,"raison":"2 phrases","arguments_forts_pour":["arg1"],"arguments_forts_contre":["arg1"]}`}], apiKeys, "Arbitre objectif. JSON uniquement.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      setFinalScore(data);
+    } catch(e) {
+      setFinalScore({winner:"Match nul",score_pour:5,score_contre:5,raison:"Impossible de calculer le score : "+e.message});
+    }
+    setPhase("done");
+  };
+
+  const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  const timerColor = timer > 30 ? "var(--green)" : timer > 10 ? "var(--orange)" : "var(--red)";
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#F59E0B"}}>⏱ Live Debate Timer</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Format Oxford gamifié : 6 tours, timer, votes public, score final</div>
+      </div>
+
+      {/* Setup */}
+      {phase==="setup" && (
+        <>
+          <textarea value={topic} onChange={e=>setTopic(e.target.value)}
+            placeholder="La proposition à débattre…"
+            rows={2} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>PROPOSITIONS RAPIDES</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {QUICK_TOPICS.map(t=>(
+                <button key={t} onClick={()=>setTopic(t)}
+                  style={{padding:"4px 10px",borderRadius:10,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+                  {t.slice(0,42)}{t.length>42?"…":""}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Assignation IAs */}
+          <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+            <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:8}}>DÉBATTEURS</div>
+            <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+              {[["🟢 POUR",activeIds[0]],["🔴 CONTRE",activeIds[1]||activeIds[0]]].map(([role,id])=>{
+                const m=id?MODEL_DEFS[id]:null;
+                return <div key={role} style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:10,fontWeight:700,color:role.includes("POUR")?"var(--green)":"var(--red)"}}>{role}</span>
+                  <span style={{fontSize:10}}>{m?`${m.icon} ${m.short}`:"Aucune IA"}</span>
+                </div>;
+              })}
+              {activeIds.length<2 && <div style={{fontSize:9,color:"var(--orange)"}}>⚠️ Active au moins 2 IAs pour un vrai débat</div>}
+            </div>
+            <div style={{marginTop:8,fontSize:8,color:"var(--mu)"}}>Format : 6 tours · Ouverture → Réplique → Conclusion · 90s par tour</div>
+          </div>
+          <button onClick={startDebate} disabled={!topic.trim()||!activeIds.length}
+            style={{padding:"10px 24px",background:"rgba(245,158,11,.15)",border:"1px solid rgba(245,158,11,.4)",borderRadius:6,color:"#F59E0B",fontSize:11,cursor:"pointer",fontWeight:700}}>
+            ⏱ Lancer le débat
+          </button>
+        </>
+      )}
+
+      {/* Débat en cours */}
+      {(phase==="running"||phase==="done") && (
+        <div>
+          {/* Proposition */}
+          <div style={{padding:"10px 14px",background:"var(--s1)",border:"1px solid rgba(245,158,11,.3)",borderRadius:8,marginBottom:12}}>
+            <div style={{fontSize:8,color:"#F59E0B",fontWeight:700,marginBottom:2}}>PROPOSITION</div>
+            <div style={{fontSize:11,fontWeight:700,color:"var(--tx)"}}>{topic}</div>
+          </div>
+
+          {/* Timer */}
+          {phase==="running" && (
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,padding:"10px 14px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,flexWrap:"wrap"}}>
+              <div style={{fontSize:28,fontWeight:900,color:timerColor,fontFamily:"var(--font-mono)",minWidth:60}}>{fmtTime(timer)}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:8,color:"var(--mu)"}}>Tour {currentRound}/{ROUND_STRUCTURE.length}</div>
+                {scoringIA && <div style={{fontSize:9,color:MODEL_DEFS[scoringIA]?.color}}>⏳ {MODEL_DEFS[scoringIA]?.short} rédige…</div>}
+                <div style={{marginTop:4,height:4,background:"var(--s2)",borderRadius:2}}><div style={{height:"100%",width:`${(currentRound/ROUND_STRUCTURE.length)*100}%`,background:"#F59E0B",borderRadius:2,transition:"width .5s"}}/></div>
+              </div>
+              {!scoringIA && currentRound < ROUND_STRUCTURE.length && (
+                <button onClick={nextRound}
+                  style={{padding:"6px 16px",background:"rgba(245,158,11,.15)",border:"1px solid rgba(245,158,11,.4)",borderRadius:5,color:"#F59E0B",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                  ▶ Tour suivant
+                </button>
+              )}
+              {!scoringIA && currentRound >= ROUND_STRUCTURE.length && !finalScore && (
+                <button onClick={computeFinalScore}
+                  style={{padding:"6px 16px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                  🏆 Calculer le score
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Tours */}
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+            {rounds.map((r,i)=>{
+              const isPour = r.role==="Pour";
+              const uVote = userVotes.find(v=>v.roundIdx===i);
+              return (
+                <div key={i} style={{background:"var(--s1)",border:"1px solid "+(isPour?"rgba(74,222,128,.2)":"rgba(248,113,113,.2)"),borderRadius:10,padding:"12px 14px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                    <span style={{padding:"2px 8px",borderRadius:8,background:isPour?"rgba(74,222,128,.12)":"rgba(248,113,113,.12)",color:isPour?"var(--green)":"var(--red)",fontSize:8,fontWeight:700}}>{isPour?"🟢 POUR":"🔴 CONTRE"}</span>
+                    <span style={{fontSize:9,color:"var(--mu)"}}>{r.label}</span>
+                    <span style={{fontSize:8,color:r.iaColor||"var(--ac)",fontWeight:600,marginLeft:"auto"}}>{r.iaName}</span>
+                  </div>
+                  <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7}}>{r.content}</div>
+                  {/* Vote utilisateur */}
+                  <div style={{marginTop:8,display:"flex",gap:5,alignItems:"center"}}>
+                    <span style={{fontSize:8,color:"var(--mu)"}}>Ton vote :</span>
+                    {[["pour","🟢 Pour"],["contre","🔴 Contre"],["nul","⚖️ Nul"]].map(([v,l])=>(
+                      <button key={v} onClick={()=>voteRound(i,v)}
+                        style={{padding:"2px 8px",borderRadius:6,border:"1px solid "+(uVote?.vote===v?"var(--ac)":"var(--bd)"),background:uVote?.vote===v?"rgba(212,168,83,.12)":"transparent",color:uVote?.vote===v?"var(--ac)":"var(--mu)",fontSize:8,cursor:"pointer"}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Score final */}
+          {finalScore && (
+            <div style={{padding:"16px 20px",background:"var(--s1)",border:"2px solid rgba(245,158,11,.4)",borderRadius:12}}>
+              <div style={{fontSize:9,color:"#F59E0B",fontWeight:700,marginBottom:10}}>🏆 VERDICT FINAL</div>
+              <div style={{fontSize:22,fontWeight:900,color:"var(--ac)",fontFamily:"var(--font-display)",marginBottom:6}}>{finalScore.winner}</div>
+              <div style={{display:"flex",gap:16,marginBottom:10}}>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:900,color:"var(--green)"}}>{finalScore.score_pour}/10</div><div style={{fontSize:8,color:"var(--mu)"}}>POUR</div></div>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:900,color:"var(--red)"}}>{finalScore.score_contre}/10</div><div style={{fontSize:8,color:"var(--mu)"}}>CONTRE</div></div>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:900,color:"var(--ac)"}}>{userVotes.filter(v=>v.vote==="pour").length}/{userVotes.length}</div><div style={{fontSize:8,color:"var(--mu)"}}>Votes POUR</div></div>
+              </div>
+              <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>{finalScore.raison}</div>
+              <div style={{display:"flex",gap:10}}>
+                {[["var(--green)","Arguments POUR",finalScore.arguments_forts_pour],["var(--red)","Arguments CONTRE",finalScore.arguments_forts_contre]].map(([c,l,args])=>args?.length>0&&(
+                  <div key={l} style={{flex:1,padding:"8px 10px",background:c+"11",border:"1px solid "+c+"33",borderRadius:6}}>
+                    <div style={{fontSize:7,color:c,fontWeight:700,marginBottom:4}}>{l}</div>
+                    {args.map((a,i)=><div key={i} style={{fontSize:8,color:"var(--tx)",marginBottom:2}}>• {a}</div>)}
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>{setPhase("setup");setTopic("");setRounds([]);setCurrentRound(0);setFinalScore(null);setUserVotes([]);}}
+                style={{marginTop:12,fontSize:9,padding:"5px 14px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",cursor:"pointer"}}>
+                + Nouveau débat
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  CONTEXT TRANSLATOR — 5 niveaux de compréhension            ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ContextTranslatorTab({ enabled, apiKeys }) {
+  const [text, setText] = React.useState("");
+  const [results, setResults] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [domain, setDomain] = React.useState("auto");
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  const LEVELS = [
+    { id:"enfant",    label:"👦 Enfant 10 ans",   color:"#4ADE80", desc:"Mots simples, analogies jouets/jeux" },
+    { id:"lyceen",    label:"🎒 Lycéen",           color:"#60A5FA", desc:"Concepts de base, exemples concrets" },
+    { id:"adulte",    label:"👤 Adulte lambda",    color:"#F59E0B", desc:"Langage courant, sans jargon" },
+    { id:"expert",    label:"🔬 Expert",           color:"#A78BFA", desc:"Terminologie technique complète" },
+    { id:"tweet",     label:"🐦 Tweet (280 car.)", color:"#EC4899", desc:"Ultra-condensé, percutant" },
+  ];
+
+  const DOMAINS = [
+    {id:"auto",label:"🤖 Auto-detect"},{id:"medical",label:"🏥 Médical"},{id:"juridique",label:"⚖️ Juridique"},
+    {id:"financier",label:"💰 Financier"},{id:"technique",label:"💻 Technique"},{id:"scientifique",label:"🔬 Scientifique"},
+  ];
+
+  const QUICK_TEXTS = [
+    "Les LLMs utilisent l'attention multi-têtes pour pondérer les tokens dans leur fenêtre de contexte.",
+    "La clause de non-concurrence stipule que le salarié s'interdit d'exercer toute activité concurrente pendant 24 mois.",
+    "Le QE3 (Quantitative Easing) de la Fed a injecté 85 milliards de dollars mensuels en MBS et Treasuries.",
+    "L'ARNm code pour la séquence d'acides aminés lors de la traduction ribosomale.",
+  ];
+
+  const translate = async () => {
+    if (!text.trim() || !activeIds.length) return;
+    setLoading(true); setResults(null);
+
+    const domainCtx = domain!=="auto" ? ` (domaine : ${domain})` : "";
+    const results = {};
+
+    await Promise.all(LEVELS.map(async (level, i) => {
+      const iaId = activeIds[i % activeIds.length];
+      const prompts = {
+        enfant:  `Explique ce texte${domainCtx} à un enfant de 10 ans. Utilise des analogies avec des jouets, la nourriture, les jeux ou le quotidien. MAX 80 mots :\n\n${text}`,
+        lyceen:  `Explique ce texte${domainCtx} à un lycéen de 16 ans. Utilise le vocabulaire de base, sans jargon. MAX 100 mots :\n\n${text}`,
+        adulte:  `Explique ce texte${domainCtx} à un adulte cultivé mais sans expertise dans ce domaine. Langage courant, exemples du quotidien. MAX 100 mots :\n\n${text}`,
+        expert:  `Explique ce texte${domainCtx} à un expert du domaine. Utilise la terminologie technique précise, les nuances et les références pertinentes. MAX 150 mots :\n\n${text}`,
+        tweet:   `Résume ce texte${domainCtx} en un tweet percutant de 280 caractères maximum. Sois direct, impactant :\n\n${text}`,
+      };
+      try {
+        const output = await callModel(iaId, [{role:"user",content:prompts[level.id]}], apiKeys,
+          `Tu es expert en vulgarisation ${domain!=="auto"?domain+".":"."} Réponds directement sans intro.`
+        );
+        results[level.id] = { output: output.trim(), iaId, ok:true };
+      } catch(e) {
+        results[level.id] = { output:"❌ "+e.message, iaId, ok:false };
+      }
+    }));
+
+    setResults(results);
+    setLoading(false);
+  };
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#4ADE80"}}>🔄 Traducteur de Contexte</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— N'importe quel texte traduit en 5 niveaux de compréhension simultanément</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.15)",borderRadius:6}}>
+        Colle n'importe quel texte technique, juridique, médical ou financier. Tes IAs le réécrivent en parallèle pour : enfant de 10 ans, lycéen, adulte lambda, expert du domaine et tweet.
+      </div>
+
+      {/* Exemples */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>EXEMPLES RAPIDES</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {QUICK_TEXTS.map((t,i)=>(
+            <button key={i} onClick={()=>setText(t)}
+              style={{padding:"4px 10px",borderRadius:8,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+              {t.slice(0,45)}…
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <textarea value={text} onChange={e=>setText(e.target.value)}
+        placeholder="Colle ton texte technique, juridique, médical ou financier…"
+        rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {DOMAINS.map(d=>(
+            <button key={d.id} onClick={()=>setDomain(d.id)}
+              style={{padding:"4px 9px",borderRadius:8,border:"1px solid "+(domain===d.id?"var(--ac)":"var(--bd)"),background:domain===d.id?"rgba(212,168,83,.1)":"transparent",color:domain===d.id?"var(--ac)":"var(--mu)",fontSize:8,cursor:"pointer"}}>
+              {d.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={translate} disabled={loading||!text.trim()||!activeIds.length}
+          style={{marginLeft:"auto",padding:"8px 20px",background:loading?"var(--s2)":"rgba(74,222,128,.12)",border:"1px solid "+(loading?"var(--bd)":"rgba(74,222,128,.3)"),borderRadius:6,color:loading?"var(--mu)":"var(--green)",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700}}>
+          {loading?"⏳ Traduction…":"🔄 Traduire les 5 niveaux"}
+        </button>
+      </div>
+
+      {results && (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10}}>
+          {LEVELS.map(level=>{
+            const r = results[level.id];
+            if (!r) return null;
+            const m = MODEL_DEFS[r.iaId];
+            const isTweet = level.id==="tweet";
+            const charCount = r.output?.length||0;
+            return (
+              <div key={level.id} style={{background:"var(--s1)",border:"1px solid "+level.color+"33",borderRadius:10,padding:"12px 14px",position:"relative"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:9,fontWeight:700,color:level.color,padding:"2px 7px",background:level.color+"18",borderRadius:8}}>{level.label}</span>
+                  {m&&<span style={{fontSize:7,color:m.color,marginLeft:"auto"}}>{m.icon}{m.short}</span>}
+                </div>
+                <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7}}>{r.output}</div>
+                {isTweet&&<div style={{marginTop:6,fontSize:8,color:charCount>280?"var(--red)":"var(--mu)",textAlign:"right"}}>{charCount}/280</div>}
+                <button onClick={()=>navigator.clipboard.writeText(r.output)}
+                  style={{position:"absolute",bottom:8,right:8,fontSize:8,padding:"2px 6px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.2)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  API OPTIMIZER — Optimise l'utilisation de tes clés API      ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ApiOptimizerTab({ usageStats, enabled }) {
+  const [recommendations, setRecommendations] = React.useState(null);
+
+  React.useEffect(() => { computeRecommendations(); }, [usageStats]);
+
+  const computeRecommendations = () => {
+    const msgs    = usageStats?.msgs    || {};
+    const tokens  = usageStats?.tokens  || {};
+    const byHour  = usageStats?.byHour  || {};
+    const totalMsgs = Object.values(msgs).reduce((a,b)=>a+b,0);
+    if (totalMsgs === 0) { setRecommendations(null); return; }
+
+    const recs = [];
+    const costs = {};
+    let totalSaved = 0;
+
+    // Analyse chaque IA utilisée
+    Object.entries(msgs).filter(([,v])=>v>0).forEach(([id, count]) => {
+      const m = MODEL_DEFS[id];
+      const tok = tokens[id]||0;
+      const tp = TOKEN_PRICE[id];
+      if (!m || !tp) return;
+      const actualCost = (tok*0.7/1e6)*tp.in + (tok*0.3/1e6)*tp.out;
+      costs[id] = { count, tok, actualCost };
+
+      // Analyser les messages courts (< 500 tokens estimés = 2000 chars)
+      const avgTok = tok / count;
+
+      // Recommandation 1 : messages courts → Cerebras/Gemma (ultra rapide et gratuit)
+      if (avgTok < 500 && count > 10 && !["cerebras","gemma2"].includes(id) && enabled["cerebras"]) {
+        const altCost = (tok*0.7/1e6)*0.1 + (tok*0.3/1e6)*0.1;
+        const saving = actualCost - altCost;
+        if (saving > 0.001) {
+          recs.push({
+            type:"speed", icon:"⚡", priority:"haute",
+            title:`Tes ${count} messages courts sur ${m.short}`,
+            detail:`Tes messages sont courts (≈ ${Math.round(avgTok)} tokens/msg). Cerebras traite ça 10× plus vite pour le même prix.`,
+            suggestion:`Utilise Cerebras pour les requêtes rapides < 500 tokens`,
+            saving, altId:"cerebras"
+          });
+          totalSaved += saving;
+        }
+      }
+
+      // Recommandation 2 : textes français → Mistral
+      if (id !== "mistral" && count > 5 && enabled["mistral"]) {
+        recs.push({
+          type:"quality", icon:"▲", priority:"moyenne",
+          title:`Rédaction française avec ${m.short}`,
+          detail:`Mistral Small est optimisé pour le français et coûte moins cher pour la rédaction.`,
+          suggestion:`Pour tes textes en français, Mistral Small donne souvent de meilleurs résultats`,
+          saving:null, altId:"mistral"
+        });
+      }
+
+      // Recommandation 3 : messages très longs → Cohere (RAG natif)
+      if (avgTok > 3000 && count > 3 && id !== "cohere" && enabled["cohere"]) {
+        recs.push({
+          type:"rag", icon:"⌘", priority:"haute",
+          title:`Tes ${count} longs messages sur ${m.short}`,
+          detail:`Tes messages sont très longs (≈ ${Math.round(avgTok)} tokens). Cohere a un RAG natif avec citations — parfait pour l'analyse de documents.`,
+          suggestion:`Pour les longs documents, utilise Cohere Command R+`,
+          saving:null, altId:"cohere"
+        });
+      }
+    });
+
+    // Analyse heure de pointe
+    const peakHour = Object.entries(byHour).sort(([,a],[,b])=>b-a)[0];
+    if (peakHour) {
+      const h = parseInt(peakHour[0]);
+      const groqLimited = h >= 8 && h <= 10; // matin = souvent rate limited
+      if (groqLimited) {
+        recs.push({
+          type:"timing", icon:"🕐", priority:"info",
+          title:`Pic d'usage à ${h}h`,
+          detail:`Tu utilises beaucoup l'app à ${h}h. C'est l'heure de pointe où Groq peut être rate-limited.`,
+          suggestion:`Prépare tes prompts longs le matin et bascule sur Mistral si Groq est limité`,
+          saving:null, altId:null
+        });
+      }
+    }
+
+    // Calcul économies potentielles totales
+    const totalActualCost = Object.values(costs).reduce((a,c)=>a+c.actualCost,0);
+
+    setRecommendations({
+      recs: recs.slice(0,6),
+      totalActualCost,
+      totalSaved,
+      totalMsgs,
+      costs,
+      peakHour: peakHour?parseInt(peakHour[0]):null,
+    });
+  };
+
+  const prioColor = p => ({haute:"var(--red)",moyenne:"var(--orange)",info:"var(--blue)"}[p]||"var(--mu)");
+  const fmtCost = c => c<0.001?"< $0.001":"$"+c.toFixed(4);
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#34D399"}}>💡 API Optimizer</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Analyse ton historique et optimise l'usage de tes clés API</div>
+      </div>
+
+      {!recommendations && (
+        <div style={{textAlign:"center",padding:"60px 20px"}}>
+          <div style={{fontSize:40,marginBottom:10}}>📊</div>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Pas encore de données</div>
+          <div style={{fontSize:10,color:"var(--mu)"}}>Utilise l'app pendant quelques jours — l'optimiseur analysera ton historique.</div>
+        </div>
+      )}
+
+      {recommendations && (
+        <div>
+          {/* Résumé */}
+          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+            {[
+              ["💬", recommendations.totalMsgs.toLocaleString(), "Messages analysés"],
+              ["💰", fmtCost(recommendations.totalActualCost), "Coût estimé total"],
+              ["✂️", recommendations.totalSaved>0?fmtCost(recommendations.totalSaved):"—", "Économies potentielles"],
+              ["📋", recommendations.recs.length.toString(), "Recommandations"],
+            ].map(([ico,val,lbl])=>(
+              <div key={lbl} style={{flex:1,minWidth:90,padding:"10px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,textAlign:"center"}}>
+                <div style={{fontSize:16}}>{ico}</div>
+                <div style={{fontSize:14,fontWeight:900,color:"var(--ac)",fontFamily:"var(--font-display)"}}>{val}</div>
+                <div style={{fontSize:7,color:"var(--mu)"}}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Utilisation par IA */}
+          <div style={{marginBottom:16,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+            <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:10}}>RÉPARTITION ACTUELLE</div>
+            {Object.entries(recommendations.costs).sort(([,a],[,b])=>b.count-a.count).map(([id,c])=>{
+              const m=MODEL_DEFS[id]; if(!m)return null;
+              const pct=Math.round(c.count/recommendations.totalMsgs*100);
+              return <div key={id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <span style={{color:m.color,width:20,fontSize:11}}>{m.icon}</span>
+                <span style={{fontSize:9,color:"var(--tx)",width:80,flexShrink:0}}>{m.short}</span>
+                <div style={{flex:1,height:6,background:"var(--s2)",borderRadius:3}}><div style={{height:"100%",width:pct+"%",background:m.color,borderRadius:3}}/></div>
+                <span style={{fontSize:8,color:"var(--mu)",width:30,textAlign:"right"}}>{pct}%</span>
+                <span style={{fontSize:8,color:"var(--mu)",width:60,textAlign:"right",fontFamily:"var(--font-mono)"}}>{fmtCost(c.actualCost)}</span>
+              </div>;
+            })}
+          </div>
+
+          {/* Recommandations */}
+          {recommendations.recs.length > 0 ? (
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10}}>💡 RECOMMANDATIONS PERSONNALISÉES</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {recommendations.recs.map((rec,i)=>{
+                  const altM = rec.altId ? MODEL_DEFS[rec.altId] : null;
+                  return (
+                    <div key={i} style={{background:"var(--s1)",border:"1px solid "+prioColor(rec.priority)+"33",borderRadius:10,padding:"12px 14px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:14}}>{rec.icon}</span>
+                        <span style={{fontSize:10,fontWeight:700,color:"var(--tx)",flex:1}}>{rec.title}</span>
+                        <span style={{fontSize:7,padding:"2px 6px",borderRadius:6,background:prioColor(rec.priority)+"22",color:prioColor(rec.priority),fontWeight:700}}>{rec.priority}</span>
+                        {rec.saving>0&&<span style={{fontSize:8,color:"var(--green)",fontWeight:700}}>Économie : {fmtCost(rec.saving)}</span>}
+                      </div>
+                      <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5,marginBottom:6}}>{rec.detail}</div>
+                      <div style={{fontSize:9,color:"var(--ac)",display:"flex",alignItems:"center",gap:6}}>
+                        <span>→</span>
+                        <span>{rec.suggestion}</span>
+                        {altM&&<span style={{color:altM.color,fontWeight:700,marginLeft:4}}>{altM.icon} {altM.short}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div style={{textAlign:"center",padding:24,color:"var(--green)",fontSize:10}}>✅ Ton usage est déjà optimisé !</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  COMPARATEUR DE CIVILISATIONS                                ║
+// ╚══════════════════════════════════════════════════════════════╝
+function CivilisationsTab({ enabled, apiKeys }) {
+  const [question, setQuestion] = React.useState("");
+  const [results, setResults] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [synthesis, setSynthesis] = React.useState("");
+  const [synthLoading, setSynthLoading] = React.useState(false);
+  const [selectedCivs, setSelectedCivs] = React.useState(["grece","islam","chine","lumières","silicon"]);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  const CIVILISATIONS = [
+    { id:"grece",      label:"🏛️ Grèce antique",        color:"#60A5FA", period:"Ve-IVe s. av. J.-C.",
+      system:"Tu es un philosophe de la Grèce antique (mélange de Socrate, Aristote, Platon). Tu raisonnes par la dialectique, la vertu, le bien commun et la recherche de la vérité. Tu cites des exemples de la cité, de la nature, des dieux grecs." },
+    { id:"rome",       label:"⚔️ Rome impériale",         color:"#F87171", period:"Ier-IIe s. apr. J.-C.",
+      system:"Tu es un penseur romain (mélange de Marc Aurèle, Cicéron, Sénèque). Tu raisonnes par la pragmatique, la loi, la discipline stoïcienne, et le service de l'Empire. Tu valorises l'ordre, la hiérarchie et la vertu romaine." },
+    { id:"chine",      label:"🐉 Chine impériale",         color:"#34D399", period:"Dynasties Tang-Song, VIIe-XIIIe s.",
+      system:"Tu es un lettré confucéen de la Chine impériale (mélange de Confucius, Zhuangzi, Sun Tzu). Tu raisonnes par l'harmonie, la hiérarchie sociale, le yin-yang, la sagesse ancestrale et l'équilibre de la nature." },
+    { id:"islam",      label:"🌙 Âge d'or islamique",      color:"#A78BFA", period:"VIIIe-XIIIe s.",
+      system:"Tu es un savant de l'âge d'or islamique (mélange d'Ibn Rushd, Al-Ghazali, Ibn Khaldoun). Tu raisonnes par la foi, la raison, la connaissance comme devoir, et l'harmonie entre sciences et spiritualité." },
+    { id:"moyen_age",  label:"⛪ Europe médiévale",        color:"#FCD34D", period:"XIIe-XIVe s.",
+      system:"Tu es un théologien médiéval (mélange de Thomas d'Aquin, Abélard). Tu raisonnes par la foi chrétienne, la scolastique, la grâce divine et l'ordre naturel voulu par Dieu. La Bible et Aristote sont tes références." },
+    { id:"lumières",   label:"💡 Lumières européennes",    color:"#FB923C", period:"XVIIIe s.",
+      system:"Tu es un philosophe des Lumières (mélange de Voltaire, Rousseau, Kant). Tu raisonnes par la raison, la liberté individuelle, le contrat social, les droits naturels et le progrès de l'humanité." },
+    { id:"japon",      label:"🗾 Japon féodal",            color:"#F472B6", period:"Ère Edo, XVIIe-XIXe s.",
+      system:"Tu es un penseur japonais de l'ère Edo (mélange de Musashi, maîtres zen, confucéens japonais). Tu raisonnes par le Bushido, la discipline, le respect des ancêtres, la beauté dans la simplicité, et l'harmonie avec la nature." },
+    { id:"africain",   label:"🌍 Afrique subsaharienne",   color:"#4ADE80", period:"Traditions bantou-yoruba",
+      system:"Tu es un sage de la tradition africaine (philosophie ubuntu, traditions yoruba, bantou). Tu raisonnes par 'Je suis parce que nous sommes' (Ubuntu), la communauté, les ancêtres, l'interconnexion de tous les êtres vivants." },
+    { id:"amerindien", label:"🦅 Peuples premiers",         color:"#38BDF8", period:"Traditions lakotas-aztèques",
+      system:"Tu es un sage amérindien (traditions lakotas, aztèques, mayas). Tu raisonnes par la relation sacrée avec la Terre-mère, le respect des cycles naturels, la responsabilité envers les 7 générations futures." },
+    { id:"silicon",    label:"💻 Silicon Valley 2026",     color:"#D4A853", period:"Époque actuelle",
+      system:"Tu es un tech entrepreneur de la Silicon Valley en 2026 (pensée d'Elon Musk, Sam Altman, Reid Hoffman). Tu raisonnes par l'innovation disruptive, l'IA comme levier de transformation, la croissance exponentielle, le 'move fast', l'optimisme technologique radical." },
+    { id:"stoicisme",  label:"⚖️ Stoïcisme",               color:"#94A3B8", period:"Antiquité tardive",
+      system:"Tu es un stoïcien (Marc Aurèle, Épictète, Sénèque). Tu distingues ce qui dépend de toi de ce qui n'en dépend pas. Tu valorises la vertu, le détachement des passions, la discipline intérieure et l'acceptation du destin." },
+    { id:"bouddhisme", label:"🪷 Bouddhisme",              color:"#EC4899", period:"Tradition Theravada-Mahayana",
+      system:"Tu es un maître bouddhiste (mélange de traditions Theravada et Zen). Tu raisonnes par l'impermanence, la souffrance née de l'attachement, la voie du milieu, la compassion pour tous les êtres et l'éveil." },
+  ];
+
+  const QUICK_QUESTIONS = [
+    "Qu'est-ce que le bonheur et comment l'atteindre ?",
+    "Quelle est la place de l'individu face à la société ?",
+    "Comment faire face à la mort ?",
+    "L'intelligence artificielle est-elle une menace ou une opportunité ?",
+    "Qu'est-ce qu'un chef ou un bon dirigeant ?",
+    "Comment réagir face à l'injustice ?",
+  ];
+
+  const toggleCiv = (id) => {
+    setSelectedCivs(prev => prev.includes(id) ? prev.filter(c=>c!==id) : [...prev,id].slice(0,6));
+  };
+
+  const run = async () => {
+    if (!question.trim() || !activeIds.length || !selectedCivs.length) return;
+    setLoading(true); setResults([]); setSynthesis("");
+    const civs = CIVILISATIONS.filter(c => selectedCivs.includes(c.id));
+
+    const allResults = await Promise.all(civs.map(async (civ, i) => {
+      const iaId = activeIds[i % activeIds.length];
+      const prompt = `Question contemporaine posée à ta civilisation :
+"${question}"
+
+Réponds depuis la perspective de ta civilisation et époque. Utilise des références à tes valeurs, tes penseurs, tes exemples historiques. Sois authentique à ton époque — ne connais pas les événements postérieurs. MAX 200 mots.`;
+      try {
+        const output = await callModel(iaId, [{role:"user",content:prompt}], apiKeys, civ.system);
+        return { ...civ, output, iaId, ok:true };
+      } catch(e) {
+        return { ...civ, output:"❌ "+e.message, iaId, ok:false };
+      }
+    }));
+
+    setResults(allResults);
+    setLoading(false);
+  };
+
+  const runSynthesis = async () => {
+    if (!results.length) return;
+    setSynthLoading(true);
+    const judge = activeIds.find(id=>["mistral","groq","sambanova","poll_claude"].includes(id)) || activeIds[0];
+    const transcript = results.map(r=>`[${r.label} — ${r.period}] : ${r.output}`).join("\n\n");
+    const prompt = `Tu es un historien comparatiste. Voici comment différentes civilisations répondent à la question : "${question}"
+
+${transcript}
+
+Synthétise en :
+1. **Convergences universelles** : ce sur quoi toutes (ou la plupart) s'accordent
+2. **Divergences fondamentales** : les points de désaccord profond entre les civilisations
+3. **Ce que 2026 peut apprendre** de ces sagesses anciennes et diverses
+4. **Ta conclusion** en 2 phrases sur ce que révèle cette diversité de réponses`;
+
+    try {
+      const out = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Historien comparatiste et philosophe. Tu analyses les convergences et divergences entre civilisations.");
+      setSynthesis(out);
+    } catch(e) { setSynthesis("❌ "+e.message); }
+    setSynthLoading(false);
+  };
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#F472B6"}}>🌍 Comparateur de Civilisations</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— La même question vue par 12 civilisations différentes</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(244,114,182,.06)",border:"1px solid rgba(244,114,182,.15)",borderRadius:6}}>
+        Chaque IA incarne une civilisation ou époque. Tu poses une question contemporaine et vois comment chaque culture y répondrait selon ses propres valeurs, philosophie et histoire.
+      </div>
+
+      {/* Sélection civilisations */}
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>CIVILISATIONS (max 6 — {selectedCivs.length}/6 sélectionnées)</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {CIVILISATIONS.map(civ => {
+            const active = selectedCivs.includes(civ.id);
+            const disabled = !active && selectedCivs.length >= 6;
+            return (
+              <button key={civ.id} onClick={()=>!disabled&&toggleCiv(civ.id)}
+                style={{padding:"5px 10px",borderRadius:10,border:"1px solid "+(active?civ.color:"var(--bd)"),background:active?civ.color+"18":"transparent",color:active?civ.color:"var(--mu)",fontSize:8,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.4:1,transition:"all .15s"}}>
+                {civ.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Questions rapides */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>QUESTIONS UNIVERSELLES</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {QUICK_QUESTIONS.map(q=>(
+            <button key={q} onClick={()=>setQuestion(q)}
+              style={{padding:"4px 9px",borderRadius:8,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+              {q.slice(0,38)}{q.length>38?"…":""}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <textarea value={question} onChange={e=>setQuestion(e.target.value)}
+        placeholder="Ta question universelle…"
+        rows={2} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+      <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+        <button onClick={run} disabled={loading||!question.trim()||!activeIds.length||!selectedCivs.length}
+          style={{padding:"9px 22px",background:loading?"var(--s2)":"rgba(244,114,182,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(244,114,182,.4)"),borderRadius:6,color:loading?"var(--mu)":"#F472B6",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)"}}>
+          {loading?"🌍 Consultation des civilisations…":"🌍 Consulter les civilisations"}
+        </button>
+        {!activeIds.length&&<span style={{fontSize:9,color:"var(--red)"}}>Active des IAs dans Config</span>}
+      </div>
+
+      {/* Résultats */}
+      {results.length > 0 && (
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10,marginBottom:16}}>
+            {results.map(r=>(
+              <div key={r.id} style={{background:"var(--s1)",border:"1px solid "+r.color+"33",borderRadius:10,padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:11,color:r.color}}>{r.label}</div>
+                    <div style={{fontSize:7,color:"var(--mu)",fontStyle:"italic"}}>{r.period}</div>
+                  </div>
+                  {r.iaId&&<span style={{fontSize:7,color:MODEL_DEFS[r.iaId]?.color}}>{MODEL_DEFS[r.iaId]?.icon}</span>}
+                </div>
+                <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.7}}>{r.output}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Synthèse */}
+          <div style={{background:"var(--s1)",border:"1px solid rgba(244,114,182,.25)",borderRadius:10,padding:"14px 16px"}}>
+            {!synthesis && !synthLoading && (
+              <button onClick={runSynthesis}
+                style={{padding:"8px 20px",background:"rgba(244,114,182,.12)",border:"1px solid rgba(244,114,182,.35)",borderRadius:6,color:"#F472B6",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                🔍 Synthèse comparatiste
+              </button>
+            )}
+            {synthLoading && <div style={{fontSize:10,color:"var(--mu)"}}>⏳ Analyse comparative…</div>}
+            {synthesis && (
+              <>
+                <div style={{fontSize:9,color:"#F472B6",fontWeight:700,marginBottom:10}}>🔍 SYNTHÈSE COMPARATISTE</div>
+                <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{synthesis}</div>
+                <button onClick={()=>navigator.clipboard.writeText(synthesis)} style={{marginTop:10,fontSize:8,padding:"3px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋 Copier</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  MODE FLASH — Un prompt → toutes les IAs en 10 secondes      ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ModeFlashTab({ enabled, apiKeys, navigateTab, setChatInput }) {
+  const [prompt, setPrompt] = React.useState("");
+  const [results, setResults] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [startTime, setStartTime] = React.useState(null);
+  const [elapsed, setElapsed] = React.useState(0);
+  const [winner, setWinner] = React.useState(null);
+  const [history, setHistory] = React.useState(() => { try { return JSON.parse(localStorage.getItem("multiia_flash_history")||"[]"); } catch { return []; } });
+  const timerRef = React.useRef(null);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial && !MODEL_DEFS[id]?.serial);
+
+  const FLASH_PROMPTS = [
+    "Explique l'IA générative en 3 phrases",
+    "Quel est le meilleur conseil pour être productif ?",
+    "Nomme 5 startups IA qui vont changer le monde",
+    "Quelle est la différence entre Groq et Mistral ?",
+    "Écris un haïku sur l'intelligence artificielle",
+    "Quel livre lire absolument sur l'IA ?",
+    "Explique-moi les transformers simplement",
+    "Quelle IA choisir pour écrire du code ?",
+  ];
+
+  // Timer en direct
+  React.useEffect(() => {
+    if (loading && startTime) {
+      timerRef.current = setInterval(() => setElapsed(Date.now()-startTime), 100);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [loading, startTime]);
+
+  const flash = async () => {
+    if (!prompt.trim() || !activeIds.length) return;
+    setLoading(true); setResults([]); setWinner(null);
+    const t0 = Date.now(); setStartTime(t0);
+
+    // Lancer toutes les IAs en même temps
+    const promises = activeIds.map(async id => {
+      const t = Date.now();
+      try {
+        const output = await callModel(id, [{role:"user",content:prompt}], apiKeys, "Tu es un assistant ultra-concis. Réponds directement et précisément en 2-5 phrases max.");
+        return { id, output, time:Date.now()-t, ok:true };
+      } catch(e) {
+        return { id, output:"❌ "+e.message, time:Date.now()-t, ok:false };
+      }
+    });
+
+    // Afficher les résultats au fur et à mesure
+    const settled = [];
+    await Promise.all(promises.map(p => p.then(r => {
+      settled.push(r);
+      setResults([...settled].sort((a,b)=>a.time-b.time));
+    })));
+
+    // Déterminer le plus rapide et le meilleur (le plus long = potentiellement plus complet)
+    const successful = settled.filter(r=>r.ok);
+    if (successful.length > 0) {
+      const fastest = successful.reduce((a,b)=>a.time<b.time?a:b);
+      setWinner(fastest.id);
+      // Sauvegarder dans l'historique
+      const entry = {
+        id:Date.now().toString(),
+        prompt,
+        date:new Date().toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}),
+        fastest:fastest.id,
+        count:successful.length,
+        totalTime:Date.now()-t0,
+      };
+      const newHistory = [entry,...history].slice(0,15);
+      setHistory(newHistory);
+      try { localStorage.setItem("multiia_flash_history",JSON.stringify(newHistory)); } catch {}
+    }
+
+    setLoading(false);
+    setElapsed(Date.now()-t0);
+  };
+
+  const fmtMs = ms => ms < 1000 ? ms+"ms" : (ms/1000).toFixed(1)+"s";
+  const fastest = results.filter(r=>r.ok).length>0 ? results.filter(r=>r.ok).reduce((a,b)=>a.time<b.time?a:b) : null;
+  const slowest = results.filter(r=>r.ok).length>0 ? results.filter(r=>r.ok).reduce((a,b)=>a.time>b.time?a:b) : null;
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#FCD34D"}}>⚡ Mode Flash</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Un prompt → toutes tes IAs en même temps · Course de vitesse en temps réel</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(252,211,77,.06)",border:"1px solid rgba(252,211,77,.15)",borderRadius:6}}>
+        Toutes tes IAs actives reçoivent le même prompt simultanément. Tu vois leurs réponses arriver en temps réel, classées par vitesse. Idéal pour les questions rapides ou comparer les styles.
+      </div>
+
+      {/* Exemples */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>PROMPTS FLASH</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {FLASH_PROMPTS.map(p=>(
+            <button key={p} onClick={()=>setPrompt(p)}
+              style={{padding:"4px 9px",borderRadius:8,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+              {p.slice(0,36)}{p.length>36?"…":""}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Input */}
+      <div style={{display:"flex",gap:8,marginBottom:14}}>
+        <input value={prompt} onChange={e=>setPrompt(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&!loading&&prompt.trim()&&flash()}
+          placeholder="Tape ton prompt flash (Entrée pour lancer)…"
+          style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 14px",outline:"none"}}/>
+        <button onClick={flash} disabled={loading||!prompt.trim()||!activeIds.length}
+          style={{padding:"10px 20px",background:loading?"var(--s2)":"rgba(252,211,77,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(252,211,77,.4)"),borderRadius:8,color:loading?"var(--mu)":"#FCD34D",fontSize:12,cursor:loading?"default":"pointer",fontWeight:900,fontFamily:"var(--font-mono)",minWidth:60}}>
+          {loading?"…":"⚡"}
+        </button>
+      </div>
+
+      {/* Timer en direct */}
+      {(loading || results.length > 0) && (
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,padding:"8px 14px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,flexWrap:"wrap"}}>
+          <div style={{fontSize:24,fontWeight:900,color:"#FCD34D",fontFamily:"var(--font-mono)",minWidth:70}}>
+            {fmtMs(loading ? elapsed : elapsed)}
+          </div>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {activeIds.map(id=>{
+                const r = results.find(x=>x.id===id);
+                const m = MODEL_DEFS[id];
+                return <div key={id} style={{padding:"3px 8px",borderRadius:6,background:r?.ok?"rgba(74,222,128,.1)":r?"rgba(248,113,113,.1)":"var(--s2)",border:"1px solid "+(r?.ok?"rgba(74,222,128,.3)":r?"rgba(248,113,113,.3)":"var(--bd)"),fontSize:8,color:r?.ok?"var(--green)":r?"var(--red)":m.color,display:"flex",alignItems:"center",gap:4}}>
+                  {r?.ok ? "✓" : r ? "✗" : <span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⟳</span>}
+                  {m.short}
+                  {r?.ok && <span style={{color:"var(--mu)"}}>{fmtMs(r.time)}</span>}
+                </div>;
+              })}
+            </div>
+          </div>
+          <div style={{fontSize:9,color:"var(--mu)",textAlign:"right"}}>
+            {results.filter(r=>r.ok).length}/{activeIds.length} IAs
+          </div>
+        </div>
+      )}
+
+      {/* Résultats classés */}
+      {results.length > 0 && (
+        <div>
+          {/* Podium */}
+          {!loading && results.filter(r=>r.ok).length >= 2 && (
+            <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"flex-end",justifyContent:"center",flexWrap:"wrap"}}>
+              {results.filter(r=>r.ok).slice(0,3).map((r,i)=>{
+                const m = MODEL_DEFS[r.id];
+                const medals = ["🥇","🥈","🥉"];
+                const heights = [80,60,50];
+                return <div key={r.id} style={{textAlign:"center",minWidth:80}}>
+                  <div style={{fontSize:16}}>{medals[i]}</div>
+                  <div style={{height:heights[i],background:m.color+"22",border:"1px solid "+m.color+"44",borderRadius:"6px 6px 0 0",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 6px"}}>
+                    <div>
+                      <div style={{fontSize:16}}>{m.icon}</div>
+                      <div style={{fontSize:8,color:m.color,fontWeight:700}}>{m.short}</div>
+                    </div>
+                  </div>
+                  <div style={{background:m.color+"33",padding:"4px 8px",borderRadius:"0 0 6px 6px",fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{fmtMs(r.time)}</div>
+                </div>;
+              })}
+            </div>
+          )}
+
+          {/* Réponses */}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {results.map((r,i)=>{
+              const m = MODEL_DEFS[r.id];
+              const isFastest = r.id===fastest?.id && r.ok;
+              const isSlowest = r.id===slowest?.id && r.ok && results.filter(x=>x.ok).length>1;
+              return (
+                <div key={r.id} style={{background:"var(--s1)",border:"1px solid "+(isFastest?"rgba(252,211,77,.4)":r.ok?"var(--bd)":"rgba(248,113,113,.2)"),borderRadius:10,padding:"12px 14px",position:"relative"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                    <span style={{fontSize:18}}>{["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣"][i]||"·"}</span>
+                    <span style={{color:m.color,fontSize:12}}>{m.icon}</span>
+                    <span style={{fontWeight:700,fontSize:10,color:m.color}}>{m.name}</span>
+                    {isFastest&&<span style={{fontSize:8,padding:"2px 6px",background:"rgba(252,211,77,.2)",border:"1px solid rgba(252,211,77,.4)",borderRadius:6,color:"#FCD34D",fontWeight:700}}>⚡ Plus rapide</span>}
+                    {isSlowest&&<span style={{fontSize:8,color:"var(--mu)"}}>🐢</span>}
+                    <span style={{marginLeft:"auto",fontSize:9,color:"var(--mu)",fontFamily:"var(--font-mono)",fontWeight:700}}>{fmtMs(r.time)}</span>
+                  </div>
+                  <div style={{fontSize:10,color:r.ok?"var(--tx)":"var(--red)",lineHeight:1.7}}>{r.output}</div>
+                  {r.ok && (
+                    <div style={{display:"flex",gap:5,marginTop:8}}>
+                      <button onClick={()=>navigator.clipboard.writeText(r.output)} style={{fontSize:8,padding:"2px 7px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>📋</button>
+                      <button onClick={()=>{setChatInput(r.output);navigateTab("chat");}} style={{fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.2)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>→ Chat</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Stats de la session */}
+          {!loading && results.filter(r=>r.ok).length > 1 && (
+            <div style={{marginTop:12,padding:"10px 14px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,display:"flex",gap:16,flexWrap:"wrap",fontSize:9,color:"var(--mu)"}}>
+              <span>⚡ Plus rapide : <strong style={{color:"var(--green)"}}>{fastest&&MODEL_DEFS[fastest.id]?.short} ({fmtMs(fastest?.time||0)})</strong></span>
+              <span>⏱ Plus lent : <strong>{slowest&&MODEL_DEFS[slowest.id]?.short} ({fmtMs(slowest?.time||0)})</strong></span>
+              <span>⏰ Total : <strong style={{color:"#FCD34D"}}>{fmtMs(elapsed)}</strong></span>
+              <span>✓ {results.filter(r=>r.ok).length}/{activeIds.length} IAs</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Historique flash */}
+      {history.length > 0 && !loading && results.length === 0 && (
+        <div style={{marginTop:14}}>
+          <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>HISTORIQUE FLASH</div>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {history.slice(0,8).map(h=>(
+              <div key={h.id} onClick={()=>setPrompt(h.prompt)}
+                style={{padding:"7px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,cursor:"pointer",display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:9,color:"var(--tx)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.prompt}</span>
+                <span style={{fontSize:7,color:MODEL_DEFS[h.fastest]?.color,flexShrink:0}}>⚡ {MODEL_DEFS[h.fastest]?.short}</span>
+                <span style={{fontSize:7,color:"var(--mu)",flexShrink:0,fontFamily:"var(--font-mono)"}}>{fmtMs(h.totalTime)}</span>
+                <span style={{fontSize:7,color:"var(--mu)",flexShrink:0}}>{h.date}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3181,6 +6965,22 @@ function VeilleTab({ enabled, apiKeys, navigateTab, setChatInput }) {
   return (
     <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
       <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)",marginBottom:14}}>📰 Veille Intelligente</div>
+      {/* Thèmes rapides */}
+      <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+        <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>THÈMES PRÉDÉFINIS — CLIQUE POUR CHARGER</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {VEILLE_THEMES.map(t=>(
+            <button key={t.id} onClick={()=>{
+              setFeeds(t.topics);
+              saveFeed(t.topics);
+              setTimeout(fetchVeille, 100);
+            }}
+            style={{padding:"5px 11px",borderRadius:14,border:"1px solid "+t.color+"44",background:t.color+"11",color:t.color,fontSize:8,cursor:"pointer",fontWeight:600,transition:"all .15s"}}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {/* Topics */}
       <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
         <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>SUJETS DE VEILLE</div>
@@ -3300,6 +7100,29 @@ function VoiceTab({ enabled, apiKeys, conversations, setChatInput, navigateTab }
           </button>);
         })}
       </div>
+      {/* Quick themes */}
+      <div style={{width:"100%",maxWidth:600,marginBottom:20}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8,textAlign:"center"}}>QUESTIONS RAPIDES — CLIQUE POUR PARLER</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+          {VOICE_THEMES.map(t=>(
+            <button key={t.id} onClick={async()=>{
+              setTranscript(t.question);
+              setHistory(h=>[...h,{role:"user",text:t.question}]);
+              if(!currentIA) return;
+              try {
+                const hist = [...history,{role:"user",text:t.question}].map(m=>({role:m.role==="user"?"user":"assistant",content:m.text}));
+                const reply = await callModel(currentIA,hist,apiKeys,"Tu es un assistant vocal. Réponds de façon concise, 2-3 phrases max, sans markdown.");
+                setVoiceReply(reply);
+                setHistory(h=>[...h,{role:"assistant",text:reply}]);
+                speak(reply);
+              } catch(e){setVoiceReply("❌ "+e.message);}
+            }}
+            style={{padding:"5px 10px",borderRadius:14,border:"1px solid "+t.color+"44",background:t.color+"11",color:t.color,fontSize:8,cursor:"pointer",fontWeight:600,transition:"all .15s"}}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {/* Big mic button */}
       <button onClick={listening?stopListen:startListen}
         style={{width:100,height:100,borderRadius:"50%",border:"3px solid "+(listening?"var(--red)":"var(--ac)"),background:listening?"rgba(248,113,113,.15)":"rgba(212,168,83,.1)",color:listening?"var(--red)":"var(--ac)",fontSize:36,cursor:"pointer",marginBottom:20,transition:"all .2s",animation:listening?"pulse 1s infinite":speaking?"none":"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -3371,6 +7194,22 @@ function ProjectsTab({ conversations, setChatInput, navigateTab, apiKeys, enable
               onKeyDown={e=>{if(e.key==="Enter")createProject();}}
               style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:8,padding:"4px 7px",outline:"none"}}/>
             <button onClick={createProject} style={{background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:4,color:"var(--ac)",fontSize:11,cursor:"pointer",padding:"2px 7px"}}>＋</button>
+          </div>
+        </div>
+        {/* Templates */}
+        <div style={{padding:"8px 10px",borderBottom:"1px solid var(--bd)",background:"var(--s2)",flexShrink:0}}>
+          <div style={{fontSize:7,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:6}}>TEMPLATES</div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            {PROJECT_TEMPLATES.map(tpl=>(
+              <button key={tpl.id} onClick={()=>{
+                const p={id:Date.now().toString(),name:tpl.name,desc:tpl.desc,context:tpl.context,notes:tpl.notes,createdAt:new Date().toISOString(),color:tpl.color};
+                saveProjects([...projects,p]);
+                setActiveProj(p.id);
+              }}
+              style={{padding:"5px 8px",borderRadius:5,border:"1px solid "+tpl.color+"33",background:tpl.color+"0D",color:tpl.color,fontSize:8,cursor:"pointer",textAlign:"left",fontWeight:600,transition:"all .15s"}}>
+                {tpl.icon} {tpl.label}
+              </button>
+            ))}
           </div>
         </div>
         <div style={{flex:1,overflow:"auto"}}>
@@ -3758,6 +7597,12 @@ const STUDIO_PIPELINE_STEPS = [
   { id:"assemble", icon:"🎬", label:"Montage Kdenlive",             tool:"Kdenlive",     color:"#F97316",  optional:true },
   { id:"export",   icon:"📹", label:"Export vidéo finale",          tool:"Kdenlive",     color:"#F97316",  optional:true },
 ];
+
+// ══════════════════════════════════════════════════════════════════
+// 🎬 STUDIO AUTO — Générateur de tutos vidéo automatique
+// Surcouche optionnelle : Browser-Use + OBS + IA + Kdenlive
+// Si un outil est absent → l'étape est ignorée, le reste continue
+// ══════════════════════════════════════════════════════════════════
 
 function StudioTab({ apiKeys, enabled, MODEL_DEFS, callModel, buildSystem, showToast }) {
   // ── État persistant via localStorage ──────────────────────────
@@ -4156,7 +8001,7 @@ function App() {
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
-  const TAB_ORDER = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
+  const TAB_ORDER = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","benchmark","glossaire","autopsy","mentor","dna","conference","consensus","brief","taskia","journaliste","skills","contradict","secondbrain","livedebate","contexttrans","apioptim","civilisations","flash","advanced","config"];
   const navigateTab = (newTab) => {
     const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
     const newIdx = TAB_ORDER.indexOf(newTab);
@@ -4167,10 +8012,13 @@ function App() {
 
   const [tabAnimDir, setTabAnimDir] = React.useState('enter');
   const [tab, setTab] = useState(() => {
-    // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
+    const VALID_TABS = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","benchmark","glossaire","autopsy","mentor","dna","conference","consensus","brief","taskia","journaliste","skills","contradict","secondbrain","livedebate","contexttrans","apioptim","civilisations","flash","advanced","config"];
+    // 1. Raccourcis home screen (posé par main.jsx)
+    const fromSession = sessionStorage.getItem("multiia_initial_tab");
+    if (fromSession) { sessionStorage.removeItem("multiia_initial_tab"); if (VALID_TABS.includes(fromSession)) return fromSession; }
+    // 2. Paramètre URL direct ?tab=xxx
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    const VALID_TABS = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","advanced","config"];
     return VALID_TABS.includes(t) ? t : "chat";
   });
   const [mobileCol, setMobileCol] = useState("groq");
@@ -5328,6 +9176,17 @@ async function checkCliBridge() {
       const cur = prev[id] || {in:0, out:0};
       return {...prev, [id]: {in: cur.in + inTok, out: cur.out + outTok}};
     });
+    // ── Enrichit usageStats avec msgs/tokens/heure ─────────────
+    const hour = new Date().getHours();
+    const dateKey = new Date().toISOString().slice(0,10); // "2026-03-18"
+    setUsageStats(prev => ({
+      ...prev,
+      msgs:    { ...(prev.msgs||{}),    [id]: ((prev.msgs||{})[id]||0) + 1 },
+      tokens:  { ...(prev.tokens||{}),  [id]: ((prev.tokens||{})[id]||0) + inTok + outTok },
+      byHour:  { ...(prev.byHour||{}),  [hour]: ((prev.byHour||{})[hour]||0) + 1 },
+      byDate:  { ...(prev.byDate||{}),  [dateKey]: ((prev.byDate||{})[dateKey]||0) + 1 },
+      convs:   (prev.convs||0),
+    }));
   };
 
   const [uiZoom, setUiZoom] = React.useState(() => {
@@ -5358,7 +9217,30 @@ async function checkCliBridge() {
   };
   const dismissPwaBanner = () => { setShowPwaBanner(false); localStorage.setItem("multiia_pwa_dismissed","1"); };
 
-  const MOBILE_TABS = [["chat","◈","Chat"],["recherche","🔎","Cherche"],["notes","📝","Notes"],["agent","🤖","Agent"],["config","⚙","Config"]];
+  const MOBILE_TABS = [["chat","◈","Chat"],["prompts","📋","Prompts"],["medias","🎬","Médias"],["recherche","🔎","Cherche"],["config","⚙","Config"]];
+  const MOBILE_MORE_SECTIONS = [
+    { label:"CRÉER & ÉCRIRE", tabs:[
+      ["redaction","✍️","Rédaction"],["traducteur","🌍","Trad."],["notes","📝","Notes"],["studio","🎬","Studio"],
+    ]},
+    { label:"AUTOMATISER & ANALYSER", tabs:[
+      ["workflows","🔀","Workflows"],["agent","🤖","Agent"],["taskia","🔀","Task→IAs"],["router","🧭","Router"],["autopsy","🔬","Autopsy"],
+    ]},
+    { label:"CRÉER & APPRENDRE", tabs:[
+      ["redaction","✍️","Rédaction"],["notes","📝","Notes"],["mentor","🎓","Mentor"],["dna","🧬","DNA"],["skills","🛠","Skills"],
+    ]},
+    { label:"ANALYSER & COMPARER", tabs:[
+      ["debate","⚡","Débat"],["livedebate","⏱","Débat Live"],["flash","⚡","Flash"],["expert","🧠","Experts"],["compare","⚖","Comparer"],["consensus","🔎","Consensus"],["contradict","⚡","Contradict"],
+    ]},
+    { label:"RECHERCHER & PRODUIRE", tabs:[
+      ["journaliste","📰","Journaliste"],["conference","🎙","Conf."],["veille","📰","Veille"],["brief","☀️","Brief"],["contexttrans","🔄","Contexte"],["civilisations","🌍","Civilis."],
+    ]},
+    { label:"EXPLORER", tabs:[
+      ["webia","🌐","IAs Web"],["arena","⚔","Arène"],["voice","🎙","Voice"],["comfyui","⬡","ComfyUI"],["traducteur","🌍","Trad."],
+    ]},
+    { label:"GÉRER & OPTIMISER", tabs:[
+      ["projects","📁","Projets"],["secondbrain","🧠","2nd Brain"],["apioptim","💡","API Optim"],["benchmark","⚡","Bench"],["glossaire","📖","Glossaire"],["stats","📊","Stats"],["advanced","🔬","Avancé"],["aide","❓","Aide"],
+    ]},];
+  const [showMobileMore, setShowMobileMore] = useState(false);
 
   // ── Expert Panel (Panel d'Experts) ─────────────────────────────
   const EXPERT_PANELS = {
@@ -5786,7 +9668,7 @@ async function checkCliBridge() {
     } catch {}
   }, []);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2800); };
+  const showToast = (msg, duration=2800) => { setToast(msg); setTimeout(() => setToast(null), duration); };
 
   const toggleModel = (id) => {
     const m = MODEL_DEFS[id];
@@ -5916,8 +9798,41 @@ async function checkCliBridge() {
     };
     setSavedConvs(prev => {
       const exists = prev.find(c => c.id === entry.id);
-      const newList = exists ? prev.map(c => c.id === entry.id ? entry : c) : [entry, ...prev].slice(0, 50);
-      try { localStorage.setItem("multiia_history", JSON.stringify(newList)); } catch {}
+      let newList = exists ? prev.map(c => c.id === entry.id ? entry : c) : [entry, ...prev];
+      // ── Compression automatique : garde 50 convs, tronque les messages des anciennes ──
+      if (newList.length > 50) {
+        newList = newList.slice(0, 50).map((conv, i) => {
+          // Compresse les convs > 30 (garde seulement titre + 2 premiers messages par IA)
+          if (i > 30 && conv.conversations) {
+            const compressedConvs = {};
+            Object.entries(conv.conversations).forEach(([id, msgs]) => {
+              if (Array.isArray(msgs) && msgs.length > 4) {
+                compressedConvs[id] = msgs.slice(0, 2); // garde les 2 premiers msg
+              } else {
+                compressedConvs[id] = msgs;
+              }
+            });
+            return { ...conv, conversations: compressedConvs, compressed: true };
+          }
+          return conv;
+        });
+      }
+      try {
+        localStorage.setItem("multiia_history", JSON.stringify(newList));
+      } catch(e) {
+        // Si storage plein, vider les plus anciennes conversations
+        if (e.name === "QuotaExceededError") {
+          const trimmed = newList.slice(0, 20).map(conv => ({
+            ...conv,
+            conversations: Object.fromEntries(
+              Object.entries(conv.conversations || {}).map(([id, msgs]) => [id, (msgs||[]).slice(0,2)])
+            ),
+            compressed: true
+          }));
+          try { localStorage.setItem("multiia_history", JSON.stringify(trimmed)); } catch {}
+          return trimmed;
+        }
+      }
       return newList;
     });
     if (!activeHistId) setActiveHistId(entry.id);
@@ -5944,6 +9859,33 @@ async function checkCliBridge() {
     setShowGrammarPopup(false); setGrammarResult(null); setChatInput(""); setBestVote(null);
     const file = attachedFile; setAttachedFile(null);
     requestNotifPerm();
+
+    // ── Détection de langue automatique ───────────────────────────
+    const detectLang = (t) => {
+      const arabicRe = /[\u0600-\u06FF]/; const chineseRe = /[\u4E00-\u9FFF]/;
+      const japaneseRe = /[\u3040-\u30FF]/; const koreanRe = /[\uAC00-\uD7AF]/;
+      const cyrillicRe = /[\u0400-\u04FF]/;
+      const words = t.trim().split(/\s+/);
+      const frWords = ["le","la","les","un","une","des","je","tu","il","elle","nous","vous","ils","elles","et","ou","mais","donc","car","que","qui","quoi","comment","pourquoi","quand","où","est","sont","avoir","être","faire","je suis","c'est","bonjour","merci"];
+      const enWords = ["the","is","are","was","were","i","you","he","she","we","they","and","or","but","so","because","that","what","how","why","when","where","hello","thanks","please"];
+      if (arabicRe.test(t)) return "ar";
+      if (chineseRe.test(t)) return "zh";
+      if (japaneseRe.test(t)) return "ja";
+      if (koreanRe.test(t)) return "ko";
+      if (cyrillicRe.test(t)) return "ru";
+      const lower = t.toLowerCase();
+      const frScore = frWords.filter(w => lower.includes(" "+w+" ") || lower.startsWith(w+" ") || lower === w).length;
+      const enScore = enWords.filter(w => lower.includes(" "+w+" ") || lower.startsWith(w+" ") || lower === w).length;
+      if (words.length < 3) return "fr"; // trop court pour détecter
+      if (enScore > frScore + 1) return "en";
+      return "fr";
+    };
+    // Propose traducteur si langue non-française détectée sur texte long
+    const detectedLang = detectLang(text);
+    const nonFrLangs = {"en":"anglais","es":"espagnol","de":"allemand","it":"italien","pt":"portugais","ar":"arabe","zh":"chinois","ja":"japonais","ko":"coréen","ru":"russe"};
+    if (nonFrLangs[detectedLang] && text.length > 30) {
+      showToast(`🌍 Langue détectée : ${nonFrLangs[detectedLang]} — Onglet Traducteur disponible`, 4000);
+    }
     // ── RAG : enrichir le message avec contexte document ──────────
     const ragCtx = ragChunks.length > 0 ? getRagContext(text) : null;
     const effectiveText = ragCtx || text;
@@ -6415,6 +10357,24 @@ async function checkCliBridge() {
               ["veille","📰 Veille"],
               ["voice","🎙 Voice"],
               ["projects","📁 Projets"],
+              ["benchmark","⚡ Benchmark"],
+              ["glossaire","📖 Glossaire"],
+              ["autopsy","🔬 Autopsy"],
+              ["mentor","🎓 Mentor"],
+              ["dna","🧬 DNA"],
+              ["conference","🎙 Conférence"],
+              ["consensus","🔎 Consensus"],
+              ["brief","☀️ Brief"],
+              ["taskia","🔀 Task→IAs"],
+              ["journaliste","📰 Journaliste"],
+              ["skills","🛠 Skills"],
+              ["contradict","⚡ Contradict"],
+              ["secondbrain","🧠 2nd Brain"],
+              ["livedebate","⏱ Débat Live"],
+              ["contexttrans","🔄 Contexte"],
+              ["apioptim","💡 API Optim"],
+              ["civilisations","🌍 Civilisations"],
+              ["flash","⚡ Flash"],
               ["advanced","🔬 Avancé"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
@@ -8407,6 +12367,125 @@ async function checkCliBridge() {
         )}
 
 
+        {tab === "benchmark" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <BenchmarkTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "glossaire" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <GlossaireTab navigateTab={navigateTab} setChatInput={setChatInput}/>
+          </div>
+        )}
+
+        {tab === "autopsy" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <PromptAutopsyTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
+          </div>
+        )}
+
+        {tab === "mentor" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <IaMentorTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "dna" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <PromptDNATab onInject={injectPrompt}/>
+          </div>
+        )}
+
+        {tab === "conference" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ConferenceTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "consensus" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ConsensusTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
+          </div>
+        )}
+
+        {tab === "brief" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <MorningBriefTab
+              enabled={enabled}
+              apiKeys={apiKeys}
+              projects={projects}
+              memFacts={memFacts}
+              usageStats={usageStats}
+            />
+          </div>
+        )}
+
+        {tab === "taskia" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <TaskToIAsTab
+              enabled={enabled}
+              apiKeys={apiKeys}
+              navigateTab={navigateTab}
+              setChatInput={setChatInput}
+            />
+          </div>
+        )}
+
+        {tab === "journaliste" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <JournalisteTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "skills" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <SkillBuilderTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
+          </div>
+        )}
+
+        {tab === "contradict" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ContradictionTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
+          </div>
+        )}
+
+        {tab === "secondbrain" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <SecondBrainTab savedConvs={savedConvs} projects={projects} memFacts={memFacts} usageStats={usageStats} apiKeys={apiKeys} enabled={enabled}/>
+          </div>
+        )}
+
+        {tab === "livedebate" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <LiveDebateTimerTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "contexttrans" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ContextTranslatorTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "apioptim" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ApiOptimizerTab usageStats={usageStats} enabled={enabled}/>
+          </div>
+        )}
+
+        {tab === "civilisations" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <CivilisationsTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "flash" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ModeFlashTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
+          </div>
+        )}
+
         {/* ══ ADVANCED SETTINGS TAB ══ */}
         {tab === "advanced" && (
           <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
@@ -9412,14 +13491,42 @@ async function checkCliBridge() {
 
       {/* MOBILE BOTTOM TAB BAR */}
       <div className="mobile-tabbar" style={isMobile?{display:"flex"}:{display:"none"}}>
-        {MOBILE_TABS.map(([t,ico,lbl,badge])=>(
-          <button key={t} className={"mobile-tab-btn "+(tab===t?"on":"")} onClick={()=>navigateTab(t)} style={{position:"relative"}}>
+        {MOBILE_TABS.map(([t,ico,lbl])=>(
+          <button key={t} className={"mobile-tab-btn "+(tab===t?"on":"")} onClick={()=>navigateTab(t)}>
             <span className="ico">{ico}</span>
             <span>{lbl}</span>
-            {badge && <span style={{position:"absolute",top:4,right:"calc(50% - 14px)",background:"var(--red)",borderRadius:"50%",width:8,height:8,fontSize:0}}/>}
           </button>
         ))}
+        {/* Bouton "Plus" */}
+        <button className={"mobile-tab-btn "+(showMobileMore?"on":"")} onClick={()=>setShowMobileMore(v=>!v)}>
+          <span className="ico">{showMobileMore?"✕":"⋯"}</span>
+          <span>Plus</span>
+        </button>
       </div>
+
+      {/* MOBILE MORE OVERLAY */}
+      {showMobileMore && isMobile && (
+        <>
+          <div className="mobile-more-overlay" onClick={()=>setShowMobileMore(false)}/>
+          <div className="mobile-more-drawer">
+            <div style={{textAlign:"center",marginBottom:10,fontSize:10,color:"var(--ac)",fontWeight:700,fontFamily:"var(--font-display)"}}>Tous les onglets</div>
+            {MOBILE_MORE_SECTIONS.map(section=>(
+              <div key={section.label}>
+                <div className="mobile-more-section">{section.label}</div>
+                <div className="mobile-more-grid">
+                  {section.tabs.map(([t,ico,lbl])=>(
+                    <button key={t} className={"mobile-more-btn "+(tab===t?"on":"")}
+                      onClick={()=>{ navigateTab(t); setShowMobileMore(false); }}>
+                      <span className="mico">{ico}</span>
+                      <span>{lbl}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* PWA INSTALL BANNER */}
       {showPwaBanner && !pwaInstalled && (
