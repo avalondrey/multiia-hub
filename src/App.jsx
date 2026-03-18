@@ -7620,59 +7620,6 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
             </div>
           </div>
 
-          {/* Statut des clés API */}
-          <div style={{marginBottom:18}}>
-            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,
-              fontFamily:"var(--font-mono)",marginBottom:8}}>STATUT DES CLÉS API</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:6}}>
-              {[
-                {id:"groq",    label:"Groq",     key:"groqKey",     free:true,  color:"#F97316"},
-                {id:"openai",  label:"OpenAI",   key:"openaiKey",   free:false, color:"#10B981"},
-                {id:"claude",  label:"Claude",   key:"claudeKey",   free:false, color:"#F59E0B"},
-                {id:"gemini",  label:"Gemini",   key:"geminiKey",   free:true,  color:"#60A5FA"},
-                {id:"mistral", label:"Mistral",  key:"mistralKey",  free:true,  color:"#A78BFA"},
-                {id:"cohere",  label:"Cohere",   key:"cohereKey",   free:true,  color:"#4ADE80"},
-                {id:"deepseek",label:"DeepSeek", key:"deepseekKey", free:true,  color:"#60A5FA"},
-                {id:"xai",     label:"xAI",      key:"xaiKey",      free:false, color:"#9CA3AF"},
-              ].map(api => {
-                const hasKey = !!(apiKeys && apiKeys[api.key]);
-                const isEnabled = !!(enabled && enabled[api.id]);
-                return (
-                  <div key={api.id} style={{padding:"7px 10px",borderRadius:7,
-                    border:"1px solid "+(hasKey?"rgba(74,222,128,.25)":"var(--bd)"),
-                    background:hasKey?"rgba(74,222,128,.04)":"transparent",
-                    display:"flex",alignItems:"center",gap:6}}>
-                    <div style={{width:6,height:6,borderRadius:"50%",flexShrink:0,
-                      background:hasKey?"var(--green)":isEnabled?"var(--red)":"var(--mu)",
-                      boxShadow:hasKey?"0 0 5px var(--green)":""}}/>
-                    <span style={{fontSize:9,color:hasKey?"var(--tx)":"var(--mu)",
-                      fontFamily:"var(--font-mono)",flex:1,overflow:"hidden",
-                      textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{api.label}</span>
-                    {api.free && <span style={{fontSize:6,padding:"1px 3px",borderRadius:2,
-                      background:"rgba(74,222,128,.12)",color:"var(--green)",fontWeight:700}}>FREE</span>}
-                    {!hasKey && (
-                      <button onClick={() => navigateTab && navigateTab("config")}
-                        style={{fontSize:7,padding:"1px 5px",borderRadius:3,
-                          border:"1px solid var(--bd)",background:"transparent",
-                          color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                        + Clé
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            {configuredCount === 0 && (
-              <div style={{marginTop:8,padding:"8px 12px",background:"rgba(249,115,22,.07)",
-                border:"1px solid rgba(249,115,22,.25)",borderRadius:7,fontSize:9,color:"var(--orange)"}}>
-                ⚡ Aucune clé configurée — va dans <button onClick={() => navigateTab && navigateTab("config")}
-                  style={{background:"none",border:"none",color:"var(--ac)",cursor:"pointer",
-                    fontSize:9,fontFamily:"var(--font-mono)",fontWeight:700,padding:0}}>⚙ Config</button> pour
-                ajouter Groq (gratuit, 14 400 req/jour).
-              </div>
-            )}
-          </div>
-
           {/* Raccourcis rapides */}
           <div style={{marginBottom:18}}>
             <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,fontFamily:"var(--font-mono)",marginBottom:8}}>⚡ RACCOURCIS RAPIDES</div>
@@ -7694,28 +7641,43 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
             </div>
           </div>
 
-          {/* Groupes thématiques — tous les onglets */}
+          {/* Tous les outils — groupes thématiques */}
           <div style={{marginBottom:18}}>
-            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,fontFamily:"var(--font-mono)",marginBottom:10}}>🗂 TOUS LES OUTILS — PAR THÈME</div>
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,fontFamily:"var(--font-mono)",marginBottom:12}}>🗂 TOUS LES OUTILS</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
               {TAB_GROUPS.map(group => (
-                <div key={group.id} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,overflow:"hidden"}}>
-                  <div style={{padding:"7px 12px",background:"rgba(255,255,255,.02)",borderBottom:"1px solid var(--bd)",
-                    display:"flex",alignItems:"center",gap:7}}>
-                    <span style={{fontSize:9,fontWeight:700,color:group.color,fontFamily:"var(--font-mono)",letterSpacing:.5}}>{group.label}</span>
+                <div key={group.id} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"10px 14px",
+                  background:"var(--s1)",borderRadius:10,border:"1px solid var(--bd)",
+                  borderLeft:"3px solid "+group.color}}>
+                  {/* Label groupe */}
+                  <div style={{width:90,flexShrink:0,paddingTop:1}}>
+                    <div style={{fontSize:8,fontWeight:700,color:group.color,fontFamily:"var(--font-mono)",
+                      letterSpacing:.5,lineHeight:1.4}}>{group.label}</div>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:0}}>
+                  {/* Pills */}
+                  <div style={{display:"flex",flexWrap:"wrap",gap:5,flex:1}}>
                     {group.tabs.map(t => (
                       <button key={t.id} onClick={() => navigateTab && navigateTab(t.id)}
-                        style={{padding:"8px 10px",border:"none",borderRight:"1px solid var(--bd)",borderBottom:"1px solid var(--bd)",
-                          background:"transparent",textAlign:"left",cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",gap:6}}
-                        onMouseEnter={e=>{e.currentTarget.style.background=group.color+"10";}}
-                        onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-                        <span style={{fontSize:13,flexShrink:0}}>{t.icon}</span>
-                        <div>
-                          <div style={{fontSize:9,fontWeight:600,color:"var(--tx)",lineHeight:1.2}}>{t.label}</div>
-                          <div style={{fontSize:7,color:"var(--mu)"}}>{t.desc}</div>
-                        </div>
+                        title={t.desc}
+                        style={{display:"flex",alignItems:"center",gap:5,
+                          padding:"4px 10px",borderRadius:20,
+                          border:"1px solid transparent",
+                          background:"rgba(255,255,255,.04)",
+                          color:"var(--mu)",fontSize:9,cursor:"pointer",
+                          fontFamily:"var(--font-ui)",transition:"all .15s",
+                          whiteSpace:"nowrap"}}
+                        onMouseEnter={e=>{
+                          e.currentTarget.style.background=group.color+"18";
+                          e.currentTarget.style.borderColor=group.color+"55";
+                          e.currentTarget.style.color="var(--tx)";
+                        }}
+                        onMouseLeave={e=>{
+                          e.currentTarget.style.background="rgba(255,255,255,.04)";
+                          e.currentTarget.style.borderColor="transparent";
+                          e.currentTarget.style.color="var(--mu)";
+                        }}>
+                        <span style={{fontSize:11}}>{t.icon}</span>
+                        <span>{t.label}</span>
                       </button>
                     ))}
                   </div>
