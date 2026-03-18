@@ -4139,7 +4139,7 @@ Réponds UNIQUEMENT en JSON :
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  MORNING BRIEF — Briefing IA proactif personnalisé           ║
 // ╚══════════════════════════════════════════════════════════════╝
-function MorningBriefTab({ enabled, apiKeys, projects, memFacts, usageStats }) {
+function MorningBriefTab({ enabled, apiKeys, projects, memFacts, usageStats, MODEL_DEFS, callModel }) {
   const BRIEF_KEY = "multiia_morning_brief";
   const BRIEF_CONF = "multiia_brief_config";
 
@@ -5485,7 +5485,7 @@ Réponds UNIQUEMENT en JSON valide :
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECOND BRAIN EXPORT — Export total vers Obsidian/Notion/MD  ║
 // ╚══════════════════════════════════════════════════════════════╝
-function SecondBrainTab({ savedConvs, projects, memFacts, usageStats, apiKeys, enabled }) {
+function SecondBrainTab({ savedConvs, projects, memFacts, usageStats, apiKeys, enabled, MODEL_DEFS, callModel }) {
   const [generating, setGenerating] = React.useState(false);
   const [preview, setPreview] = React.useState(null);
   const [exportFormat, setExportFormat] = React.useState("obsidian");
@@ -7350,19 +7350,120 @@ const TUTORIALS = [
   { id:"t07", num:"07", icon:"🧱", title:"Prompt Builder",                sub:"Écrire de meilleurs prompts · 5 slides",  color:"#D4A853", level:"Intermédiaire",  file:"tuto_07_prompt_builder.html" },
 ];
 
+const CLI_TOOLS_DATA = [
+  { icon:"🔌", name:"Relay CLI-Anything", color:"#D4A853", required:true,
+    desc:"Pont entre Multi-IA Hub et les logiciels locaux. À lancer une seule fois.",
+    steps:["Télécharge cli_relay.py depuis ce projet","python cli_relay.py","Tourne sur http://localhost:5678"] },
+  { icon:"📄", name:"LibreOffice", color:"#60A5FA", required:false,
+    desc:"Génère des PDF, présentations et documents depuis les Workflows.",
+    steps:["winget install TheDocumentFoundation.LibreOffice","cd CLI-Anything\\libreoffice\\agent-harness && pip install -e .","Tester : cli-anything-libreoffice --help"] },
+  { icon:"🎨", name:"GIMP", color:"#4ADE80", required:false,
+    desc:"Traitement d'images, batch resize, création de visuels réseaux sociaux.",
+    steps:["winget install GIMP.GIMP","cd CLI-Anything\\gimp\\agent-harness && pip install -e .","Tester : cli-anything-gimp --help"] },
+  { icon:"🎬", name:"Blender", color:"#F97316", required:false,
+    desc:"Rendu 3D, animations, scènes générées par IA depuis les Workflows.",
+    steps:["winget install BlenderFoundation.Blender","cd CLI-Anything\\blender\\agent-harness && pip install -e .","Tester : cli-anything-blender --help"] },
+  { icon:"🗺", name:"Draw.io", color:"#A78BFA", required:false,
+    desc:"Génère des diagrammes, flowcharts, mind maps automatiquement.",
+    steps:["winget install JGraph.Draw","cd CLI-Anything\\drawio\\agent-harness && pip install -e .","Tester : cli-anything-drawio --help"] },
+  { icon:"🔴", name:"OBS Studio", color:"#F87171", required:false,
+    desc:"Enregistre l'écran pour les tutos vidéo automatiques (Studio Auto).",
+    steps:["winget install OBSProject.OBSStudio","cd CLI-Anything\\obs-studio\\agent-harness && pip install -e .","Tester : cli-anything-obs-studio --help"] },
+  { icon:"🎞", name:"Kdenlive", color:"#F97316", required:false,
+    desc:"Monte les vidéos automatiquement après enregistrement OBS.",
+    steps:["winget install KDE.Kdenlive","cd CLI-Anything\\kdenlive\\agent-harness && pip install -e .","Tester : cli-anything-kdenlive --help"] },
+  { icon:"🌐", name:"Browser-Use", color:"#4ADE80", required:false,
+    desc:"Navigue dans les apps automatiquement pour les tutos vidéo.",
+    steps:["pip install browser-use playwright","playwright install chromium","python -m browser_use.server --port 5679"] },
+];
+
+// Groupes thématiques pour l'accueil
+const TAB_GROUPS = [
+  {
+    id:"chat", label:"💬 Conversation", color:"#60A5FA",
+    tabs:[
+      { id:"chat",      icon:"◈",  label:"Chat",        desc:"Multi-IAs en parallèle"      },
+      { id:"debate",    icon:"⚡", label:"Débat",        desc:"Confronter les IAs"           },
+      { id:"flash",     icon:"⚡", label:"Flash",        desc:"Réponses ultra-rapides"       },
+      { id:"voice",     icon:"🎙", label:"Voice",        desc:"Interface vocale"             },
+      { id:"expert",    icon:"🧠", label:"Experts",      desc:"Panel de spécialistes"        },
+      { id:"livedebate",icon:"⏱", label:"Débat Live",   desc:"Débat avec minuterie"         },
+    ]
+  },
+  {
+    id:"write", label:"✍️ Création", color:"#4ADE80",
+    tabs:[
+      { id:"redaction",  icon:"✍️", label:"Rédaction",   desc:"Améliorer tes textes"         },
+      { id:"journaliste",icon:"📰", label:"Journaliste",  desc:"Rédiger des articles"         },
+      { id:"dna",        icon:"🧬", label:"Prompt DNA",   desc:"Générer des prompts"          },
+      { id:"prompts",    icon:"📋", label:"Prompts",      desc:"Bibliothèque de prompts"      },
+      { id:"mentor",     icon:"🎓", label:"Mentor",       desc:"Apprentissage personnalisé"   },
+      { id:"skills",     icon:"🛠", label:"Skills",       desc:"Créer des compétences"        },
+    ]
+  },
+  {
+    id:"auto", label:"🔀 Automatisation", color:"#D4A853",
+    tabs:[
+      { id:"workflows",  icon:"🔀", label:"Workflows",    desc:"Pipelines multi-étapes"       },
+      { id:"router",     icon:"🧭", label:"Router",       desc:"Routing auto + fichiers"      },
+      { id:"agent",      icon:"🤖", label:"Agent",        desc:"IA autonome"                  },
+      { id:"taskia",     icon:"📋", label:"Task→IAs",     desc:"Décomposer les tâches"        },
+      { id:"studio",     icon:"🎬", label:"Studio Auto",  desc:"Tutos vidéo auto"             },
+      { id:"brief",      icon:"☀️", label:"Brief",        desc:"Briefing quotidien"           },
+    ]
+  },
+  {
+    id:"analyse", label:"🔍 Analyse", color:"#A78BFA",
+    tabs:[
+      { id:"recherche",  icon:"🔎", label:"Recherche",    desc:"Web multi-IAs"                },
+      { id:"autopsy",    icon:"🔬", label:"Autopsy",      desc:"Analyser les prompts"         },
+      { id:"compare",    icon:"⚖",  label:"Comparer",     desc:"Comparer les réponses"        },
+      { id:"contradict", icon:"⚡", label:"Contradict",   desc:"Détecter contradictions"      },
+      { id:"consensus",  icon:"🔎", label:"Consensus",    desc:"Synthèse de désaccords"       },
+      { id:"arena",      icon:"⚔",  label:"Arène",        desc:"Benchmark des modèles"        },
+    ]
+  },
+  {
+    id:"media", label:"🖼 Médias & Images", color:"#F87171",
+    tabs:[
+      { id:"medias",     icon:"🖼",  label:"Médias",       desc:"YouTube + images"             },
+      { id:"comfyui",    icon:"⬡",  label:"ComfyUI",      desc:"Images locales (GPU)"         },
+      { id:"traducteur", icon:"🌍", label:"Traducteur",   desc:"Traduction contextuelle"      },
+      { id:"contexttrans",icon:"🔄",label:"Contexte",     desc:"Traduction avancée"           },
+    ]
+  },
+  {
+    id:"data", label:"📊 Données & Mémoire", color:"#34D399",
+    tabs:[
+      { id:"secondbrain",icon:"🧠", label:"2nd Brain",    desc:"Mémoire centrale"             },
+      { id:"projects",   icon:"📁", label:"Projets",      desc:"Gestion de projets"           },
+      { id:"notes",      icon:"📝", label:"Notes",        desc:"Prise de notes"               },
+      { id:"stats",      icon:"📊", label:"Stats",        desc:"Statistiques d'usage"         },
+      { id:"analytics",  icon:"📈", label:"Analytics",    desc:"Analytics avancés"            },
+      { id:"apioptim",   icon:"💡", label:"API Optim",    desc:"Optimiser les coûts"          },
+    ]
+  },
+  {
+    id:"explore", label:"🌐 Explorer", color:"#FB923C",
+    tabs:[
+      { id:"webia",      icon:"🌐", label:"IAs Web",      desc:"Découvrir les IAs"            },
+      { id:"veille",     icon:"📰", label:"Veille",       desc:"Actu technologique"           },
+      { id:"glossaire",  icon:"📖", label:"Glossaire",    desc:"Dictionnaire IA"              },
+      { id:"benchmark",  icon:"⚡", label:"Benchmark",    desc:"Tests de performance"         },
+      { id:"civilisations",icon:"🌍",label:"Civ.",        desc:"Jeu de rôle historique"       },
+      { id:"conference", icon:"🎙", label:"Conférence",   desc:"Simulation conférence"        },
+    ]
+  },
+];
+
+// Flat list conservée pour les tiles d'accès rapide (top 6 raccourcis)
 const QUICK_TABS = [
-  { id:"chat",       icon:"◈",  label:"Chat multi-IAs",      desc:"Parle à 8 IAs en parallèle",           color:"#60A5FA", bg:"rgba(96,165,250,.08)"   },
-  { id:"router",     icon:"🧭", label:"Smart Router",         desc:"Analyse fichiers + routing auto",       color:"#A78BFA", bg:"rgba(167,139,250,.08)"  },
-  { id:"debate",     icon:"⚡", label:"Débat",                desc:"Confronte les IAs sur un sujet",        color:"#F97316", bg:"rgba(249,115,22,.08)"   },
-  { id:"workflows",  icon:"🔀", label:"Workflows",            desc:"Automatise des pipelines multi-étapes", color:"#D4A853", bg:"rgba(212,168,83,.08)"   },
-  { id:"redaction",  icon:"✍️", label:"Rédaction",            desc:"Améliore et transforme tes textes",     color:"#4ADE80", bg:"rgba(74,222,128,.08)"   },
-  { id:"recherche",  icon:"🔎", label:"Recherche web",        desc:"Recherche multi-IAs simultanée",        color:"#60A5FA", bg:"rgba(96,165,250,.08)"   },
-  { id:"studio",     icon:"🎬", label:"Studio Auto",          desc:"Génère des tutos vidéo automatiques",   color:"#F87171", bg:"rgba(248,113,113,.08)"  },
-  { id:"agent",      icon:"🤖", label:"Agent autonome",       desc:"Laisse l'IA agir de façon autonome",    color:"#A78BFA", bg:"rgba(167,139,250,.08)"  },
-  { id:"arena",      icon:"⚔",  label:"Arène",                desc:"Benchmark et comparaison de modèles",   color:"#FB923C", bg:"rgba(251,146,60,.08)"   },
-  { id:"medias",     icon:"🖼",  label:"Médias",               desc:"YouTube + générateurs d'images",        color:"#F87171", bg:"rgba(248,113,113,.08)"  },
-  { id:"comfyui",    icon:"⬡",  label:"ComfyUI",              desc:"Génération d'images locales (GPU)",      color:"#A78BFA", bg:"rgba(167,139,250,.08)"  },
-  { id:"config",     icon:"⚙",  label:"Configuration",        desc:"Clés API, thème et paramètres",         color:"#9CA3AF", bg:"rgba(156,163,175,.06)"  },
+  { id:"chat",      icon:"◈",  label:"Chat",       desc:"Multi-IAs en parallèle",        color:"#60A5FA", bg:"rgba(96,165,250,.08)"   },
+  { id:"router",    icon:"🧭", label:"Router",      desc:"Routing auto + fichiers",       color:"#A78BFA", bg:"rgba(167,139,250,.08)"  },
+  { id:"debate",    icon:"⚡", label:"Débat",       desc:"Confronte les IAs",             color:"#F97316", bg:"rgba(249,115,22,.08)"   },
+  { id:"workflows", icon:"🔀", label:"Workflows",   desc:"Pipelines multi-étapes",        color:"#D4A853", bg:"rgba(212,168,83,.08)"   },
+  { id:"redaction", icon:"✍️", label:"Rédaction",   desc:"Améliorer tes textes",          color:"#4ADE80", bg:"rgba(74,222,128,.08)"   },
+  { id:"recherche", icon:"🔎", label:"Recherche",   desc:"Web multi-IAs",                 color:"#60A5FA", bg:"rgba(96,165,250,.08)"   },
 ];
 
 function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
@@ -7384,16 +7485,16 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
   const openTuto = (tuto) => { setIframeLoaded(false); setActiveTuto(tuto); };
 
   const API_STATUS = [
-    { id:"groq",      label:"Groq",      key:"groqKey",     free:true  },
-    { id:"openai",    label:"OpenAI",    key:"openaiKey",   free:false },
-    { id:"claude",    label:"Claude",    key:"claudeKey",   free:false },
-    { id:"gemini",    label:"Gemini",    key:"geminiKey",   free:true  },
-    { id:"mistral",   label:"Mistral",   key:"mistralKey",  free:true  },
-    { id:"cohere",    label:"Cohere",    key:"cohereKey",   free:true  },
-    { id:"deepseek",  label:"DeepSeek",  key:"deepseekKey", free:true  },
-    { id:"xai",       label:"xAI",       key:"xaiKey",      free:false },
+    { id:"groq",       label:"Groq",       key:"groq_inf",   free:true  },
+    { id:"mistral",    label:"Mistral",    key:"mistral",    free:true  },
+    { id:"cohere",     label:"Cohere",     key:"cohere",     free:true  },
+    { id:"cerebras",   label:"Cerebras",   key:"cerebras",   free:true  },
+    { id:"sambanova",  label:"SambaNova",  key:"sambanova",  free:true  },
+    { id:"poll_claude",label:"Claude✦",    key:"pollen",     free:true  },
+    { id:"poll_gpt",   label:"GPT-4o",     key:null,         free:true  },
+    { id:"poll_gemini",label:"Gemini",     key:null,         free:true  },
   ];
-  const configuredCount = API_STATUS.filter(a => apiKeys[a.key]).length;
+  const configuredCount = API_STATUS.filter(a => a.key === null ? true : !!(apiKeys && apiKeys[a.key])).length;
 
   // ── VIEWER iframe ──────────────────────────────────────────────
   if (activeTuto) {
@@ -7572,25 +7673,53 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
             )}
           </div>
 
-          {/* Accès rapide — 12 tiles */}
+          {/* Raccourcis rapides */}
           <div style={{marginBottom:18}}>
-            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,
-              fontFamily:"var(--font-mono)",marginBottom:8}}>ACCÈS RAPIDE</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
+            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,fontFamily:"var(--font-mono)",marginBottom:8}}>⚡ RACCOURCIS RAPIDES</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:6}}>
               {QUICK_TABS.map(tile => (
                 <button key={tile.id} onClick={() => navigateTab && navigateTab(tile.id)}
-                  style={{padding:"11px 13px",borderRadius:9,border:"1px solid var(--bd)",
+                  style={{padding:"9px 11px",borderRadius:8,border:"1px solid "+tile.color+"33",
                     background:tile.bg,textAlign:"left",cursor:"pointer",transition:"all .18s",
-                    display:"flex",flexDirection:"column",gap:4}}
+                    display:"flex",alignItems:"center",gap:8}}
                   onMouseEnter={e=>{e.currentTarget.style.borderColor=tile.color+"88";e.currentTarget.style.transform="translateY(-2px)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--bd)";e.currentTarget.style.transform="none";}}>
-                  <div style={{display:"flex",alignItems:"center",gap:7}}>
-                    <span style={{fontSize:18}}>{tile.icon}</span>
-                    <span style={{fontFamily:"var(--font-display)",fontWeight:700,
-                      fontSize:11,color:tile.color}}>{tile.label}</span>
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor=tile.color+"33";e.currentTarget.style.transform="none";}}>
+                  <span style={{fontSize:16}}>{tile.icon}</span>
+                  <div>
+                    <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:10,color:tile.color,lineHeight:1.1}}>{tile.label}</div>
+                    <div style={{fontSize:7,color:"var(--mu)",marginTop:1}}>{tile.desc}</div>
                   </div>
-                  <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.4}}>{tile.desc}</div>
                 </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Groupes thématiques — tous les onglets */}
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,fontFamily:"var(--font-mono)",marginBottom:10}}>🗂 TOUS LES OUTILS — PAR THÈME</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {TAB_GROUPS.map(group => (
+                <div key={group.id} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,overflow:"hidden"}}>
+                  <div style={{padding:"7px 12px",background:"rgba(255,255,255,.02)",borderBottom:"1px solid var(--bd)",
+                    display:"flex",alignItems:"center",gap:7}}>
+                    <span style={{fontSize:9,fontWeight:700,color:group.color,fontFamily:"var(--font-mono)",letterSpacing:.5}}>{group.label}</span>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:0}}>
+                    {group.tabs.map(t => (
+                      <button key={t.id} onClick={() => navigateTab && navigateTab(t.id)}
+                        style={{padding:"8px 10px",border:"none",borderRight:"1px solid var(--bd)",borderBottom:"1px solid var(--bd)",
+                          background:"transparent",textAlign:"left",cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",gap:6}}
+                        onMouseEnter={e=>{e.currentTarget.style.background=group.color+"10";}}
+                        onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+                        <span style={{fontSize:13,flexShrink:0}}>{t.icon}</span>
+                        <div>
+                          <div style={{fontSize:9,fontWeight:600,color:"var(--tx)",lineHeight:1.2}}>{t.label}</div>
+                          <div style={{fontSize:7,color:"var(--mu)"}}>{t.desc}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -7710,13 +7839,14 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:6}}>
               {API_STATUS.map(api => {
-                const ok = !!apiKeys[api.key];
+                const ok = api.key === null ? true : !!(apiKeys && apiKeys[api.key]);
                 return (
-                  <div key={api.id} onClick={() => navigateTab && navigateTab("config")}
+                  <div key={api.id} onClick={() => api.key !== null && navigateTab && navigateTab("config")}
                     style={{display:"flex",alignItems:"center",gap:7,padding:"6px 10px",borderRadius:7,
                       border:"1px solid "+(ok?"rgba(74,222,128,.25)":"var(--bd)"),
-                      background:ok?"rgba(74,222,128,.05)":"var(--s2)",cursor:"pointer",transition:"all .15s"}}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor=ok?"rgba(74,222,128,.5)":"rgba(212,168,83,.4)";}}
+                      background:ok?"rgba(74,222,128,.05)":"var(--s2)",
+                      cursor:api.key !== null?"pointer":"default",transition:"all .15s"}}
+                    onMouseEnter={e=>{if(api.key!==null)e.currentTarget.style.borderColor=ok?"rgba(74,222,128,.5)":"rgba(212,168,83,.4)";}}
                     onMouseLeave={e=>{e.currentTarget.style.borderColor=ok?"rgba(74,222,128,.25)":"var(--bd)";}}>
                     <div style={{width:6,height:6,borderRadius:"50%",flexShrink:0,
                       background:ok?"var(--green)":"var(--mu)",
@@ -7724,6 +7854,13 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
                     <span style={{fontSize:9,fontWeight:600,color:ok?"var(--tx)":"var(--mu)",flex:1}}>{api.label}</span>
                     {api.free && <span style={{fontSize:7,padding:"1px 4px",borderRadius:2,
                       background:"rgba(74,222,128,.1)",color:"var(--green)",fontWeight:700}}>FREE</span>}
+                    {!ok && api.key && (
+                      <button onClick={e=>{e.stopPropagation();navigateTab&&navigateTab("config");}}
+                        style={{fontSize:7,padding:"1px 5px",borderRadius:3,border:"1px solid var(--bd)",
+                          background:"transparent",color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                        + Clé
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -10584,48 +10721,10 @@ async function checkCliBridge() {
 </div>
           <div className="nav-tabs">
             {[
-              ["aide","❓ Aide"],
-              ["studio","🎬 Studio Auto"],
-              ["router","🧭 Router"],
+              ["aide","🏠 Accueil"],
               ["chat","◈ Chat"],
-              ["prompts","📋 Prompts"],
-              ["redaction","✍️ Rédaction"],
-              ["recherche","🔎 Recherche"],
+              ["router","🧭 Router"],
               ["workflows","🔀 Workflows"],
-              ["medias","🎬 Médias"],
-              ["comfyui","⬡ ComfyUI"],
-              ["arena","⚔ Arène"],
-              ["debate","⚡ Débat"],
-              ["expert","🧠 Experts"],
-              ["notes","📝 Notes"],
-              ["traducteur","🌍 Trad."],
-              ["agent","🤖 Agent"],
-              ["webia","🌐 IAs Web"],
-              ["compare","⚖ Comparer"],
-              ["stats","📊 Stats"],
-              ["analytics","📈 Analytics"],
-              ["veille","📰 Veille"],
-              ["voice","🎙 Voice"],
-              ["projects","📁 Projets"],
-              ["benchmark","⚡ Benchmark"],
-              ["glossaire","📖 Glossaire"],
-              ["autopsy","🔬 Autopsy"],
-              ["mentor","🎓 Mentor"],
-              ["dna","🧬 DNA"],
-              ["conference","🎙 Conférence"],
-              ["consensus","🔎 Consensus"],
-              ["brief","☀️ Brief"],
-              ["taskia","🔀 Task→IAs"],
-              ["journaliste","📰 Journaliste"],
-              ["skills","🛠 Skills"],
-              ["contradict","⚡ Contradict"],
-              ["secondbrain","🧠 2nd Brain"],
-              ["livedebate","⏱ Débat Live"],
-              ["contexttrans","🔄 Contexte"],
-              ["apioptim","💡 API Optim"],
-              ["civilisations","🌍 Civilisations"],
-              ["flash","⚡ Flash"],
-              ["advanced","🔬 Avancé"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
               <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>navigateTab(t)}>{l}</button>
@@ -12667,6 +12766,8 @@ async function checkCliBridge() {
               projects={projects}
               memFacts={memFacts}
               usageStats={usageStats}
+              MODEL_DEFS={MODEL_DEFS}
+              callModel={callModel}
             />
           </div>
         )}
@@ -12702,7 +12803,7 @@ async function checkCliBridge() {
 
         {tab === "secondbrain" && (
           <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <SecondBrainTab savedConvs={savedConvs} projects={projects} memFacts={memFacts} usageStats={usageStats} apiKeys={apiKeys} enabled={enabled}/>
+            <SecondBrainTab savedConvs={savedConvs} projects={projects} memFacts={memFacts} usageStats={usageStats} apiKeys={apiKeys} enabled={enabled} MODEL_DEFS={MODEL_DEFS} callModel={callModel}/>
           </div>
         )}
 
