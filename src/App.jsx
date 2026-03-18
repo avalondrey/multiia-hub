@@ -7835,6 +7835,25 @@ function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
 // Si un outil est absent → l'étape est ignorée, le reste continue
 // ══════════════════════════════════════════════════════════════════
 
+const STUDIO_QUESTIONS = [
+  { id:"subject",   label:"Sur quoi porte le tuto ?",        placeholder:"Ex : L'onglet Smart Router de Multi-IA Hub", type:"text" },
+  { id:"url",       label:"URL ou application à filmer ?",    placeholder:"Ex : https://multiia-hub.vercel.app ou GIMP local", type:"text" },
+  { id:"duration",  label:"Durée cible ?",                    placeholder:"Ex : 2 minutes, 5 minutes", type:"text" },
+  { id:"audience",  label:"Pour qui ? (niveau public)",       placeholder:"Ex : Débutants, développeurs, utilisateurs avancés", type:"text" },
+  { id:"style",     label:"Style de narration ?",             placeholder:"Ex : Détendu, professionnel, enthousiaste", type:"text" },
+  { id:"lang",      label:"Langue du tuto ?",                 placeholder:"Ex : Français, Anglais", type:"text" },
+];
+
+const STUDIO_PIPELINE_STEPS = [
+  { id:"script",    icon:"✍️", label:"Génération du script",       tool:"IA",          color:"#D4A853" },
+  { id:"questions", icon:"💬", label:"Questions de clarification",  tool:"IA",          color:"#60A5FA" },
+  { id:"navigate",  icon:"🌐", label:"Navigation Browser-Use",      tool:"Browser-Use", color:"#4ADE80", optional:true },
+  { id:"record",    icon:"🔴", label:"Enregistrement OBS",          tool:"OBS",         color:"#F87171", optional:true },
+  { id:"narration", icon:"🎙", label:"Script narration IA",         tool:"IA",          color:"#A78BFA" },
+  { id:"assemble",  icon:"🎬", label:"Montage Kdenlive",            tool:"Kdenlive",    color:"#F97316", optional:true },
+  { id:"export",    icon:"📹", label:"Export vidéo finale",         tool:"Kdenlive",    color:"#F97316", optional:true },
+];
+
 function StudioTab({ apiKeys, enabled, MODEL_DEFS, callModel, buildSystem, showToast }) {
   // ── État persistant via localStorage ──────────────────────────
   const _load = (key, def) => { try { const v = localStorage.getItem('studio_'+key); return v !== null ? JSON.parse(v) : def; } catch { return def; } };
