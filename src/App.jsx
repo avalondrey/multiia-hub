@@ -3880,7 +3880,13 @@ Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
     if(tools.browseruse) {
       log("navigate","running","Browser-Use navigue vers la page…");
       try {
-        const url = aiAnswers[aiQuestions[2]] || answers.url || "https://multiia-hub.vercel.app";
+        // Cherche une vraie URL dans toutes les réponses
+        const urlRegex = /https?:\/\/[^\s]+/;
+        let url = "https://multiia-hub.vercel.app"; // défaut
+        for(const ans of Object.values(aiAnswers)) {
+          const m = String(ans).match(urlRegex);
+          if(m) { url = m[0]; break; }
+        }
         const r = await fetch("http://localhost:5678/navigate", {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ url, script: scriptContent }),
