@@ -1,306 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
-
-// ╔══════════════════════════════════════════════════════════════╗
-// ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
-// ╚══════════════════════════════════════════════════════════════╝
-const APP_VERSION = "17.2";
-const BUILD_DATE = new Date().toISOString().slice(0,10);
-
-const MODEL_DEFS = {
-  // ── IAs 100% gratuites ────────────────────────────────────────────
-  groq:       { name:"Llama 3.3 (Groq)",   short:"Groq",      provider:"Groq / Meta",   color:"#F97316", bg:"#180C04", border:"#3D1A00", icon:"⚡", apiType:"compat", maxTokens:128000, inputLimit:32000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"GRATUIT 14 400/jour",   baseUrl:"https://api.groq.com/openai/v1",              model:"llama-3.3-70b-versatile" },
-  mistral:    { name:"Mistral Small 3",     short:"Mistral",   provider:"Mistral AI",    color:"#FF8C69", bg:"#180E08", border:"#3D1E0A", icon:"▲", apiType:"compat", maxTokens:32000,  inputLimit:28000, free:true, keyName:"mistral",    keyLink:"https://console.mistral.ai/",               desc:"Tier gratuit dispo",    baseUrl:"https://api.mistral.ai/v1",                   model:"mistral-small-latest" },
-  cohere:     { name:"Command R+ (Cohere)",   short:"Cohere",    provider:"Cohere",         color:"#39D353", bg:"#081A0E", border:"#0A3D1A", icon:"⌘", apiType:"cohere",  maxTokens:128000, inputLimit:60000, free:true, keyName:"cohere",     keyLink:"https://dashboard.cohere.com/api-keys",     desc:"Gratuit — 1000 req/mois" },
-  cerebras:   { name:"Llama 3.1 (Cerebras)",short:"Cerebras",  provider:"Cerebras",      color:"#A78BFA", bg:"#0E0818", border:"#201040", icon:"◉", apiType:"compat", maxTokens:8192,   inputLimit:6000, free:true, keyName:"cerebras",   keyLink:"https://cloud.cerebras.ai/",                desc:"Gratuit — 8B ultra rapide (ctx 8k)", baseUrl:"https://api.cerebras.ai/v1", model:"llama3.1-8b" },
-  sambanova:  { name:"Llama 3.3 (SambaNova)", short:"Samba",     provider:"SambaNova",     color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"∞", apiType:"compat", maxTokens:32000,  inputLimit:28000, free:true, keyName:"sambanova",  keyLink:"https://cloud.sambanova.ai/",               desc:"Gratuit — Llama 3.3 70B",     baseUrl:"https://api.sambanova.ai/v1",                 model:"Meta-Llama-3.3-70B-Instruct" },
-  qwen3:      { name:"Qwen3 32B (Groq)",    short:"Qwen3",   provider:"Groq / Qwen", color:"#C084FC", bg:"#120818", border:"#2E0A3D", icon:"◈", apiType:"compat", maxTokens:32768,  inputLimit:28000, free:true, keyName:"groq_inf",   keyLink:"https://console.groq.com/keys",             desc:"Gratuit — même clé Groq",    baseUrl:"https://api.groq.com/openai/v1",           model:"qwen/qwen3-32b" },
-  // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
-  llama4s:    { name:"Llama 4 Scout (Groq)",   short:"L4 Scout", provider:"Groq / Meta",    color:"#FF6B35", bg:"#180A04", border:"#3D1500", icon:"🦙", apiType:"compat", maxTokens:128000, inputLimit:32000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — Llama 4 Scout 17B multimodal", baseUrl:"https://api.groq.com/openai/v1", model:"meta-llama/llama-4-scout-17b-16e-instruct" },
-  gemma2:     { name:"Llama 3.1 8B (Groq)",     short:"L3.1-8B",  provider:"Groq / Meta",    color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"◎", apiType:"compat", maxTokens:8192,   inputLimit:6000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — même clé Groq, très rapide (ctx 8k)", baseUrl:"https://api.groq.com/openai/v1", model:"llama-3.1-8b-instant" },
-  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations",      maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s max", model:"openai" },
-  poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"claude-airforce" },
-  poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"deepseek" },
-  poll_gemini:   { name:"GPT-4o Large (Pollinations)", short:"GPT-4o L", provider:"OpenAI via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations",      maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai",   desc:"SANS CLÉ — 1 req/16s max", model:"openai-large" },
-};
-
-// ── Liste de base des IAs Web ───────────────────────────────────
-const BASE_WEB_AIS = [
-  // ── Chatbots généraux gratuits ──────────────────────────────────
-  { id:"chatgpt",      name:"ChatGPT",         subtitle:"OpenAI • Gratuit",      cat:"gratuit", url:"https://chatgpt.com/",                    color:"#74C98C", icon:"◈", desc:"GPT-4o gratuit via interface web" },
-  { id:"claude_web",   name:"Claude.ai",       subtitle:"Anthropic • Gratuit",   cat:"gratuit", url:"https://claude.ai/",                      color:"#D4A853", icon:"✦", desc:"Claude Sonnet 4 gratuit" },
-  { id:"gemini_web",   name:"Gemini",          subtitle:"Google • Gratuit",      cat:"gratuit", url:"https://gemini.google.com/",              color:"#6BA5E0", icon:"◇", desc:"Gemini 2.5 Flash gratuit, multimodal" },
-  { id:"copilot",      name:"Copilot",         subtitle:"Microsoft • Gratuit",   cat:"gratuit", url:"https://copilot.microsoft.com/",          color:"#4FC3F7", icon:"⊞", desc:"GPT-4o via Microsoft, 100% gratuit" },
-  { id:"mistral_web",  name:"Le Chat",         subtitle:"Mistral • Gratuit",     cat:"gratuit", url:"https://chat.mistral.ai/",                color:"#FF8C69", icon:"▲", desc:"Mistral Large gratuit" },
-  { id:"deepseek_web", name:"DeepSeek",        subtitle:"DeepSeek • Gratuit",    cat:"gratuit", url:"https://chat.deepseek.com/",              color:"#A0C8FF", icon:"⬡", desc:"DeepSeek V3/R1 — très puissant en raisonnement" },
-  { id:"grok_web",     name:"Grok",            subtitle:"xAI • Gratuit limité",  cat:"gratuit", url:"https://grok.com/",                       color:"#60C8E0", icon:"𝕏", desc:"Grok 3 avec accès temps réel X" },
-  { id:"kimi_web",     name:"Kimi",            subtitle:"Moonshot • Gratuit",    cat:"gratuit", url:"https://www.kimi.com/",                   color:"#E07FA0", icon:"月", desc:"Contexte 1M tokens gratuit" },
-  { id:"qwen_web",     name:"Qwen Chat",       subtitle:"Alibaba • Gratuit",     cat:"gratuit", url:"https://chat.qwen.ai/",                   color:"#E0A850", icon:"千", desc:"Qwen3 gratuit, fort en code et raisonnement" },
-  { id:"llama_meta",   name:"Meta AI",         subtitle:"Meta • Gratuit",        cat:"gratuit", url:"https://www.meta.ai/",                    color:"#1877F2", icon:"⬟", desc:"Llama 4 Maverick gratuit via Meta" },
-  { id:"zai",          name:"Z.ai",            subtitle:"z.ai • Gratuit",         cat:"gratuit", url:"https://chat.z.ai/",                      color:"#B07FE0", icon:"Ζ",  desc:"Modèles ultra-puissants : Z1 et accès à GPT-4o, Claude, Gemini gratuits" },
-  { id:"t3chat",       name:"T3 Chat",          subtitle:"T3 • Gratuit",           cat:"gratuit", url:"https://t3.chat/",                        color:"#A855F7", icon:"T",  desc:"Interface rapide et épurée, accès Llama, Gemini gratuit" },
-  { id:"cerebras_w",   name:"Cerebras Chat",    subtitle:"Cerebras • Gratuit",     cat:"gratuit", url:"https://inference.cerebras.ai/",          color:"#FF6B35", icon:"◉", desc:"Llama 3.1 à vitesse extrême — 2000 tokens/s" },
-  { id:"sambanova_w",  name:"SambaNova Chat",   subtitle:"SambaNova • Gratuit",    cat:"gratuit", url:"https://cloud.sambanova.ai/",             color:"#E0A850", icon:"∞", desc:"Llama 4 et Qwen très rapides, gratuit" },
-  // ── Recherche & spécialisés gratuits ────────────────────────────
-  { id:"perplexity",   name:"Perplexity",      subtitle:"Perplexity • Gratuit",  cat:"recherche",url:"https://www.perplexity.ai/",            color:"#20B2AA", icon:"◎", desc:"Recherche IA avec sources en temps réel" },
-  { id:"you",          name:"You.com",         subtitle:"You.com • Gratuit",     cat:"recherche",url:"https://you.com/",                      color:"#6366F1", icon:"Y", desc:"IA + recherche web intégrée" },
-  { id:"phind",        name:"Phind",           subtitle:"Phind • Gratuit",       cat:"recherche",url:"https://www.phind.com/",                color:"#8B5CF6", icon:"φ", desc:"Moteur IA spécialisé code & dev" },
-  { id:"andi",         name:"Andi Search",     subtitle:"Andi • Gratuit",        cat:"recherche",url:"https://andisearch.com/",               color:"#10B981", icon:"∂", desc:"Recherche IA conversationnelle sans pub" },
-  // ── Multi-modèles / Playground ──────────────────────────────────
-  { id:"hf",           name:"HuggingFace Chat",subtitle:"HuggingFace • Gratuit", cat:"multimodele",url:"https://huggingface.co/chat/",       color:"#FFD21E", icon:"🤗", desc:"50+ modèles open-source: Llama, Mistral, Gemma..." },
-  { id:"poe",          name:"Poe",             subtitle:"Quora • Gratuit",       cat:"multimodele",url:"https://poe.com/",                   color:"#9CA3AF", icon:"P",  desc:"Claude, GPT-4, Llama, tous en un" },
-  { id:"groq_web",     name:"Groq Playground", subtitle:"Groq • Gratuit",        cat:"multimodele",url:"https://console.groq.com/playground",color:"#F97316", icon:"⚡", desc:"Llama ultra rapide — test de modèles" },
-  { id:"openrouter_w", name:"OpenRouter Chat",  subtitle:"OpenRouter • Gratuit", cat:"multimodele",url:"https://openrouter.ai/chat",         color:"#E07FA0", icon:"⊕", desc:"100+ modèles dont gratuits: Gemma, Llama..." },
-  { id:"lmsys",        name:"LMArena",         subtitle:"LMSys • Gratuit",       cat:"multimodele",url:"https://lmarena.ai/",                color:"#F59E0B", icon:"⚔", desc:"Comparaison de modèles en arène anonyme" },
-  { id:"nat_dev",      name:"Nat.dev",         subtitle:"Nat.dev • Gratuit",     cat:"multimodele",url:"https://nat.dev/",                   color:"#A78BFA", icon:"⋄", desc:"Playground multi-modèles, compare GPT/Claude/Llama" },
-  { id:"together_w",   name:"Together AI",     subtitle:"Together • Gratuit",    cat:"multimodele",url:"https://api.together.ai/playground", color:"#F59E0B", icon:"∿", desc:"Playground Llama, Mixtral & modèles open source" },
-  // ── Image IA ────────────────────────────────────────────────────
-  { id:"ideogram",     name:"Ideogram",        subtitle:"Ideogram • Gratuit",    cat:"image",   url:"https://ideogram.ai/",                    color:"#EC4899", icon:"🎨", desc:"Génération images IA — excellent pour texte" },
-  { id:"adobe_ff",     name:"Adobe Firefly",   subtitle:"Adobe • Gratuit",       cat:"image",   url:"https://firefly.adobe.com/",              color:"#FF6B35", icon:"🔥", desc:"Génération images IA légale, sans copyright" },
-  { id:"leonardo",     name:"Leonardo.ai",     subtitle:"Leonardo • Gratuit",    cat:"image",   url:"https://app.leonardo.ai/",                color:"#7C3AED", icon:"🖼", desc:"150 crédits/jour gratuits — style artistique" },
-  { id:"kling",        name:"Kling AI",        subtitle:"Kuaishou • Gratuit",    cat:"image",   url:"https://klingai.com/",                    color:"#0EA5E9", icon:"▶", desc:"Génération vidéo & image IA, gratuit" },
-  { id:"playground_ai",name:"Playground AI",  subtitle:"Playground • Gratuit",  cat:"image",   url:"https://playground.com/",                 color:"#F472B6", icon:"🎭", desc:"500 images/jour gratuites" },
-  // ── Code & Développement ────────────────────────────────────────
-  { id:"github_cop",   name:"GitHub Copilot",  subtitle:"GitHub • $10/mois",     cat:"code",    url:"https://github.com/features/copilot",     color:"#6E40C9", icon:"⌥", desc:"IA de code intégrée dans VS Code, JetBrains..." },
-  { id:"cursor",       name:"Cursor",          subtitle:"Cursor • Gratuit/payant",cat:"code",   url:"https://cursor.com/",                     color:"#7B8CDE", icon:"⌨", desc:"IDE IA basé sur VS Code, très populaire" },
-  { id:"replit",       name:"Replit AI",       subtitle:"Replit • Gratuit",      cat:"code",    url:"https://replit.com/",                     color:"#F26207", icon:"∈", desc:"Environnement de code IA en ligne" },
-  { id:"bolt",         name:"Bolt.new",        subtitle:"StackBlitz • Gratuit",  cat:"code",    url:"https://bolt.new/",                       color:"#7C3AED", icon:"⚡", desc:"Génère des apps web complètes en quelques secondes" },
-  { id:"v0_dev",       name:"v0 by Vercel",    subtitle:"Vercel • Gratuit",      cat:"code",    url:"https://v0.dev/",                         color:"#000000", icon:"▲", desc:"Génère du code React/UI avec Shadcn" },
-  { id:"lovable",      name:"Lovable",         subtitle:"Lovable • Gratuit",     cat:"code",    url:"https://lovable.dev/",                    color:"#FF6B6B", icon:"♥", desc:"Génère des apps fullstack depuis une description" },
-  // ── Audio / Voix ────────────────────────────────────────────────
-  { id:"elevenlabs",   name:"ElevenLabs",      subtitle:"ElevenLabs • Gratuit",  cat:"audio",   url:"https://elevenlabs.io/",                  color:"#6366F1", icon:"🔊", desc:"Clonage et synthèse vocale ultra-réaliste" },
-  { id:"suno",         name:"Suno AI",         subtitle:"Suno • Gratuit",        cat:"audio",   url:"https://suno.com/",                       color:"#10B981", icon:"🎵", desc:"Génère de la musique complète avec paroles" },
-  { id:"udio",         name:"Udio",            subtitle:"Udio • Gratuit",        cat:"audio",   url:"https://www.udio.com/",                   color:"#8B5CF6", icon:"🎶", desc:"Génération musicale IA de haute qualité" },
-  // ── Premium / Payant ────────────────────────────────────────────
-  { id:"gpt4_pay",     name:"ChatGPT Plus",    subtitle:"OpenAI • $20/mois",     cat:"payant",  url:"https://chatgpt.com/",                    color:"#74C98C", icon:"◈", desc:"GPT-4o + o3 + DALL-E 3 + plugins" },
-  { id:"claude_pro",   name:"Claude Pro",      subtitle:"Anthropic • $20/mois",  cat:"payant",  url:"https://claude.ai/",                      color:"#D4A853", icon:"✦", desc:"Claude Opus 4, projets, priorité" },
-  { id:"gemini_adv",   name:"Gemini Advanced", subtitle:"Google • $20/mois",     cat:"payant",  url:"https://gemini.google.com/",              color:"#4A90E0", icon:"◆", desc:"Gemini 2.5 Pro, 2M contexte, DeepResearch" },
-  { id:"perp_pro",     name:"Perplexity Pro",  subtitle:"Perplexity • $20/mois", cat:"payant",  url:"https://www.perplexity.ai/",              color:"#20B2AA", icon:"◉", desc:"Modèles premium + recherche illimitée" },
-  { id:"midjourney_w", name:"Midjourney",      subtitle:"MJ • $10/mois",         cat:"payant",  url:"https://www.midjourney.com/",             color:"#A78BFA", icon:"🎭", desc:"Meilleure génération images artistique" },
-  { id:"runway",       name:"Runway",          subtitle:"Runway • $12/mois",     cat:"payant",  url:"https://runwayml.com/",                   color:"#22D3EE", icon:"🎬", desc:"Génération vidéo IA professionnelle" },
-];
-
-// ── IAs découvertes dynamiquement (ajout via algorithme) ────────
-const DISCOVERED_KEY = "multiia_discovered_ais";
-function getDiscoveredAIs() {
-  try { return JSON.parse(localStorage.getItem(DISCOVERED_KEY)||"[]"); } catch { return []; }
-}
-function saveDiscoveredAIs(list) {
-  localStorage.setItem(DISCOVERED_KEY, JSON.stringify(list));
-}
-
-// Sources de découverte automatique (flux RSS / JSON publics)
-const DISCOVERY_SOURCES = [
-  { name:"There's An AI For That", url:"https://theresanaiforthat.com/", hint:"Répertoire d'outils IA" },
-  { name:"Futurepedia", url:"https://www.futurepedia.io/", hint:"Directory IA mis à jour quotidiennement" },
-  { name:"AI Valley", url:"https://aivalley.ai/", hint:"Nouvelles IAs chaque jour" },
-];
-
-const WEB_AIS = [...BASE_WEB_AIS, ...getDiscoveredAIs()];
-
-// ── YouTube : chaînes recommandées ───────────────────────────────
-const YT_CHANNELS = [
-  // Français
-  { id:"underscore",  name:"Underscore_",       lang:"🇫🇷", cat:"IA & Tech",      subs:"600k+",  icon:"⚡", color:"#FF6B35", url:"https://www.youtube.com/@Underscore_",       desc:"Le meilleur vulgarisateur IA/tech fr. Interviews, analyses, deep dives." },
-  { id:"lescalculs",  name:"Les Calculs",        lang:"🇫🇷", cat:"IA Technique",   subs:"120k+",  icon:"🧮", color:"#A78BFA", url:"https://www.youtube.com/@LesCalculs",        desc:"Maths, ML et IA expliqués avec rigueur. Contenu technique de qualité." },
-  { id:"iadepuis",    name:"IA au quotidien",    lang:"🇫🇷", cat:"Tutoriels",      subs:"80k+",   icon:"🔧", color:"#4FC3F7", url:"https://www.youtube.com/@iaauquotidien",     desc:"Tutoriels pratiques sur les outils IA du quotidien." },
-  { id:"cocademia",   name:"Cocademia",          lang:"🇫🇷", cat:"IA & Société",   subs:"90k+",   icon:"📚", color:"#34D399", url:"https://www.youtube.com/@Cocademia",         desc:"Vulgarisation scientifique & IA, enjeux éthiques et sociétaux." },
-  { id:"science4all", name:"Science4All",        lang:"🇫🇷", cat:"Science & IA",   subs:"150k+",  icon:"🔬", color:"#60A5FA", url:"https://www.youtube.com/@le_science4all",    desc:"Lê Nguyên Hoang — maths, IA, philosophie. Très rigoureux." },
-  { id:"micode",      name:"Micode",             lang:"🇫🇷", cat:"Tech & Code",    subs:"700k+",  icon:"💻", color:"#F59E0B", url:"https://www.youtube.com/@micode",            desc:"Code, cybersécurité, IA et tech. Format accessible et divertissant." },
-  { id:"databird",    name:"DataBird",           lang:"🇫🇷", cat:"Data Science",   subs:"50k+",   icon:"📊", color:"#E07FA0", url:"https://www.youtube.com/@DataBird",          desc:"Data science, Python, IA appliquée. Tutoriels pour débutants et pros." },
-  { id:"thinkai",     name:"Think AI",           lang:"🇫🇷", cat:"IA Business",    subs:"40k+",   icon:"💡", color:"#D4A853", url:"https://www.youtube.com/@ThinkAI_fr",        desc:"IA appliquée aux entreprises, tendances et cas d'usage business." },
-  // Anglais top
-  { id:"andrej",      name:"Andrej Karpathy",   lang:"🇺🇸", cat:"IA Technique",   subs:"1.2M+",  icon:"🧠", color:"#74C98C", url:"https://www.youtube.com/@AndrejKarpathy",    desc:"Ex-OpenAI/Tesla. Cours magistraux sur les LLMs, transformers, neural nets." },
-  { id:"3b1b",        name:"3Blue1Brown",        lang:"🇺🇸", cat:"Maths & IA",     subs:"6M+",    icon:"🔵", color:"#4A90E0", url:"https://www.youtube.com/@3blue1brown",       desc:"Visualisations mathématiques magnifiques. Neural networks expliqués brillamment." },
-  { id:"sentdex",     name:"sentdex",            lang:"🇺🇸", cat:"Python & ML",    subs:"1.3M+",  icon:"🐍", color:"#F97316", url:"https://www.youtube.com/@sentdex",           desc:"Python, ML, trading algorithmique. Tutoriels pratiques depuis 2012." },
-  { id:"yannickilcher",name:"Yannic Kilcher",    lang:"🇺🇸", cat:"Papers Explained",subs:"430k+", icon:"📄", color:"#A78BFA", url:"https://www.youtube.com/@YannicKilcher",     desc:"Explique les papers IA les plus importants. Indispensable pour suivre la recherche." },
-  { id:"twominutepapers",name:"Two Minute Papers",lang:"🇺🇸",cat:"Recherche IA",   subs:"1.6M+",  icon:"📰", color:"#E07FA0", url:"https://www.youtube.com/@TwoMinutePapers",  desc:"Résumés de papers de recherche IA en 2-4 minutes. Incroyablement bien fait." },
-  { id:"lexfridman",  name:"Lex Fridman",        lang:"🇺🇸", cat:"Interviews",     subs:"4.3M+",  icon:"🎙", color:"#9CA3AF", url:"https://www.youtube.com/@lexfridman",        desc:"Interviews longues avec Altman, LeCun, Musk, Hinton... Les grands de l'IA." },
-  { id:"samson",      name:"Sam Witteveen",      lang:"🇺🇸", cat:"LLM Dev",        subs:"130k+",  icon:"⚡", color:"#60C8E0", url:"https://www.youtube.com/@samwitteveenai",    desc:"Développement avec LLMs, LangChain, Gemini, agents. Très pratique." },
-  { id:"matthewberman",name:"Matthew Berman",   lang:"🇺🇸", cat:"IA Locale & OSS", subs:"500k+", icon:"🖥", color:"#4ADE80", url:"https://www.youtube.com/@matthew_berman",   desc:"Tests de modèles OSS, Ollama, LM Studio. Le spécialiste IA locale." },
-  { id:"aiexplained", name:"AI Explained",       lang:"🇺🇸", cat:"Actualités IA",  subs:"450k+",  icon:"📡", color:"#FB923C", url:"https://www.youtube.com/@aiexplained-official", desc:"Analyses des dernières sorties IA. GPT-5, Gemini, Claude — tout y passe." },
-  { id:"fireship",    name:"Fireship",           lang:"🇺🇸", cat:"Dev & Tech",      subs:"3.1M+",  icon:"🔥", color:"#FF6B35", url:"https://www.youtube.com/@Fireship",          desc:"100 secondes pour tout comprendre en dev. Format parfait, humour excellent." },
-];
-
-const YT_CATS = ["Tout","🇫🇷 Français","🇺🇸 Anglais","IA Technique","Tutoriels","Actualités IA","Dev & Tech","Interviews","IA Locale & OSS"];
-
-const YT_VIDEO_THEMES = [
-  { id:"trending",  label:"🔥 Tendances",       query:"intelligence artificielle nouveautés tendances vidéos 2025" },
-  { id:"tutos",     label:"🎓 Tutoriels IA",     query:"tutoriel intelligence artificielle débutant pratique 2025 français" },
-  { id:"modeles",   label:"🤖 Nouveaux modèles", query:"nouveau modèle IA test comparaison GPT Claude Gemini 2025" },
-  { id:"local",     label:"🖥 IA Locale",        query:"IA locale ollama LM studio open source installer gratuit 2025" },
-  { id:"images_v",  label:"🎨 IA Images",        query:"générateur images IA FLUX stable diffusion midjourney tutoriel 2025" },
-  { id:"agents",    label:"🤖 Agents IA",        query:"agents IA autonomes LangChain AutoGPT Cursor 2025 tutoriel" },
-];
-
-const YT_VIDEO_PROMPT = (q) =>
-  `Tu es un expert YouTube spécialisé en IA et technologie. Liste 8 vidéos YouTube réelles et populaires sur : "${q}".
-RÈGLES ABSOLUES : 
-- "title" = VRAI titre exact de la vidéo (pas une description générique)
-- "channel" = NOM EXACT de la chaîne YouTube (ex: "Underscore_", "3Blue1Brown", "Fireship")
-- Ne génère PAS d'URLs (elles seront construites automatiquement)
-- Varie les chaînes : max 2 vidéos par chaîne
-Retourne UNIQUEMENT un tableau JSON valide sans markdown :
-[{"title":"VRAI titre de la vidéo","channel":"Nom exact chaîne","duration":"X:XX ou XhXX","date":"Il y a Xj / Cette semaine / Ce mois","views":"XXXk vues","category":"Tutoriel|Actualité|Analyse|Review|Interview","summary":"1 phrase description","url":"","lang":"FR ou EN","important":true/false}]`;
-
-async function fetchYTVideos(themeQuery, savedKeys) {
-  const keys = savedKeys || {};
-  const errors = [];
-  const parse = (text) => {
-    const clean = text.replace(/```json|```/g,"").trim();
-    const m = clean.match(/\[[\s\S]*\]/);
-    if (!m) throw new Error("JSON introuvable");
-    return JSON.parse(m[0]);
-  };
-  const makeYTUrl = (q) => "https://www.youtube.com/results?search_query=" + encodeURIComponent(q);
-
-  // Gemini retired from app — using Groq/Mistral only
-  if (keys.groq_inf) {
-    try {
-      const r = await fetch("https://api.groq.com/openai/v1/chat/completions",
-        { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${keys.groq_inf}`},
-          body: JSON.stringify({ model:"llama-3.3-70b-versatile", max_tokens:2000, messages:[{role:"user",content:YT_VIDEO_PROMPT(themeQuery)}] }) });
-      const d = await r.json();
-      if (d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-      return { items: parse(d.choices[0].message.content), provider:"Groq/Llama ⚡", fallback:false };
-    } catch(e) { errors.push(e.message); }
-  }
-  if (keys.mistral) {
-    try {
-      const r = await fetch("https://api.mistral.ai/v1/chat/completions",
-        { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${keys.mistral}`},
-          body: JSON.stringify({ model:"mistral-small-latest", max_tokens:2000, messages:[{role:"user",content:YT_VIDEO_PROMPT(themeQuery)}] }) });
-      const d = await r.json();
-      if (d.error) throw new Error(typeof d.error==="string"?d.error:(d.error.message||""));
-      return { items: parse(d.choices[0].message.content), provider:"Mistral ▲", fallback:false };
-    } catch(e) { errors.push(e.message); }
-  }
-  // Fallback statique - liens de recherche YouTube réels
-  return {
-    items: [
-      { title:"Let's build GPT: from scratch, in code, spelled out", channel:"Andrej Karpathy", duration:"1h56", date:"2023", views:"4.2M vues", category:"Tutoriel", summary:"Le meilleur cours pour comprendre les transformers et GPT en codant from scratch.", url:"", lang:"EN", important:true },
-      { title:"ChatGPT : comment ça marche vraiment ?", channel:"Underscore_", duration:"28:14", date:"2023", views:"890k vues", category:"Analyse", summary:"Explication claire du fonctionnement des LLMs et de l'entraînement de ChatGPT en français.", url:"", lang:"FR", important:true },
-      { title:"But what is a neural network?", channel:"3Blue1Brown", duration:"19:13", date:"2017", views:"14M vues", category:"Tutoriel", summary:"La meilleure introduction visuelle aux réseaux de neurones. Intemporel.", url:"", lang:"EN", important:true },
-      { title:"How To Install and Use Ollama - Run LLMs Locally", channel:"Matthew Berman", duration:"15:32", date:"2024", views:"420k vues", category:"Tutoriel", summary:"Guide complet pour faire tourner des LLMs open source sur son propre PC.", url:"", lang:"EN", important:false },
-      { title:"DeepSeek R1 - The Model That Shocked The World", channel:"AI Explained", duration:"22:17", date:"Janv 2025", views:"1.8M vues", category:"Analyse", summary:"Analyse complète de DeepSeek R1 et pourquoi il a provoqué une crise en Silicon Valley.", url:"", lang:"EN", important:true },
-      { title:"FLUX Is Here And It Changes EVERYTHING", channel:"Matthew Berman", duration:"18:45", date:"2024", views:"320k vues", category:"Review", summary:"Test complet de FLUX.1 vs Stable Diffusion vs Midjourney. Résultats surprenants.", url:"", lang:"EN", important:false },
-      { title:"Sam Altman: OpenAI, GPT-5, Sora, Board Saga, Elon Musk, Ilya, Power & AGI", channel:"Lex Fridman", duration:"3h12", date:"2024", views:"5.1M vues", category:"Interview", summary:"Interview fleuve avec le CEO d'OpenAI sur GPT-5, AGI et l'avenir de l'humanité.", url:"", lang:"EN", important:true },
-      { title:"Les agents IA vont tout changer", channel:"Underscore_", duration:"35:22", date:"2024", views:"650k vues", category:"Actualité", summary:"Les agents IA autonomes vont transformer le travail. Analyse des risques et opportunités.", url:"", lang:"FR", important:true },
-    ],
-    provider:"Cache statique", fallback:true, errors
-  };
-}
-
-const ARENA_MODELS = [
-  { name:"Claude Sonnet 4", provider:"Anthropic",  icon:"✦", color:"#D4A853", params:"~200B*",  ctx:"200k",  target:"Pro / Dev",      score:9.2, prix:"$$",   free:false, strengths:["Raisonnement","Code","Analyse","Éthique"],      weaknesses:["Pas de recherche web native","API payante"],   tag:"TOP" },
-  { name:"GPT-4o",          provider:"OpenAI",     icon:"◈", color:"#74C98C", params:"~200B*",  ctx:"128k",  target:"Grand public",   score:9.0, prix:"$$",   free:false, strengths:["Multimodal","Plugins","Polyvalent","Écosystème"],weaknesses:["Prix élevé","Opaque"],                          tag:"TOP" },
-  { name:"GPT-o1 / o3",     provider:"OpenAI",     icon:"◉", color:"#5AC87C", params:"~300B*",  ctx:"128k",  target:"Experts / R&D",  score:9.6, prix:"$$$$", free:false, strengths:["Raisonnement profond","Maths","Science","Code"], weaknesses:["Très cher","Lent","Niche"],                     tag:"TOP" },
-  { name:"Gemini 1.5 Flash",provider:"Google",     icon:"◇", color:"#6BA5E0", params:"~unknown",ctx:"1M",    target:"Grand public",   score:8.5, prix:"Free", free:true,  strengths:["Contexte 1M gratuit","Multimodal","Rapide"],    weaknesses:["Hallucinations +","Moins fin"],                tag:"FREE" },
-  { name:"Gemini 1.5 Pro",  provider:"Google",     icon:"◈", color:"#4A90E0", params:"~unknown",ctx:"2M",    target:"Entreprise",     score:9.1, prix:"$$$",  free:false, strengths:["2M tokens","Vidéo","Audio","Multimodal++"],     weaknesses:["Cher","Latence"],                              tag:"PUISSANT" },
-  { name:"DeepSeek V3",     provider:"DeepSeek",   icon:"⬡", color:"#A0C8FF", params:"671B MoE",ctx:"64k",   target:"Dev / Recherche",score:8.8, prix:"¢",    free:false, strengths:["Prix ultra bas","Code fort","MoE efficace"],    weaknesses:["Infra chinoise","Censure possible"],           tag:"ÉCONOMIQUE" },
-  { name:"DeepSeek R1",     provider:"DeepSeek",   icon:"⬡", color:"#80A8DF", params:"671B MoE",ctx:"64k",   target:"Recherche",      score:9.1, prix:"¢",    free:false, strengths:["Raisonnement OSS","Chain-of-thought","Open"],   weaknesses:["Lent","Censure","Saturé"],                     tag:"TOP" },
-  { name:"Mistral Large 2", provider:"Mistral AI", icon:"▲", color:"#FF8C69", params:"123B",    ctx:"128k",  target:"Entreprise EU",  score:8.6, prix:"$$",   free:false, strengths:["RGPD","Multilingue","Code","Européen"],         weaknesses:["Moins polyvalent","Écosystème petit"],        tag:"EUROPE" },
-  { name:"Llama 3.3 70B",   provider:"Meta / Groq",icon:"⚡", color:"#F97316", params:"70B",     ctx:"128k",  target:"Dev / OSS",      score:8.2, prix:"Free", free:true,  strengths:["Open source","Gratuit Groq","Rapide","Local"],  weaknesses:["Moins fort que propriétaires"],                tag:"FREE" },
-  { name:"Llama 3.1 405B",  provider:"Meta",       icon:"🦙", color:"#FF6B35", params:"405B",    ctx:"128k",  target:"Recherche OSS",  score:9.0, prix:"$$",   free:false, strengths:["Meilleur open source","Rival GPT-4"],           weaknesses:["GPU monstre","Hébergement coûteux"],           tag:"OSS KING" },
-  { name:"Grok 3",          provider:"xAI",        icon:"X",  color:"#60C8E0", params:"~300B*",  ctx:"131k",  target:"Grand public",   score:8.7, prix:"$$",   free:false, strengths:["Actualités temps réel","Humour","X/Twitter"],   weaknesses:["API chère","Biais Musk","Moins testé"],        tag:"NOUVEAU" },
-  { name:"Qwen 2.5 72B",    provider:"Alibaba",    icon:"千", color:"#E0A850", params:"72B",     ctx:"128k",  target:"Multilingue",    score:8.3, prix:"¢",    free:false, strengths:["Chinois/Anglais top","Code","Math","OSS"],      weaknesses:["Moins connu EU","Serveurs Alibaba"],           tag:"OSS" },
-  { name:"Ernie 5.0",       provider:"Baidu",      icon:"文", color:"#C89BFF", params:"~260B*",  ctx:"128k",  target:"Marché chinois", score:8.1, prix:"$$",   free:false, strengths:["Mandarin natif","Intégration Baidu","CN"],      weaknesses:["Censuré","Indispo hors Chine","Fermé"],        tag:"CHINE" },
-  { name:"Yi 34B (01.AI)",  provider:"01.AI",      icon:"一", color:"#7BE0C0", params:"34B",     ctx:"200k",  target:"Bilingue",       score:7.8, prix:"¢",    free:false, strengths:["Contexte 200k","Bilingue EN/ZH","OSS"],         weaknesses:["Moins fort top-tier","Petite communauté"],     tag:"OSS" },
-  { name:"Command R+",      provider:"Cohere",     icon:"⌘", color:"#A78BFA", params:"104B",    ctx:"128k",  target:"Entreprise RAG", score:8.3, prix:"$$",   free:false, strengths:["RAG natif","Citations","API stable"],           weaknesses:["Moins créatif","Niche enterprise"],             tag:"RAG" },
-  { name:"Phi-3.5 Mini",    provider:"Microsoft",  icon:"φ", color:"#4FC3F7", params:"3.8B",    ctx:"128k",  target:"Edge / Mobile",  score:7.5, prix:"Free", free:true,  strengths:["Ultra léger","Local mobile","Gratuit","Rapide"], weaknesses:["Limites raisonnement","Ctx effectif court"],   tag:"MOBILE" },
-  { name:"Gemma 2 27B",     provider:"Google",     icon:"◎", color:"#34D399", params:"27B",     ctx:"8k",    target:"Développeurs",   score:7.9, prix:"Free", free:true,  strengths:["OSS Google","Efficient","Local","Ollama"],      weaknesses:["Ctx court","Moins de community"],              tag:"FREE" },
-  { name:"Kimi k1.5",       provider:"Moonshot AI",icon:"月", color:"#E07FA0", params:"~unknown",ctx:"128k",  target:"Long contexte",  score:8.4, prix:"$$",   free:false, strengths:["Multimodal","Long ctx","Raisonnement"],         weaknesses:["Coûteux","Moins testé EU"],                     tag:"NOUVEAU" },
-];
-
-const ARENA_NEWS = [
-  { date:"Juin 2025",  icon:"✦", color:"#D4A853", title:"Claude 4 — Anthropic",          text:"Sonnet 4 + Opus 4. Mémoire longue durée, agents autonomes sur PC, 200k tokens. Opus 4 rivalise avec GPT-o1 sur les tâches complexes.",        tag:"MAJEUR" },
-  { date:"Avr 2025",  icon:"◉", color:"#5AC87C", title:"GPT-o3 & o4-mini — OpenAI",     text:"o3 établit des records sur ARC-AGI et MATH. o4-mini offre un rapport qualité-prix exceptionnel. Raisonnement profond accessible.",              tag:"MAJEUR" },
-  { date:"Mars 2025", icon:"⬡", color:"#A0C8FF", title:"DeepSeek R1 — Open Source",      text:"671B MoE open weights, rivalise avec o1. Coût d'inférence 10x inférieur. Choc dans l'industrie IA mondiale.",                                  tag:"MAJEUR" },
-  { date:"Fév 2025",  icon:"◇", color:"#6BA5E0", title:"Gemini 2.0 Flash Ultra — Google",text:"2 millions de tokens, analyse des heures de vidéo. Gemini Live pour conversation temps réel avec partage d'écran.",                            tag:"IMPORTANT" },
-  { date:"Jan 2025",  icon:"▲", color:"#FF8C69", title:"Mistral Agents — Le Chat",       text:"Navigation web, code exécutable, création docs. Mistral Small 3 sous Apache 2.0.",                                                               tag:"NOUVEAU" },
-  { date:"Déc 2024",  icon:"X",  color:"#60C8E0", title:"Grok 3 — xAI",                  text:"Accès temps réel X/Twitter, génération images Aurora, raisonnement profond, API publique ouverte.",                                              tag:"NOUVEAU" },
-  { date:"Nov 2024",  icon:"◈", color:"#74C98C", title:"GPT-4o mémoire — OpenAI",        text:"Mémoire persistante cross-conversations, GPTs personnalisés avancés, voix avec expressions émotionnelles.",                                      tag:"UPDATE" },
-  { date:"Oct 2024",  icon:"⚡", color:"#F97316", title:"Llama 3.3 70B — Meta",           text:"Perfs proches de Llama 3.1 405B. Meta annonce Llama 4 avec MoE et multimodal natif pour 2025.",                                                tag:"OSS" },
-  { date:"Sep 2024",  icon:"千", color:"#E0A850", title:"Qwen 2.5 — Alibaba",             text:"Qwen2.5-Max surpasse les précédents sur code et maths. Open weights disponibles. Concurrent sérieux à DeepSeek.",                              tag:"OSS" },
-  { date:"Juil 2024", icon:"文", color:"#C89BFF", title:"Ernie 5.0 — Baidu",              text:"Multimodal avancé (texte, image, audio, vidéo). Optimisé marché chinois. Via Qianfan API.",                                                      tag:"CHINE" },
-];
-
-const IMAGE_GENERATORS = [
-  { id:"flux1",      name:"FLUX.1 Schnell", provider:"Black Forest Labs", icon:"⚡", color:"#7C3AED", free:true,  freeLabel:"100% Gratuit & OSS", license:"Apache 2.0",         quality:9,  speed:10, ease:8,  url:"https://huggingface.co/spaces/black-forest-labs/FLUX.1-schnell", urlLabel:"HuggingFace", desc:"Le meilleur OSS actuel. Qualité photo-réaliste, ultra-rapide (1-4 étapes). FLUX.1 Dev pour plus de qualité. Via ComfyUI ou Fooocus en local.",   strengths:["Qualité photo-réaliste","Ultra-rapide","Open source","Pas de censure local","ComfyUI"], limits:"Aucune limite en local",              tags:["OSS","Local","Rapide","Photo"] },
-  { id:"sd35",       name:"Stable Diffusion 3.5", provider:"Stability AI", icon:"🌊", color:"#0EA5E9", free:true,  freeLabel:"Gratuit en local",   license:"Stability Community", quality:8,  speed:7,  ease:7,  url:"https://stability.ai/stable-diffusion",                          urlLabel:"Page officielle", desc:"Le pionnier OSS. Vaste écosystème LoRAs, ControlNet, styles. SD 3.5 Large = 8B params. Interface A1111 ou ComfyUI.",                           strengths:["Écosystème immense","Milliers LoRAs","100% local","ControlNet","Styles illimités"], limits:"GPU requis (4GB VRAM min)",           tags:["OSS","Local","LoRA","Écosystème"] },
-  { id:"comfyui",    name:"ComfyUI",        provider:"Community OSS",    icon:"🔧", color:"#10B981", free:true,  freeLabel:"100% Gratuit & OSS", license:"GPL-3.0",             quality:10, speed:8,  ease:5,  url:"https://github.com/comfyanonymous/ComfyUI",                       urlLabel:"GitHub", desc:"Interface nœuds pour SD, FLUX, tous modèles. Pipeline visuel ultra-flexible. Supporte FLUX.1, SD3, Stable Video, AnimateDiff.",                 strengths:["Contrôle total","FLUX + SD","Workflows partagés","Vidéo AnimateDiff","Extensible"], limits:"Courbe d'apprentissage élevée",       tags:["OSS","Pro","Workflow","Local"] },
-  { id:"bing",       name:"Bing Image Creator", provider:"Microsoft/OpenAI", icon:"⊞", color:"#4FC3F7", free:true, freeLabel:"Gratuit (compte MS)", license:"Service web",       quality:8,  speed:8,  ease:10, url:"https://www.bing.com/images/create",                              urlLabel:"Ouvrir Bing Creator", desc:"DALL-E 3 gratuit. 15 générations rapides/jour puis illimité lent. Le meilleur rapport qualité/facilité gratuit sans installation.",             strengths:["DALL-E 3 gratuit","Sans install","Haute qualité","Simple","Illimité lent"], limits:"15 rapides/jour, puis lent",         tags:["Gratuit","Web","DALL-E 3","Simple"] },
-  { id:"ideogram",   name:"Ideogram 2.0",   provider:"Ideogram AI",      icon:"💬", color:"#F59E0B", free:true,  freeLabel:"10 générations/jour", license:"Service web",        quality:9,  speed:7,  ease:9,  url:"https://ideogram.ai/",                                            urlLabel:"Ouvrir Ideogram", desc:"Exceptionnel pour intégrer du texte dans les images (panneaux, affiches, logos). Qualité photo-réaliste et artistique.",                         strengths:["Texte dans images (top)","Qualité artistique","Styles variés","Simple"], limits:"10/jour gratuit, $7/mois illimité", tags:["Gratuit","Texte","Marketing","Affiches"] },
-  { id:"leonardo",   name:"Leonardo AI",    provider:"Leonardo.AI",      icon:"🎨", color:"#8B5CF6", free:true,  freeLabel:"150 tokens/jour",    license:"Service web",        quality:9,  speed:7,  ease:8,  url:"https://leonardo.ai/",                                            urlLabel:"Ouvrir Leonardo AI", desc:"Plateforme complète : génération, retouche, vidéo, upscale. 150 tokens/jour (~30 images). PhotoReal, Alchemy, DreamShaper.",                   strengths:["Modèles spécialisés","Vidéo","Upscale","Retouche","Communauté"], limits:"150 tokens/jour (~30 images)",       tags:["Gratuit","Pro","Vidéo","Retouche"] },
-  { id:"tensor",     name:"Tensor.art",     provider:"Tensor.art",       icon:"🌸", color:"#EC4899", free:true,  freeLabel:"100 générations/jour",license:"Service web",        quality:8,  speed:7,  ease:8,  url:"https://tensor.art/",                                             urlLabel:"Ouvrir Tensor.art", desc:"Milliers de modèles SD et FLUX. Anime, réaliste, artistique. 100/jour gratuit. Entraînement LoRAs possible.",                                   strengths:["Milliers de modèles","Anime/Réaliste/Art","LoRA training","100/jour"], limits:"100/jour gratuit",                   tags:["Gratuit","Modèles","Anime","LoRA"] },
-  { id:"playground", name:"Playground AI",  provider:"Playground",       icon:"🎡", color:"#6366F1", free:true,  freeLabel:"100 images/jour",    license:"Service web",        quality:8,  speed:8,  ease:9,  url:"https://playground.com/",                                         urlLabel:"Ouvrir Playground AI", desc:"Interface intuitive, modèle PG v3 haute qualité. Idéal créatifs non-techniciens. 100 images/jour, inpainting, retouche.",                       strengths:["Facile","Haute qualité","100/jour","Retouche","Inpainting"], limits:"100/jour, résolution limitée",       tags:["Gratuit","Simple","Retouche","Créatif"] },
-  { id:"craiyon",    name:"Craiyon",        provider:"Craiyon",          icon:"🖍️", color:"#FCD34D", free:true,  freeLabel:"100% Gratuit, sans compte", license:"Service web",  quality:5,  speed:5,  ease:10, url:"https://www.craiyon.com/",                                        urlLabel:"Ouvrir Craiyon", desc:"Totalement gratuit sans compte. Qualité basique mais illimité. Idéal pour expérimenter sans rien installer.",                                   strengths:["Aucun compte requis","Totalement gratuit","Illimité","Simple"], limits:"Qualité basique, lent, publicités", tags:["Gratuit","Sans compte","Illimité","Débutant"] },
-  { id:"raphael",    name:"Raphael AI",     provider:"Raphael AI",       icon:"🖌️", color:"#F97316", free:true,  freeLabel:"Gratuit avec compte", license:"Service web",        quality:8,  speed:8,  ease:9,  url:"https://raphael.app/",                                            urlLabel:"Ouvrir Raphael AI", desc:"Basé sur FLUX.1, interface simple, résultats de haute qualité. Bon pour générations rapides sans installation locale.",                          strengths:["FLUX.1 gratuit","Simple","Haute qualité","Rapide"], limits:"Limites quotidiennes compte gratuit",tags:["Gratuit","FLUX","Simple","Rapide"] },
-  { id:"dalle3",     name:"DALL-E 3",       provider:"OpenAI",           icon:"◈", color:"#74C98C", free:false, freeLabel:"Via ChatGPT+ ou Bing", license:"Service payant",     quality:10, speed:7,  ease:10, url:"https://openai.com/dall-e-3",                                     urlLabel:"Page DALL-E 3", desc:"Référence qualité pour cohérence et compréhension prompts. Intégré ChatGPT Plus et Bing Image Creator (gratuit via Bing !).",                    strengths:["Meilleure compréhension","Cohérence","Scènes complexes","Gratuit via Bing"], limits:"$20/mois ChatGPT+ (gratuit via Bing)",tags:["Premium","Qualité","Cohérence"] },
-  { id:"midjourney", name:"Midjourney",     provider:"Midjourney",       icon:"🎭", color:"#A78BFA", free:false, freeLabel:"À partir de $10/mois", license:"Service payant",     quality:10, speed:7,  ease:8,  url:"https://www.midjourney.com/",                                     urlLabel:"Ouvrir Midjourney", desc:"Référence artistique. Style unique, Character Reference, cohérence de personnages. MJ v6.1 avec qualité inégalée pour concept art.",            strengths:["Qualité artistique top","Character Ref","Styles uniques","Upscale","Vidéo 2025"], limits:"$10/mois, 200 générations",         tags:["Premium","Artistique","Top","Référence"] },
-  { id:"firefly",    name:"Adobe Firefly",  provider:"Adobe",            icon:"🔥", color:"#FF6B35", free:true,  freeLabel:"25 générations/mois", license:"Service web",        quality:9,  speed:7,  ease:9,  url:"https://firefly.adobe.com/",                                      urlLabel:"Ouvrir Firefly", desc:"Généré sur images licensiées (droits sûrs). Intégré Photoshop. Generative Fill. Usage commercial sécurisé.",                                     strengths:["Droits sûrs","Intégré Photoshop","Commercial safe","Retouche","Qualité"], limits:"25/mois gratuit, puis Creative Cloud",tags:["Sûr","Commercial","Photoshop","Retouche"] },
-];
-
-// ╔══════════════════════════════════════════════════════════════╝
-const IDS = Object.keys(MODEL_DEFS);
-const RATE_LIMIT_COOLDOWN = 60;
-const CREDIT_COOLDOWN = 300;
-
-// ── Prix API ($ / 1M tokens input·output) ────────────────────────
-const PRICING = {
-  groq:       { in:0.00, out:0.00, label:"Llama 3.3 (Groq) — GRATUIT" },
-  mistral:    { in:0.00, out:0.00, label:"Mistral Small 3 — GRATUIT" },
-  cohere:     { in:0.00, out:0.00, label:"Command R+ (Cohere) — GRATUIT" },
-  cerebras:   { in:0.00, out:0.00, label:"Llama 3.1 (Cerebras) — GRATUIT" },
-  sambanova:  { in:0.00, out:0.00, label:"Llama 4 (SambaNova) — GRATUIT" },
-  mixtral:    { in:0.00, out:0.00, label:"Qwen3 32B (Groq) — GRATUIT" },
-  llama4s:      { in:0.00, out:0.00, label:"Llama 4 Scout (Groq) — GRATUIT" },
-  gemma2:       { in:0.00, out:0.00, label:"Gemma 2 9B (Groq) — GRATUIT" },
-  poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — SANS CLÉ" },
-  poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — SANS CLÉ" },
-  poll_deepseek:{ in:0.00, out:0.00, label:"DeepSeek (Pollinations) — SANS CLÉ" },
-  poll_gemini:  { in:0.00, out:0.00, label:"Gemini (Pollinations) — SANS CLÉ" },
-};
-
-// ── Prompts par défaut ────────────────────────────────────────────
-// ── Token pricing per 1M tokens (USD) — input/output
-const TOKEN_PRICE = {
-  groq:      { in: 0.59,  out: 0.79,  free:true },
-  mistral:   { in: 0.10,  out: 0.30,  free:true },
-  cohere:    { in: 0.0,   out: 0.0,   free:true },
-  cerebras:  { in: 0.10,  out: 0.10,  free:true },
-  sambanova: { in: 0.60,  out: 1.20,  free:false },
-  qwen3:     { in: 0.10,  out: 0.20,  free:true },
-  llama4s:   { in: 0.11,  out: 0.34,  free:true },
-  gemma2:    { in: 0.08,  out: 0.08,  free:true },
-  poll_gpt:  { in: 0.0,   out: 0.0,   free:true },
-  poll_claude: { in: 0.0, out: 0.0,   free:true },
-  poll_deepseek:{ in:0.0, out: 0.0,   free:true },
-  poll_gemini: { in: 0.0, out: 0.0,   free:true },
-};
-
-const DEFAULT_PROMPTS = [
-  { id:"p1", cat:"Code", icon:"💻", title:"Expliquer du code", text:"Explique ce code ligne par ligne en français. Sois clair et pédagogique :\n\n[COLLE TON CODE ICI]" },
-  { id:"p2", cat:"Code", icon:"🐛", title:"Déboguer un bug", text:"J'ai un bug dans ce code. Trouve le problème, explique pourquoi et propose une correction :\n\n[COLLE TON CODE ICI]\n\nErreur obtenue : [COLLE L'ERREUR]" },
-  { id:"p3", cat:"Code", icon:"🔧", title:"Optimiser le code", text:"Optimise ce code pour la performance et la lisibilité. Explique chaque changement :\n\n[COLLE TON CODE ICI]" },
-  { id:"p4", cat:"Code", icon:"🧪", title:"Écrire des tests", text:"Écris des tests unitaires complets pour ce code (Jest/Pytest selon le langage) :\n\n[COLLE TON CODE ICI]" },
-  { id:"p5", cat:"Rédaction", icon:"✍️", title:"Améliorer un texte", text:"Améliore ce texte : rends-le plus fluide, professionnel et convaincant, sans changer le sens fondamental :\n\n[TON TEXTE]" },
-  { id:"p6", cat:"Rédaction", icon:"📧", title:"Email professionnel", text:"Rédige un email professionnel en français avec ce contexte :\n\nDestinataire : [QUI]\nObjectif : [CE QUE TU VEUX OBTENIR]\nTon : [FORMEL / CORDIAL / URGENT]" },
-  { id:"p7", cat:"Rédaction", icon:"📝", title:"Résumé exécutif", text:"Fais un résumé exécutif de ce document en 5-7 points clés avec les points d'action à retenir :\n\n[TON DOCUMENT]" },
-  { id:"p8", cat:"Analyse", icon:"🔍", title:"Analyse SWOT", text:"Fais une analyse SWOT complète et détaillée de : [SUJET / ENTREPRISE / PROJET]\n\nContexte : [INFOS SUPPLÉMENTAIRES]" },
-  { id:"p9", cat:"Analyse", icon:"⚖️", title:"Pros & Cons", text:"Liste les avantages et inconvénients de [SUJET] sous forme de tableau structuré. Sois exhaustif et objectif." },
-  { id:"p10", cat:"Analyse", icon:"📊", title:"Analyser des données", text:"Analyse ces données et donne-moi les insights clés, tendances, anomalies et recommandations :\n\n[DONNÉES / TABLEAU]" },
-  { id:"p11", cat:"Créatif", icon:"🎨", title:"Brainstorming d'idées", text:"Génère 15 idées originales et créatives pour : [SUJET]\n\nPublic cible : [QUI]\nContraintes : [BUDGET / DÉLAI / STYLE]" },
-  { id:"p12", cat:"Créatif", icon:"🎭", title:"Créer un personnage", text:"Crée un personnage fictif détaillé pour mon histoire : [GENRE / CONTEXTE]\nDonne-lui une personnalité, un passé, des motivations, des défauts et des forces." },
-  { id:"p13", cat:"Business", icon:"📈", title:"Plan marketing", text:"Crée un plan marketing complet pour : [PRODUIT / SERVICE]\nCible : [AUDIENCE]\nBudget approximatif : [BUDGET]\nObjectif principal : [OBJECTIF]" },
-  { id:"p14", cat:"Business", icon:"💡", title:"Pitch d'idée", text:"Transforme cette idée en un pitch convaincant en 3 minutes :\n\nIdée : [TON IDÉE]\nProblème résolu : [PROBLÈME]\nSolution : [COMMENT]" },
-  { id:"p15", cat:"Traduction", icon:"🌍", title:"Traduire et adapter", text:"Traduis ce texte en [LANGUE CIBLE] en adaptant les expressions culturellement (pas mot à mot) :\n\n[TON TEXTE]" },
-  { id:"p16", cat:"Traduction", icon:"🔄", title:"Localiser pour la France", text:"Adapte ce contenu pour le marché français (expressions, exemples, références culturelles, RGPD si besoin) :\n\n[TON CONTENU]" },
-];
-
-
-// ══════════════════════════════════════════════════════════════════
-// MARKDOWN RENDERER — Syntax Highlighting + Inline Formatting
-// ══════════════════════════════════════════════════════════════════
+import {
+  APP_VERSION, BUILD_DATE, MODEL_DEFS, TOKEN_PRICE,
+  BASE_WEB_AIS, WEB_AIS, YT_CHANNELS, YT_CATS,
+  YT_VIDEO_THEMES, YT_VIDEO_PROMPT, ARENA_MODELS, ARENA_NEWS,
+  IMAGE_GENERATORS, DEFAULT_PROMPTS, DEFAULT_PERSONAS,
+  REDACTION_ACTIONS, IDS, PRICING, RATE_LIMIT_COOLDOWN, CREDIT_COOLDOWN,
+  getDiscoveredAIs, saveDiscoveredAIs, fetchYTVideos, DISCOVERY_SOURCES,
+  VOICE_THEMES, VEILLE_THEMES, PROJECT_TEMPLATES, EXTRA_PROMPTS,
+  GLOSSAIRE_IA, BENCHMARK_TESTS,
+} from "./config/models.js";
+import {
+  fmt, classifyError, truncateForModel,
+  callModel, callClaude, callGemini, callCompat, callCohere,
+  callPollinations, callPollinationsPaid, correctGrammar,
+} from "./api/ai-service.js";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -597,262 +310,6 @@ function applyPromptVars(text) {
   };
   return text.replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]!==undefined?vars[k]:"{{"+k+"}}");
 }
-
-const fmt = (n) => n>=1e6?(n/1e6).toFixed(1)+"M":n>=1000?(n/1000).toFixed(1)+"k":String(n);
-
-function classifyError(msg) {
-  const m = (msg||"").toLowerCase();
-  if (m.includes("429")||m.includes("rate limit")||m.includes("too many")) return "ratelimit";
-  if (m.includes("quota")||m.includes("credit")||m.includes("billing")||m.includes("insufficient")||m.includes("exceeded")) return "credit_warn"; // warn only, don't block
-  return "other";
-}
-
-
-// ── Smart message truncation based on model context limit ────────
-function truncateForModel(messages, modelId, system="") {
-  const m = MODEL_DEFS[modelId];
-  const limit = m?.inputLimit || 28000; // default safe 28k tokens
-  const CHARS_PER_TOKEN = 4;
-  const maxChars = limit * CHARS_PER_TOKEN;
-
-  // Count current chars
-  const sysChars = (system||"").length;
-  const msgChars = messages.reduce((a,m)=>a+(m.content||"").length, 0);
-  const totalChars = sysChars + msgChars;
-
-  if (totalChars <= maxChars) return messages; // no truncation needed
-
-  // Find the last user message and truncate its content
-  const budget = maxChars - sysChars - 200; // 200 chars safety margin
-  const msgs = [...messages];
-
-  // First try: truncate only the last message
-  for (let i = msgs.length-1; i >= 0; i--) {
-    if (msgs[i].role === "user" && msgs[i].content.length > 500) {
-      const otherChars = msgs.reduce((a,m,idx)=>idx!==i?a+(m.content||"").length:a, 0);
-      const allowedChars = budget - otherChars;
-      if (allowedChars > 200) {
-        const orig = msgs[i].content;
-        // Keep the end of the message (the question) + truncate the middle (context)
-        const keepEnd = Math.min(800, Math.floor(allowedChars * 0.3));
-        const keepStart = allowedChars - keepEnd - 60;
-        msgs[i] = {
-          ...msgs[i],
-          content: orig.slice(0, keepStart) +
-            `\n\n[... ${Math.round((orig.length - keepStart - keepEnd)/CHARS_PER_TOKEN)}k tokens tronqués pour respecter la limite du modèle (${limit}k tokens) ...]\n\n` +
-            orig.slice(-keepEnd)
-        };
-        return msgs;
-      }
-    }
-  }
-
-  // Fallback: keep only last 2 messages
-  return msgs.slice(-2);
-}
-
-async function callClaude(messages, system="Tu es un assistant IA utile et concis.", attachedFile=null) {
-  // Construire les messages avec support fichiers (vision + texte)
-  const apiMessages = messages.map((m, i) => {
-    const isLast = i === messages.length - 1;
-    if (isLast && attachedFile) {
-      if (attachedFile.type === "image") {
-        return { role: m.role, content: [
-          { type: "image", source: { type: "base64", media_type: attachedFile.mimeType, data: attachedFile.base64 } },
-          { type: "text", text: m.content }
-        ]};
-      } else {
-        return { role: m.role, content: `📎 Fichier : ${attachedFile.name}\n\n${attachedFile.content}\n\n---\n${m.content}` };
-      }
-    }
-    return { role: m.role, content: m.content };
-  });
-  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  const endpoint = isLocal ? "https://api.anthropic.com/v1/messages" : "/api/claude";
-  const claudeHeaders = isLocal
-    ? {"Content-Type":"application/json","x-api-key":"","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}
-    : {"Content-Type":"application/json"};
-  const r = await fetch(endpoint,{method:"POST",headers:claudeHeaders,body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages:apiMessages})});
-  const rawText = await r.text();
-  let d;
-  try { d = JSON.parse(rawText); } catch {
-    // La réponse n'est pas du JSON → le proxy n'est pas configuré
-    if (!isLocal) {
-      throw new Error("❌ Proxy Claude non configuré sur Vercel. Va dans Vercel → Settings → Environment Variables → ajoute ANTHROPIC_API_KEY. En attendant, utilise Groq ou Mistral (100% gratuits, aucune config).");
-    }
-    throw new Error("Réponse invalide de l'API Claude : " + rawText.slice(0,100));
-  }
-  if(d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-  return d.content[0].text;
-}
-async function callGemini(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
-  if (!apiKey) throw new Error("Clé Gemini manquante. Va sur aistudio.google.com/app/apikey pour en créer une gratuite.");
-  const last = messages[messages.length-1].content;
-  const history = messages.slice(0,-1).map(m => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{text: m.content}]
-  }));
-  const body = {
-    systemInstruction: { parts: [{text: system}] },
-    contents: [...history, {role:"user", parts:[{text:last}]}],
-    generationConfig: { maxOutputTokens: 1500 }
-  };
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}
-  );
-  const raw = await r.text();
-  let d; try { d = JSON.parse(raw); } catch { throw new Error("Réponse Gemini invalide: " + raw.slice(0,100)); }
-  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-  if(!d.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("Gemini: réponse vide. Détail: " + JSON.stringify(d).slice(0,200));
-  return d.candidates[0].content.parts[0].text;
-}
-// ── Pollinations.AI — deux endpoints ──────────────────────────────
-// text.pollinations.ai/openai  = GRATUIT ANONYME, modèle "openai" uniquement (legacy)
-// gen.pollinations.ai/v1/...   = TOUS les modèles (claude, deepseek, gemini…) — clé Pollen gratuite sur enter.pollinations.ai
-let _pollQueue = Promise.resolve();
-const POLL_DELAY_MS = 18000; // 18s entre requêtes Pollinations — limite IP
-
-async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  // Endpoint legacy anonyme — 1 seule req simultanée par IP (partagée avec callPollinationsPaid)
-  const ticket = _pollQueue;
-  _pollQueue = ticket.then(() => new Promise(res => setTimeout(res, POLL_DELAY_MS)));
-  await ticket; // attendre sa place dans la queue
-  const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  const r = await fetch("https://text.pollinations.ai/openai", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ model:"openai", messages:msgs, max_tokens:1500, private:true, referrer:"multiia-hub.vercel.app" })
-  });
-  if(!r.ok) { const txt = await r.text().catch(()=>""); throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150)); }
-  const d = await r.json();
-  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-  return d.choices?.[0]?.message?.content || "";
-}
-
-async function callPollinationsPaid(messages, apiKey, model, system="Tu es un assistant IA utile et concis.") {
-  // Endpoint gen.pollinations.ai — partage la même queue IP que callPollinations
-  if(!apiKey) throw new Error("Clé Pollen manquante. Va sur enter.pollinations.ai → inscription gratuite → copie ta clé dans Config.");
-  const ticket = _pollQueue;
-  _pollQueue = ticket.then(() => new Promise(res => setTimeout(res, POLL_DELAY_MS)));
-  await ticket;
-  const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
-    method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
-    body:JSON.stringify({ model, messages:msgs, max_tokens:1500 })
-  });
-  if(!r.ok) { const txt = await r.text().catch(()=>""); throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150)); }
-  const d = await r.json();
-  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-  return d.choices?.[0]?.message?.content || "";
-}
-
-async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un assistant IA utile et concis.") {
-  const headers = {"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`};
-  // OpenRouter needs HTTP-Referer
-  if (baseUrl.includes("openrouter")) {
-    headers["HTTP-Referer"] = "https://multiia-hub.vercel.app";
-    headers["X-Title"] = "Multi-IA Hub";
-  }
-  // Find model id from baseUrl+model to apply correct limit
-  const modelId = Object.keys(MODEL_DEFS).find(id => MODEL_DEFS[id].model === model && MODEL_DEFS[id].baseUrl === baseUrl);
-  const safeMessages = truncateForModel(messages, modelId, system);
-  const r = await fetch(`${baseUrl}/chat/completions`,{method:"POST",headers,body:JSON.stringify({model,max_tokens:1500,messages:[{role:"system",content:system},...safeMessages.map(m=>({role:m.role,content:m.content}))]})});
-  const raw = await r.text();
-  let d;
-  try { d = JSON.parse(raw); } catch { throw new Error("Réponse invalide : " + raw.slice(0,120)); }
-  if(d.error) throw new Error(typeof d.error==="string"?d.error:(d.error.message||JSON.stringify(d.error)));
-  if(!d.choices || !d.choices[0]) throw new Error("Réponse vide — modèle indisponible. Détail: " + JSON.stringify(d).slice(0,200));
-  return d.choices[0].message.content;
-}
-async function callCohere(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
-  if (!apiKey) throw new Error("Clé Cohere manquante. Va sur dashboard.cohere.com/api-keys");
-  const chatHistory = messages.slice(0,-1).map(m => ({
-    role: m.role === "assistant" ? "CHATBOT" : "USER",
-    message: m.content
-  }));
-  const last = messages[messages.length-1].content;
-  const r = await fetch("https://api.cohere.ai/v1/chat", {
-    method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
-    body: JSON.stringify({ model:"command-r-plus-08-2024", message: last, chat_history: chatHistory, preamble: system, max_tokens: 1500 })
-  });
-  const raw = await r.text();
-  let d; try { d = JSON.parse(raw); } catch { throw new Error("Réponse Cohere invalide"); }
-  if(d.message) throw new Error(d.message);
-  return d.text;
-}
-async function callModel(id, messages, keys, system, attachedFile=null) {
-  const m=MODEL_DEFS[id];
-  if(!m) throw new Error("IA inconnue : " + id);
-  // Injecter fichier dans le texte
-  const msgWithFile = attachedFile && attachedFile.type !== "image"
-    ? messages.map((msg,i) => i===messages.length-1 ? {...msg, content:`📎 Fichier: ${attachedFile.name}\n\n${attachedFile.content}\n\n---\n${msg.content}`} : msg)
-    : messages;
-  if(m.apiType==="gemini") return callGemini(msgWithFile,keys.gemini,system);
-  if(m.apiType==="cohere") return callCohere(messages,keys.cohere,system);
-  if(m.apiType==="pollinations")      return callPollinations(msgWithFile,m.model,system);
-  if(m.apiType==="pollinations_paid") return callPollinationsPaid(msgWithFile,keys.pollen||"",m.model,system);
-  if(m.apiType==="compat") {
-    const key = keys[m.keyName];
-    if(!key) throw new Error(`Clé API manquante pour ${m.name}. Va dans ⚙ Config pour l'ajouter gratuitement.`);
-    return callCompat(msgWithFile,key,m.baseUrl,m.model,system);
-  }
-  throw new Error("Type d'API non supporté : " + m.apiType);
-}
-async function correctGrammar(text, keys) {
-  const sys = "Tu es un correcteur expert. Tu corriges sans changer le sens.";
-  const msgs = [{role:"user",content:`Corrige les fautes d'orthographe, grammaire et ponctuation. Retourne UNIQUEMENT le texte corrigé, sans commentaires.\n\n${text}`}];
-  if (keys && keys.groq_inf) return callCompat(msgs, keys.groq_inf, "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", sys);
-  if (keys && keys.mistral) return callCompat(msgs, keys.mistral, "https://api.mistral.ai/v1", "mistral-small-latest", sys);
-  throw new Error("Active Groq ou Mistral pour utiliser le correcteur.");
-}
-
-// ── Personas par défaut ───────────────────────────────────────────
-const DEFAULT_PERSONAS = [
-  { id:"default",  name:"Assistant général",     icon:"🤖", color:"#D4A853", system:"Tu es un assistant IA utile, précis et concis. Tu réponds en français sauf si l'utilisateur écrit dans une autre langue." },
-  { id:"dev",      name:"Développeur senior",    icon:"💻", color:"#4ADE80", system:"Tu es un développeur senior full-stack avec 15 ans d'expérience. Tu fournis du code propre, documenté et optimisé. Tu expliques toujours tes choix techniques et signales les erreurs potentielles." },
-  { id:"writer",   name:"Rédacteur pro",         icon:"✍️", color:"#60A5FA", system:"Tu es un rédacteur professionnel expert en copywriting et communication. Tu écris des textes clairs, convaincants et adaptés au public cible. Tu maîtrises parfaitement le français." },
-  { id:"analyst",  name:"Analyste business",     icon:"📊", color:"#A78BFA", system:"Tu es un consultant business senior avec expertise en stratégie, marketing et finance. Tu analyses les situations avec rigueur et fournis des insights actionnables basés sur des données." },
-  { id:"teacher",  name:"Pédagogue expert",      icon:"🎓", color:"#FB923C", system:"Tu es un pédagogue passionné qui explique les concepts complexes simplement. Tu utilises des analogies, des exemples concrets et tu vérifies la compréhension. Tu adaptes ton niveau à l'interlocuteur." },
-  { id:"creative", name:"Créatif / Storyteller", icon:"🎨", color:"#E07FA0", system:"Tu es un directeur créatif avec une imagination débordante. Tu génères des idées originales, des histoires captivantes et du contenu créatif. Tu penses hors des sentiers battus." },
-  { id:"devil",    name:"Avocat du diable",      icon:"😈", color:"#F87171", system:"Tu es l'avocat du diable. Tu dois TOUJOURS argumenter CONTRE l'idée présentée, même si tu es d'accord. Tu trouves tous les défauts, risques, contradictions et failles. Tu es incisif, provocateur mais constructif. Commence par 'Contre-argument :'" },
-  { id:"expert",   name:"Expert ultra-spécialiste", icon:"🔬", color:"#34D399", system:"Tu es un expert ultra-spécialisé dans le domaine de la question posée. Tu réponds avec une précision extrême, des données chiffrées, des références, et tu n'hésites pas à nuancer. Tu signales si tu n'es pas certain d'une information." },
-  { id:"socratic", name:"Maïeuticien / Socrate",    icon:"🏛️", color:"#C084FC", system:"Tu es Socrate. Au lieu de donner des réponses directes, tu poses des questions puissantes pour aider l'utilisateur à trouver lui-même la vérité. Tu utilises la méthode maïeutique : tu ne juges pas, tu questionnes, tu fais réfléchir." },
-  { id:"optimist", name:"Optimiste radical",     icon:"🌟", color:"#FCD34D", system:"Tu es un optimiste radical. Pour chaque sujet, tu identifies le potentiel positif maximal, les opportunités cachées, et les raisons d'espérer. Tu es enthousiaste et énergisant, sans être naïf." },
-  { id:"stoic",    name:"Philosophe stoïcien",   icon:"⚖️", color:"#94A3B8", system:"Tu réfléchis en philosophe stoïcien. Tu analyses les situations avec calme et détachement, en séparant ce qui dépend de nous de ce qui n'en dépend pas. Tu cites Marcus Aurèle, Épictète ou Sénèque si pertinent." },
-  { id:"beginner", name:"👴 Guide Débutant", icon:"👴", color:"#FCA5A5", system:`Tu es un professeur ultra-patient qui guide une personne âgée utilisant la technologie pour la première fois. Tes règles ABSOLUES :
-
-📌 VOCABULAIRE : Zéro jargon. Tout mot technique est expliqué entre parenthèses avec une analogie de la vie réelle. Exemple : "le navigateur (c'est comme une voiture qui te conduit sur internet — Chrome, Firefox ou Edge sont des navigateurs)".
-
-📌 ÉTAPES ULTRA-DÉTAILLÉES : Chaque action est numérotée. UNE SEULE action par étape. Dis EXACTEMENT où regarder (en haut/bas/gauche/droite de l'écran), quelle couleur a le bouton, ce qu'il dit. Exemple : "Étape 1 : Regarde tout en bas de ton écran. Tu vois une barre avec des petits symboles. Cherche un cercle avec 4 petits carrés de couleurs. Clique dessus UNE FOIS avec le bouton gauche."
-
-📌 CONFIRMATION après chaque étape : "➡️ Si tu as réussi, tu verras [description précise de ce qui doit apparaître]."
-
-📌 RASSURANCE constante : Commence par "Ne t'inquiète pas !" ou "C'est tout à fait normal". Rappelle que les erreurs ne cassent rien.
-
-📌 JAMAIS PLUS DE 3 ÉTAPES D'UN COUP. Termine toujours par : "Est-ce que tu as réussi cette étape ? Dis-moi ce que tu vois à l'écran si tu es bloqué(e) !"
-
-📌 LONGUEUR : Préfère une réponse longue et détaillée plutôt que courte et rapide.` },
-  { id:"tutor",    name:"Tuteur IA (apprendre l'IA)", icon:"🧑‍🏫", color:"#FCA5A5", system:"Tu es un tuteur spécialisé dans l'enseignement de l'intelligence artificielle aux débutants. Tu expliques ce qu'est une IA, comment fonctionnent les LLMs, comment écrire de bons prompts, et comment tirer le meilleur parti des outils IA comme ChatGPT, Claude, Groq, etc. Tu donnes des exemples pratiques, des exercices simples, et tu encourages la curiosité. Tu expliques les concepts avec des métaphores accessibles." },
-];
-
-// ── Actions de rédaction ──────────────────────────────────────────
-const REDACTION_ACTIONS = [
-  { id:"resume",   icon:"📋", label:"Résumer",          prompt:(t)=>`Résume ce texte en 5 points clés essentiels :\n\n${t}` },
-  { id:"pro",      icon:"👔", label:"Rendre pro",        prompt:(t)=>`Reformule ce texte dans un style professionnel et formel, sans changer le sens :\n\n${t}` },
-  { id:"simple",   icon:"🎯", label:"Simplifier",        prompt:(t)=>`Simplifie ce texte pour qu'il soit compréhensible par quelqu'un sans expertise. Utilise des mots simples et des phrases courtes :\n\n${t}` },
-  { id:"court",    icon:"✂️", label:"Raccourcir",        prompt:(t)=>`Raccourcis ce texte de 50% en gardant uniquement l'essentiel :\n\n${t}` },
-  { id:"develop",  icon:"📖", label:"Développer",        prompt:(t)=>`Développe et enrichis ce texte avec plus de détails, d'exemples et de contexte :\n\n${t}` },
-  { id:"corriger", icon:"✅", label:"Corriger",           prompt:(t)=>`Corrige toutes les fautes (orthographe, grammaire, ponctuation, style) et retourne uniquement le texte corrigé :\n\n${t}` },
-  { id:"tradFR",   icon:"🇫🇷", label:"→ Français",       prompt:(t)=>`Traduis ce texte en français de manière naturelle et fluide :\n\n${t}` },
-  { id:"tradEN",   icon:"🇬🇧", label:"→ Anglais",        prompt:(t)=>`Traduis ce texte en anglais de manière naturelle et fluide :\n\n${t}` },
-  { id:"email",    icon:"📧", label:"Format email",       prompt:(t)=>`Transforme ce texte en un email professionnel bien structuré avec objet, corps et formule de politesse :\n\n${t}` },
-  { id:"bullets",  icon:"•",  label:"En bullet points",  prompt:(t)=>`Transforme ce texte en liste de bullet points clairs et concis :\n\n${t}` },
-  { id:"seo",      icon:"🔍", label:"Optimiser SEO",      prompt:(t)=>`Optimise ce texte pour le SEO : améliore les mots-clés, la structure, les balises titre suggérées, et ajoute un meta-description :\n\n${t}` },
-  { id:"critique", icon:"🧐", label:"Analyser critiquement", prompt:(t)=>`Analyse ce texte de manière critique : points forts, points faibles, logique, arguments, style. Sois honnête et constructif :\n\n${t}` },
-];
 const S = `
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
 @import url('https://fonts.cdnfonts.com/css/geist');
@@ -1597,12 +1054,12 @@ html, body{
   .mobile-tabbar{
     display:flex !important;
     position:fixed; bottom:0; left:0; right:0;
-    background:var(--s1);
+    background:rgba(14,14,18,.96);
     border-top:1px solid var(--bd);
     padding:5px 0 calc(5px + env(safe-area-inset-bottom));
     z-index:250;
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
   }
   .mobile-tab-btn{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
@@ -1610,10 +1067,40 @@ html, body{
     color:var(--mu); font-size:8px; font-family:'IBM Plex Mono',monospace;
     transition:all .18s; -webkit-tap-highlight-color:transparent;
   }
-  .mobile-tab-btn .ico{ font-size:19px; line-height:1; transition:transform .18s; }
+  .mobile-tab-btn .ico{ font-size:20px; line-height:1; transition:transform .18s; }
   .mobile-tab-btn.on{ color:var(--ac); }
-  .mobile-tab-btn.on .ico{ transform:scale(1.15); }
-  .mobile-tab-btn:active{ transform:scale(.92); }
+  .mobile-tab-btn.on .ico{ transform:scale(1.18); }
+  .mobile-tab-btn:active{ transform:scale(.88); }
+  /* Menu "Plus" overlay */
+  .mobile-more-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:248;
+    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+    animation:fadeIn .15s ease;
+  }
+  .mobile-more-drawer{
+    position:fixed; bottom:calc(62px + env(safe-area-inset-bottom)); left:0; right:0;
+    background:rgba(18,18,24,.98); border-top:1px solid var(--bd);
+    border-radius:18px 18px 0 0; z-index:249;
+    padding:12px 10px 6px;
+    animation:slideUp .2s cubic-bezier(.4,0,.2,1);
+    max-height:72vh; overflow-y:auto;
+  }
+  @keyframes slideUp{ from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+  .mobile-more-grid{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:6px;
+  }
+  .mobile-more-btn{
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:10px 4px; border-radius:10px; border:1px solid var(--bd);
+    background:var(--s2); cursor:pointer; color:var(--mu);
+    font-size:8px; font-family:'IBM Plex Mono',monospace;
+    transition:all .15s; -webkit-tap-highlight-color:transparent;
+    min-height:60px; justify-content:center;
+  }
+  .mobile-more-btn .mico{ font-size:20px; line-height:1; }
+  .mobile-more-btn.on{ background:rgba(212,168,83,.12); border-color:rgba(212,168,83,.4); color:var(--ac); }
+  .mobile-more-btn:active{ transform:scale(.92); background:rgba(212,168,83,.08); }
+  .mobile-more-section{ font-size:8px; color:var(--mu); font-weight:700; letter-spacing:1px; padding:8px 4px 4px; }
 }
 
 /* ── Scrolling tactile amélioré partout ── */
@@ -2976,7 +2463,7 @@ function PromptsTab({ onInject }) {
   const [search, setSearch] = React.useState("");
 
   const saveCustom = (list) => { setCustomPrompts(list); try { localStorage.setItem("multiia_prompts", JSON.stringify(list)); } catch {} };
-  const allPrompts = [...customPrompts, ...DEFAULT_PROMPTS];
+  const allPrompts = [...customPrompts, ...DEFAULT_PROMPTS, ...EXTRA_PROMPTS];
   const cats = ["Tout", ...new Set(allPrompts.map(p => p.cat))];
   const filtered = allPrompts.filter(p => {
     const matchCat = catFilter === "Tout" || p.cat === catFilter;
@@ -3169,6 +2656,11 @@ function PromptsTab({ onInject }) {
             <div className="prom-preview">{p.text}</div>
             <div className="prom-btns">
               <button className="prom-inject" onClick={() => onInject(p.text)}>↗ Injecter dans Chat</button>
+              <button className="prom-del" title="Partager ce prompt par lien" onClick={()=>{
+                try{const b64=btoa(unescape(encodeURIComponent(JSON.stringify({type:"prompt",text:p.text,title:p.title}))));
+                navigator.clipboard.writeText(window.location.origin+window.location.pathname+"?prompt="+encodeURIComponent(b64));
+                }catch(e){navigator.clipboard.writeText(p.text);}
+              }} style={{color:"var(--blue)",borderColor:"rgba(96,165,250,.3)"}}>🔗</button>
               {p.custom && <button className="prom-del" onClick={() => delPrompt(p.id)}>✕</button>}
             </div>
           </div>
@@ -3386,6 +2878,7 @@ function StatsTab({ stats, onReset }) {
   const totalConvs = stats.convs || 0;
   const topIA = Object.entries(stats.msgs||{}).sort(([,a],[,b])=>b-a)[0];
   const maxTok = Math.max(...Object.values(stats.tokens||{}).map(v=>v||0),1);
+  const [activeView, setActiveView] = React.useState("overview");
 
   const estimateCost = (id) => {
     const tok = stats.tokens?.[id] || 0;
@@ -3397,47 +2890,3798 @@ function StatsTab({ stats, onReset }) {
   const fmtN = (n) => n>=1e6?(n/1e6).toFixed(1)+"M":n>=1000?(n/1000).toFixed(1)+"k":String(n||0);
   const fmtCost = (c) => c<0.01?"< $0.01":"$"+c.toFixed(3);
 
+  // ── Données par heure ──────────────────────────────────────────
+  const byHour = stats.byHour || {};
+  const maxHour = Math.max(...Array.from({length:24},(_,h)=>byHour[h]||0),1);
+  const peakHour = Array.from({length:24},(_,h)=>h).sort((a,b)=>(byHour[b]||0)-(byHour[a]||0))[0];
+  // ── Données par jour (7 derniers jours) ────────────────────────
+  const byDate = stats.byDate || {};
+  const last7 = Array.from({length:7},(_,i)=>{
+    const d = new Date(); d.setDate(d.getDate()-i);
+    return d.toISOString().slice(0,10);
+  }).reverse();
+  const maxDay = Math.max(...last7.map(d=>byDate[d]||0),1);
+
+  const views = [["overview","📊 Vue globale"],["heure","🕐 Par heure"],["jours","📅 7 jours"],["cout","💰 Coûts"]];
+
   return (
     <div className="stats-wrap">
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--tx)"}}>📊 Statistiques d'usage</div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--tx)"}}>📊 Statistiques avancées</div>
         <button style={{marginLeft:"auto",padding:"5px 12px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:9}}
           onClick={()=>{ if(window.confirm("Réinitialiser les statistiques ?")) onReset(); }}>↺ Réinitialiser</button>
       </div>
-      <div className="stats-grid">
-        <div className="stat-card"><div className="stat-val">{totalConvs}</div><div className="stat-lbl">Conversations</div></div>
-        <div className="stat-card"><div className="stat-val">{fmtN(totalMsgs)}</div><div className="stat-lbl">Messages envoyés</div></div>
-        <div className="stat-card"><div className="stat-val">{fmtN(totalTok)}</div><div className="stat-lbl">Tokens estimés</div></div>
-        <div className="stat-card"><div className="stat-val">{fmtCost(totalCost)}</div><div className="stat-lbl">Coût estimé</div></div>
-        {topIA && <div className="stat-card"><div className="stat-val">{MODEL_DEFS[topIA[0]]?.icon}</div><div className="stat-lbl">IA préférée</div><div className="stat-sub" style={{color:MODEL_DEFS[topIA[0]]?.color}}>{MODEL_DEFS[topIA[0]]?.short} — {topIA[1]} msg</div></div>}
+      {/* Sous-onglets */}
+      <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap"}}>
+        {views.map(([v,l])=>(
+          <button key={v} onClick={()=>setActiveView(v)}
+            style={{padding:"5px 12px",borderRadius:12,border:"1px solid "+(activeView===v?"var(--ac)":"var(--bd)"),background:activeView===v?"rgba(212,168,83,.12)":"transparent",color:activeView===v?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:activeView===v?700:400}}>
+            {l}
+          </button>
+        ))}
       </div>
-      <div className="stats-bar-section">
-        <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Messages par IA</div>
-        {Object.keys(MODEL_DEFS).map(id => {
-          const m = MODEL_DEFS[id]; const count = stats.msgs?.[id]||0;
-          const maxC = Math.max(...Object.values(stats.msgs||{}).map(v=>v||0),1);
-          return (<div key={id} className="stats-bar-row">
-            <div className="stats-bar-name" style={{color:m.color}}>{m.icon} {m.short}</div>
-            <div className="stats-bar-track"><div className="stats-bar-fill" style={{width:(count/maxC*100)+"%",background:m.color}}/></div>
-            <div className="stats-bar-val">{count} msg</div>
-          </div>);
-        })}
-      </div>
-      <div className="stats-bar-section">
-        <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Tokens & Coûts estimés par IA</div>
-        {Object.keys(MODEL_DEFS).map(id => {
-          const m = MODEL_DEFS[id]; const tok = stats.tokens?.[id]||0; const p = PRICING[id];
-          return (<div key={id} className="stats-bar-row">
-            <div className="stats-bar-name" style={{color:m.color}}>{m.icon} {m.short}</div>
-            <div className="stats-bar-track"><div className="stats-bar-fill" style={{width:(tok/maxTok*100)+"%",background:m.color}}/></div>
-            <div className="stats-bar-val">{fmtN(tok)}t · {fmtCost(estimateCost(id))}</div>
-          </div>);
-        })}
-        <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:700}}>
-          <span style={{color:"var(--tx)"}}>Total estimé</span><span style={{color:"var(--ac)"}}>{fmtCost(totalCost)}</span>
+
+      {activeView==="overview" && <>
+        <div className="stats-grid">
+          <div className="stat-card"><div className="stat-val">{totalConvs}</div><div className="stat-lbl">Conversations</div></div>
+          <div className="stat-card"><div className="stat-val">{fmtN(totalMsgs)}</div><div className="stat-lbl">Messages</div></div>
+          <div className="stat-card"><div className="stat-val">{fmtN(totalTok)}</div><div className="stat-lbl">Tokens</div></div>
+          <div className="stat-card"><div className="stat-val">{fmtCost(totalCost)}</div><div className="stat-lbl">Coût estimé</div></div>
+          {topIA && <div className="stat-card"><div className="stat-val">{MODEL_DEFS[topIA[0]]?.icon}</div><div className="stat-lbl">IA préférée</div><div className="stat-sub" style={{color:MODEL_DEFS[topIA[0]]?.color}}>{MODEL_DEFS[topIA[0]]?.short} — {topIA[1]} msg</div></div>}
+          {peakHour!==undefined && <div className="stat-card"><div className="stat-val">{peakHour}h</div><div className="stat-lbl">Heure de pointe</div><div className="stat-sub">{byHour[peakHour]||0} messages</div></div>}
         </div>
-        <div style={{marginTop:4,fontSize:8,color:"var(--mu)"}}>⚠️ Estimation approx. (70% input / 30% output). Claude est intégré donc sans coût API ici.</div>
+        <div className="stats-bar-section">
+          <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Messages par IA</div>
+          {Object.keys(MODEL_DEFS).map(id => {
+            const m = MODEL_DEFS[id]; const count = stats.msgs?.[id]||0;
+            const maxC = Math.max(...Object.values(stats.msgs||{}).map(v=>v||0),1);
+            return (<div key={id} className="stats-bar-row">
+              <div className="stats-bar-name" style={{color:m.color}}>{m.icon} {m.short}</div>
+              <div className="stats-bar-track"><div className="stats-bar-fill" style={{width:(count/maxC*100)+"%",background:m.color}}/></div>
+              <div className="stats-bar-val">{count} msg</div>
+            </div>);
+          })}
+        </div>
+      </>}
+
+      {activeView==="heure" && (
+        <div className="stats-bar-section">
+          <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:4,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Activité par heure de la journée</div>
+          <div style={{fontSize:8,color:"var(--mu)",marginBottom:12}}>Heure de pointe : {peakHour}h ({byHour[peakHour]||0} messages)</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(12,1fr)",gap:4,marginBottom:8}}>
+            {Array.from({length:24},(_,h)=>{
+              const count = byHour[h]||0;
+              const pct = Math.round((count/maxHour)*100);
+              const isNow = new Date().getHours()===h;
+              const isPeak = h===peakHour && count>0;
+              return <div key={h} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                <div style={{width:"100%",height:60,display:"flex",alignItems:"flex-end",background:"var(--s2)",borderRadius:"3px 3px 0 0",overflow:"hidden",border:isNow?"1px solid var(--ac)":"1px solid transparent"}}>
+                  <div style={{width:"100%",height:pct+"%",background:isPeak?"var(--ac)":isNow?"rgba(212,168,83,.6)":"var(--blue)",transition:"height .3s",minHeight:count>0?4:0,opacity:count>0?1:.2}}/>
+                </div>
+                <span style={{fontSize:7,color:isNow?"var(--ac)":"var(--mu)",fontFamily:"var(--font-mono)"}}>{h}h</span>
+                {count>0 && <span style={{fontSize:7,color:"var(--tx)"}}>{count}</span>}
+              </div>;
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeView==="jours" && (
+        <div className="stats-bar-section">
+          <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:4,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Activité — 7 derniers jours</div>
+          <div style={{display:"flex",gap:8,alignItems:"flex-end",height:120,marginBottom:8,padding:"0 4px"}}>
+            {last7.map(d=>{
+              const count = byDate[d]||0;
+              const pct = Math.round((count/maxDay)*100);
+              const isToday = d===new Date().toISOString().slice(0,10);
+              const label = new Date(d).toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"});
+              return <div key={d} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <span style={{fontSize:8,color:"var(--tx)",fontWeight:700}}>{count>0?count:""}</span>
+                <div style={{width:"100%",flex:1,display:"flex",alignItems:"flex-end",background:"var(--s2)",borderRadius:"4px 4px 0 0",overflow:"hidden",border:isToday?"1px solid var(--ac)":"none"}}>
+                  <div style={{width:"100%",height:Math.max(pct,count>0?8:0)+"%",background:isToday?"var(--ac)":"var(--blue)",transition:"height .4s"}}/>
+                </div>
+                <span style={{fontSize:7,color:isToday?"var(--ac)":"var(--mu)",textAlign:"center",lineHeight:1.2}}>{label}</span>
+              </div>;
+            })}
+          </div>
+          <div style={{fontSize:8,color:"var(--mu)"}}>Total 7 jours : {last7.reduce((a,d)=>a+(byDate[d]||0),0)} messages</div>
+        </div>
+      )}
+
+      {activeView==="cout" && (
+        <div className="stats-bar-section">
+          <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Tokens & Coûts estimés par IA</div>
+          {Object.keys(MODEL_DEFS).map(id => {
+            const m = MODEL_DEFS[id]; const tok = stats.tokens?.[id]||0; const p = PRICING[id];
+            return (<div key={id} className="stats-bar-row">
+              <div className="stats-bar-name" style={{color:m.color}}>{m.icon} {m.short}</div>
+              <div className="stats-bar-track"><div className="stats-bar-fill" style={{width:(tok/maxTok*100)+"%",background:m.color}}/></div>
+              <div className="stats-bar-val">{fmtN(tok)}t · {fmtCost(estimateCost(id))}</div>
+            </div>);
+          })}
+          <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:700}}>
+            <span style={{color:"var(--tx)"}}>Total estimé</span><span style={{color:"var(--ac)"}}>{fmtCost(totalCost)}</span>
+          </div>
+          <div style={{marginTop:4,fontSize:8,color:"var(--mu)"}}>⚠️ Estimation approx. (70% input / 30% output). Claude est intégré donc sans coût API ici.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── GlossaireTab ─────────────────────────────────────────────────
+function GlossaireTab({ navigateTab, setChatInput }) {
+  const [search, setSearch] = React.useState("");
+  const [cat, setCat] = React.useState("Tout");
+  const [expanded, setExpanded] = React.useState(null);
+  const cats = ["Tout", ...new Set(GLOSSAIRE_IA.map(g => g.cat))];
+  const filtered = GLOSSAIRE_IA.filter(g => {
+    const matchCat = cat === "Tout" || g.cat === cat;
+    const q = search.toLowerCase();
+    const matchSearch = !q || g.terme.toLowerCase().includes(q) || g.simple.toLowerCase().includes(q) || g.def.toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)"}}>📖 Glossaire IA</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— {GLOSSAIRE_IA.length} termes expliqués simplement</div>
       </div>
+      {/* Search + filtre */}
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un terme…"
+          style={{flex:1,minWidth:160,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 11px",outline:"none"}}/>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {cats.map(c=>(
+            <button key={c} onClick={()=>setCat(c)}
+              style={{padding:"5px 10px",borderRadius:12,border:"1px solid "+(cat===c?"var(--ac)":"var(--bd)"),background:cat===c?"rgba(212,168,83,.12)":"transparent",color:cat===c?"var(--ac)":"var(--mu)",fontSize:8,cursor:"pointer",fontWeight:cat===c?700:400}}>
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Grille */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:8}}>
+        {filtered.map(g=>(
+          <div key={g.terme} onClick={()=>setExpanded(expanded===g.terme?null:g.terme)}
+            style={{background:"var(--s1)",border:"1px solid "+(expanded===g.terme?"rgba(212,168,83,.4)":"var(--bd)"),borderRadius:10,padding:"12px 14px",cursor:"pointer",transition:"all .15s"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <span style={{fontSize:18}}>{g.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:12,color:"var(--tx)",fontFamily:"var(--font-display)"}}>{g.terme}</div>
+                <div style={{fontSize:9,color:"var(--ac)",fontStyle:"italic"}}>{g.simple}</div>
+              </div>
+              <span style={{fontSize:7,padding:"2px 6px",background:"rgba(167,139,250,.1)",color:"#A78BFA",borderRadius:8,fontWeight:700,flexShrink:0}}>{g.cat}</span>
+            </div>
+            <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.6}}>{g.def}</div>
+            {expanded===g.terme && (
+              <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid var(--bd)"}}>
+                <div style={{fontSize:8,color:"var(--green)",fontWeight:700,marginBottom:3}}>EXEMPLE</div>
+                <div style={{fontSize:9,color:"var(--tx)",fontStyle:"italic",lineHeight:1.5}}>{g.exemple}</div>
+                <button onClick={e=>{e.stopPropagation();setChatInput("Explique-moi le concept de "+g.terme+" en IA avec des exemples concrets.");navigateTab("chat");}}
+                  style={{marginTop:8,fontSize:8,padding:"3px 9px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>
+                  💬 Approfondir dans le Chat
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {filtered.length===0 && <div style={{gridColumn:"1/-1",textAlign:"center",padding:32,color:"var(--mu)",fontSize:10}}>Aucun terme trouvé pour "{search}"</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── BenchmarkTab ──────────────────────────────────────────────────
+function BenchmarkTab({ enabled, apiKeys }) {
+  const [results, setResults] = React.useState({}); // {iaId: {testId: {response, time, score}}}
+  const [running, setRunning] = React.useState(false);
+  const [selectedTest, setSelectedTest] = React.useState("reasoning");
+  const [customPrompt, setCustomPrompt] = React.useState("");
+  const [useCustom, setUseCustom] = React.useState(false);
+  const [progress, setProgress] = React.useState({});
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && MODEL_DEFS[id].apiType !== "pollinations" && !MODEL_DEFS[id].serial);
+  const test = BENCHMARK_TESTS.find(t => t.id === selectedTest) || BENCHMARK_TESTS[0];
+  const prompt = useCustom ? customPrompt : test.prompt;
+
+  const runBenchmark = async () => {
+    if (!prompt.trim() || !activeIds.length) return;
+    setRunning(true); setResults({}); setProgress({});
+    const newResults = {};
+    await Promise.all(activeIds.map(async (id) => {
+      setProgress(p => ({...p, [id]:"running"}));
+      const start = Date.now();
+      try {
+        const resp = await callModel(id, [{role:"user", content:prompt}], apiKeys, "Tu es un assistant concis. Réponds directement sans intro.");
+        const time = ((Date.now() - start) / 1000).toFixed(1);
+        newResults[id] = { response: resp, time: parseFloat(time), status:"ok" };
+        setProgress(p => ({...p, [id]:"done"}));
+      } catch(e) {
+        newResults[id] = { response: "❌ "+e.message, time: null, status:"error" };
+        setProgress(p => ({...p, [id]:"error"}));
+      }
+      setResults({...newResults});
+    }));
+    setRunning(false);
+  };
+
+  const sorted = Object.entries(results)
+    .filter(([,r]) => r.status==="ok")
+    .sort(([,a],[,b]) => (a.time||99)-(b.time||99));
+
+  const medals = ["🥇","🥈","🥉"];
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)"}}>⚡ Benchmark Live</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Teste toutes tes IAs en parallèle sur le même prompt</div>
+      </div>
+      {/* Sélecteur de test */}
+      <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>TESTS PRÉDÉFINIS</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:useCustom?0:10}}>
+          {BENCHMARK_TESTS.map(t=>(
+            <button key={t.id} onClick={()=>{setSelectedTest(t.id);setUseCustom(false);}}
+              style={{padding:"5px 11px",borderRadius:12,border:"1px solid "+(selectedTest===t.id&&!useCustom?"var(--ac)":"var(--bd)"),background:selectedTest===t.id&&!useCustom?"rgba(212,168,83,.12)":"transparent",color:selectedTest===t.id&&!useCustom?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:selectedTest===t.id&&!useCustom?700:400}}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+          <button onClick={()=>setUseCustom(true)}
+            style={{padding:"5px 11px",borderRadius:12,border:"1px solid "+(useCustom?"var(--ac)":"var(--bd)"),background:useCustom?"rgba(212,168,83,.12)":"transparent",color:useCustom?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:useCustom?700:400}}>
+            ✏️ Prompt perso
+          </button>
+        </div>
+        {!useCustom && <div style={{fontSize:9,color:"var(--mu)",fontStyle:"italic",lineHeight:1.5,marginTop:6,padding:"8px 10px",background:"var(--s2)",borderRadius:6}}>{test.prompt.slice(0,120)}…</div>}
+        {useCustom && <textarea value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} placeholder="Tape ton prompt ici…" rows={3}
+          style={{width:"100%",marginTop:8,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>}
+      </div>
+      {/* Lancer */}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <button onClick={runBenchmark} disabled={running||!activeIds.length}
+          style={{padding:"8px 20px",background:running?"var(--s2)":"rgba(212,168,83,.15)",border:"1px solid "+(running?"var(--bd)":"rgba(212,168,83,.4)"),borderRadius:6,color:running?"var(--mu)":"var(--ac)",fontSize:10,cursor:running?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)"}}>
+          {running ? "⏳ Benchmark en cours…" : "▶ Lancer le benchmark"}
+        </button>
+        {activeIds.length===0 && <span style={{fontSize:9,color:"var(--red)"}}>Active au moins une IA dans Config</span>}
+        {activeIds.length>0 && !running && <span style={{fontSize:9,color:"var(--mu)"}}>{activeIds.length} IAs testées en parallèle</span>}
+      </div>
+      {/* Progression */}
+      {running && (
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+          {activeIds.map(id=>{
+            const m=MODEL_DEFS[id]; const s=progress[id];
+            return <div key={id} style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+(s==="done"?"var(--green)":s==="error"?"var(--red)":m.color+"44"),background:s==="done"?"rgba(74,222,128,.08)":s==="error"?"rgba(248,113,113,.08)":"rgba(255,255,255,.03)",fontSize:9,color:s==="done"?"var(--green)":s==="error"?"var(--red)":m.color,display:"flex",alignItems:"center",gap:5}}>
+              {s==="running"?<span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⟳</span>:s==="done"?"✓":s==="error"?"✕":"…"}
+              {m.short}
+            </div>;
+          })}
+        </div>
+      )}
+      {/* Podium vitesse */}
+      {sorted.length>0 && (
+        <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8,padding:"12px"}}>
+          <div style={{fontSize:9,color:"var(--ac)",fontWeight:700,marginBottom:8}}>🏆 CLASSEMENT VITESSE</div>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {sorted.map(([id,r],i)=>{
+              const m=MODEL_DEFS[id];
+              const fastest=sorted[0][1].time;
+              const pct=fastest?Math.round((fastest/r.time)*100):100;
+              return <div key={id} style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:16,width:24,textAlign:"center"}}>{medals[i]||"·"}</span>
+                <span style={{color:m.color,fontSize:11,width:20}}>{m.icon}</span>
+                <span style={{fontSize:10,color:"var(--tx)",width:80,flexShrink:0}}>{m.short}</span>
+                <div style={{flex:1,height:6,background:"var(--s2)",borderRadius:3,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:pct+"%",background:m.color,borderRadius:3,transition:"width .5s"}}/>
+                </div>
+                <span style={{fontSize:9,color:"var(--mu)",fontFamily:"var(--font-mono)",width:40,textAlign:"right"}}>{r.time}s</span>
+              </div>;
+            })}
+          </div>
+        </div>
+      )}
+      {/* Réponses détaillées */}
+      {Object.keys(results).length>0 && (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10}}>
+          {Object.entries(results).sort(([,a],[,b])=>(a.time||99)-(b.time||99)).map(([id,r],i)=>{
+            const m=MODEL_DEFS[id];
+            return <div key={id} style={{background:"var(--s1)",border:"1px solid "+(r.status==="error"?"rgba(248,113,113,.3)":m.color+"33"),borderRadius:8,padding:"12px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                <span style={{fontSize:16}}>{medals[i]||"·"}</span>
+                <span style={{color:m.color,fontSize:14}}>{m.icon}</span>
+                <span style={{fontWeight:700,fontSize:11,color:m.color}}>{m.name}</span>
+                {r.time && <span style={{marginLeft:"auto",fontSize:9,fontFamily:"var(--font-mono)",color:"var(--mu)"}}>{r.time}s</span>}
+              </div>
+              <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.6,maxHeight:120,overflow:"auto"}}>{r.response.slice(0,400)}{r.response.length>400?"…":""}</div>
+            </div>;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  1. PROMPT AUTOPSY                                           ║
+// ╚══════════════════════════════════════════════════════════════╝
+function PromptAutopsyTab({ enabled, apiKeys, conversations }) {
+  const [badResponse, setBadResponse] = React.useState("");
+  const [originalPrompt, setOriginalPrompt] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  // Pré-remplir depuis la dernière réponse du chat
+  const lastResponses = React.useMemo(() => {
+    return activeIds.map(id => {
+      const msgs = conversations[id] || [];
+      const last = [...msgs].reverse().find(m => m.role === "assistant");
+      const q = [...msgs].reverse().find(m => m.role === "user");
+      return last ? { id, text: last.content, question: q?.content || "" } : null;
+    }).filter(Boolean);
+  }, [conversations, activeIds]);
+
+  const runAutopsy = async () => {
+    if (!badResponse.trim()) return;
+    setLoading(true); setResult(null);
+    const judge = activeIds.find(id => ["groq","mistral","cerebras"].includes(id)) || activeIds[0];
+    if (!judge) { setLoading(false); return; }
+    const prompt = `Tu es un expert en prompt engineering et évaluation de LLMs. Analyse cette réponse d'IA qui a déçu l'utilisateur.
+
+PROMPT ORIGINAL : ${originalPrompt || "(non fourni)"}
+RÉPONSE DÉCEVANTE :
+${badResponse.slice(0, 1500)}
+
+Effectue une autopsie complète. Réponds UNIQUEMENT en JSON valide :
+{
+  "verdict": "phrase de 1 ligne résumant le problème principal",
+  "score_mauvais": 3,
+  "biais": [{"nom":"Nom du biais","description":"ce qui s'est passé","gravite":"haute|moyenne|faible"}],
+  "erreurs_raisonnement": ["erreur 1","erreur 2"],
+  "problemes_prompt": ["problème dans le prompt qui a causé ça"],
+  "prompt_ameliore": "version améliorée du prompt original qui évite ces problèmes",
+  "prompt_v2": "deuxième variante encore plus précise",
+  "lecon": "conseil principal à retenir pour éviter ce problème"
+}`;
+    try {
+      const { callModel: cm } = await import("./api/ai-service.js");
+      const reply = await cm(judge, [{role:"user", content:prompt}], apiKeys, "Expert analyse IA. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0] || clean);
+      setResult(data);
+    } catch(e) { setResult({ verdict:"Erreur d'analyse : "+e.message, biais:[], erreurs_raisonnement:[], problemes_prompt:[], prompt_ameliore:"", prompt_v2:"", lecon:"" }); }
+    setLoading(false);
+  };
+
+  const graviteColor = g => g==="haute"?"var(--red)":g==="moyenne"?"var(--orange)":"var(--mu)";
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#F87171"}}>🔬 Prompt Autopsy</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Disséquer pourquoi une réponse d'IA était mauvaise</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(248,113,113,.06)",border:"1px solid rgba(248,113,113,.15)",borderRadius:6}}>
+        Colle une réponse d'IA qui t'a déçu. L'autopsie identifie les biais, erreurs de raisonnement, et génère un prompt amélioré qui évite ces problèmes.
+      </div>
+
+      {/* Pré-remplir depuis le chat */}
+      {lastResponses.length > 0 && (
+        <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>PRÉ-REMPLIR DEPUIS LE CHAT</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {lastResponses.slice(0,5).map(r=>{
+              const m = MODEL_DEFS[r.id];
+              return <button key={r.id} onClick={()=>{setBadResponse(r.text.slice(0,1500));setOriginalPrompt(r.question.slice(0,500));}}
+                style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+m.color+"44",background:m.color+"11",color:m.color,fontSize:8,cursor:"pointer"}}>
+                {m.icon} Dernière réponse {m.short}
+              </button>;
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <div>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>PROMPT ORIGINAL (optionnel)</div>
+          <textarea value={originalPrompt} onChange={e=>setOriginalPrompt(e.target.value)} placeholder="Le prompt que tu avais envoyé…" rows={3}
+            style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+        </div>
+        <div>
+          <div style={{fontSize:8,color:"var(--red)",fontWeight:700,marginBottom:5}}>RÉPONSE DÉCEVANTE *</div>
+          <textarea value={badResponse} onChange={e=>setBadResponse(e.target.value)} placeholder="Colle ici la réponse qui t'a déçu…" rows={3}
+            style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(248,113,113,.3)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+        </div>
+      </div>
+
+      <button onClick={runAutopsy} disabled={loading||!badResponse.trim()||!activeIds.length}
+        style={{padding:"9px 22px",background:loading?"var(--s2)":"rgba(248,113,113,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(248,113,113,.4)"),borderRadius:6,color:loading?"var(--mu)":"var(--red)",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)",marginBottom:16}}>
+        {loading?"🔬 Autopsie en cours…":"🔬 Lancer l'autopsie"}
+      </button>
+
+      {result && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {/* Verdict */}
+          <div style={{padding:"12px 16px",background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.3)",borderRadius:8}}>
+            <div style={{fontSize:8,color:"var(--red)",fontWeight:700,marginBottom:4}}>VERDICT</div>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",lineHeight:1.5}}>{result.verdict}</div>
+            {result.lecon && <div style={{marginTop:6,fontSize:9,color:"var(--mu)",fontStyle:"italic"}}>💡 {result.lecon}</div>}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+            {/* Biais */}
+            {result.biais?.length > 0 && (
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+                <div style={{fontSize:8,color:"var(--orange)",fontWeight:700,marginBottom:8}}>🧠 BIAIS DÉTECTÉS</div>
+                {result.biais.map((b,i)=>(
+                  <div key={i} style={{marginBottom:8,paddingBottom:8,borderBottom:i<result.biais.length-1?"1px solid var(--bd)":"none"}}>
+                    <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3}}>
+                      <span style={{fontWeight:700,fontSize:10,color:graviteColor(b.gravite)}}>{b.nom}</span>
+                      <span style={{fontSize:7,padding:"1px 5px",borderRadius:8,background:graviteColor(b.gravite)+"22",color:graviteColor(b.gravite),fontWeight:700}}>{b.gravite}</span>
+                    </div>
+                    <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5}}>{b.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Erreurs */}
+            {result.erreurs_raisonnement?.length > 0 && (
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+                <div style={{fontSize:8,color:"var(--red)",fontWeight:700,marginBottom:8}}>⚠️ ERREURS DE RAISONNEMENT</div>
+                {result.erreurs_raisonnement.map((e,i)=>(
+                  <div key={i} style={{display:"flex",gap:6,marginBottom:5,fontSize:9,color:"var(--tx)"}}>
+                    <span style={{color:"var(--red)",flexShrink:0}}>✗</span>{e}
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Problèmes prompt */}
+            {result.problemes_prompt?.length > 0 && (
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+                <div style={{fontSize:8,color:"var(--ac)",fontWeight:700,marginBottom:8}}>📝 PROBLÈMES DANS TON PROMPT</div>
+                {result.problemes_prompt.map((p,i)=>(
+                  <div key={i} style={{display:"flex",gap:6,marginBottom:5,fontSize:9,color:"var(--tx)"}}>
+                    <span style={{color:"var(--ac)",flexShrink:0}}>→</span>{p}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Prompts améliorés */}
+          {(result.prompt_ameliore||result.prompt_v2) && (
+            <div style={{background:"var(--s1)",border:"1px solid rgba(74,222,128,.25)",borderRadius:8,padding:"12px"}}>
+              <div style={{fontSize:8,color:"var(--green)",fontWeight:700,marginBottom:10}}>✨ PROMPTS AMÉLIORÉS</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {[["Version 1",result.prompt_ameliore],["Version 2",result.prompt_v2]].filter(([,t])=>t).map(([label,text])=>(
+                  <div key={label}>
+                    <div style={{fontSize:8,color:"var(--mu)",marginBottom:4}}>{label}</div>
+                    <div style={{background:"var(--s2)",borderRadius:6,padding:"8px 10px",fontSize:9,color:"var(--tx)",lineHeight:1.6,position:"relative"}}>
+                      {text}
+                      <button onClick={()=>{navigator.clipboard.writeText(text);}}
+                        style={{position:"absolute",top:4,right:4,fontSize:8,padding:"2px 6px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  2. IA MENTOR — Apprentissage progressif                     ║
+// ╚══════════════════════════════════════════════════════════════╝
+function IaMentorTab({ enabled, apiKeys }) {
+  const MENTOR_KEY = "multiia_mentor_sessions";
+  const [sessions, setSessions] = React.useState(() => { try { return JSON.parse(localStorage.getItem(MENTOR_KEY)||"[]"); } catch { return []; } });
+  const [activeSession, setActiveSession] = React.useState(null);
+  const [creating, setCreating] = React.useState(false);
+  const [topic, setTopic] = React.useState("");
+  const [level, setLevel] = React.useState("débutant");
+  const [sessionCount, setSessionCount] = React.useState(6);
+  const [generating, setGenerating] = React.useState(false);
+  const [currentStep, setCurrentStep] = React.useState(null); // {type:"lesson"|"exercise"|"quiz", content, answer:"", result}
+  const [stepLoading, setStepLoading] = React.useState(false);
+  const [userAnswer, setUserAnswer] = React.useState("");
+
+  const saveS = (s) => { setSessions(s); try { localStorage.setItem(MENTOR_KEY, JSON.stringify(s)); } catch {} };
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const judge = activeIds.find(id=>["groq","mistral","cerebras","sambanova"].includes(id)) || activeIds[0];
+
+  const createSession = async () => {
+    if (!topic.trim() || !judge) return;
+    setGenerating(true);
+    const prompt = `Tu es un pédagogue expert. Crée un programme d'apprentissage de ${sessionCount} sessions pour apprendre : "${topic}" (niveau ${level}).
+
+Réponds UNIQUEMENT en JSON valide :
+{
+  "titre": "titre du programme",
+  "description": "2 phrases de description",
+  "objectif_final": "ce que l'apprenant saura faire à la fin",
+  "sessions": [
+    {
+      "num": 1,
+      "titre": "titre de la session",
+      "objectif": "objectif de cette session",
+      "concepts": ["concept 1","concept 2"],
+      "duree_min": 15
+    }
+  ]
+}`;
+    try {
+      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Pédagogue expert. JSON uniquement.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      const session = {
+        id: Date.now().toString(),
+        topic, level, createdAt: new Date().toISOString(),
+        ...data,
+        sessions: (data.sessions||[]).map(s=>({...s, completed:false, score:null})),
+        currentSession: 0,
+        xp: 0,
+      };
+      const updated = [session, ...sessions];
+      saveS(updated);
+      setActiveSession(session.id);
+      setCreating(false); setTopic("");
+    } catch(e) { alert("Erreur : "+e.message); }
+    setGenerating(false);
+  };
+
+  const launchStep = async (session, stepType) => {
+    if (!judge) return;
+    setStepLoading(true); setCurrentStep(null); setUserAnswer("");
+    const sess = session.sessions[session.currentSession];
+    const prompts = {
+      lesson: `Tu es un professeur expert en "${session.topic}". Donne une leçon complète sur : "${sess.titre}" pour niveau ${session.level}.
+Structure : 1) Explication claire (avec analogies), 2) Exemple concret, 3) Résumé en 3 points clés. Maximum 400 mots.`,
+      exercise: `Crée un exercice pratique sur "${sess.titre}" pour niveau ${session.level}.
+Format : Présente l'exercice clairement, sans donner la solution. Termine par "Ta réponse :"`,
+      quiz: `Crée une question de quiz à choix multiples (A/B/C/D) sur "${sess.titre}".
+Format : La question, puis A) B) C) D). Termine par "Ta réponse (A/B/C/D) :"`
+    };
+    try {
+      const reply = await callModel(judge, [{role:"user",content:prompts[stepType]}], apiKeys, `Tu es un mentor pédagogue expert en "${session.topic}".`);
+      setCurrentStep({ type:stepType, content:reply, answer:"", result:null, sessInfo:sess });
+    } catch(e) { setCurrentStep({ type:stepType, content:"Erreur : "+e.message, answer:"", result:null }); }
+    setStepLoading(false);
+  };
+
+  const submitAnswer = async () => {
+    if (!currentStep || !userAnswer.trim() || !judge) return;
+    setStepLoading(true);
+    const evalPrompt = `L'apprenant a répondu à cet ${currentStep.type==="quiz"?"quiz":"exercice"} :
+
+CONTENU : ${currentStep.content}
+RÉPONSE DE L'APPRENANT : ${userAnswer}
+
+Évalue la réponse. Réponds en JSON :
+{"correct":true/false,"score":0-10,"feedback":"explication en 2-3 phrases","points_forts":["..."],"a_ameliorer":["..."],"bonne_reponse":"la réponse correcte complète"}`;
+    try {
+      const reply = await callModel(judge, [{role:"user",content:evalPrompt}], apiKeys, "Évaluateur pédagogique. JSON uniquement.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const eval_ = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      setCurrentStep(prev=>({...prev, result:eval_, answer:userAnswer}));
+      // Update session XP + progression
+      const xpGained = eval_.correct ? 30 : 10;
+      setSessions(prev => {
+        const updated = prev.map(s => {
+          if (s.id !== activeSession) return s;
+          return { ...s, xp: (s.xp||0) + xpGained };
+        });
+        saveS(updated);
+        return updated;
+      });
+    } catch(e) { setCurrentStep(prev=>({...prev, result:{correct:false, feedback:"Erreur d'évaluation : "+e.message, score:0}})); }
+    setStepLoading(false);
+  };
+
+  const completeSession = () => {
+    setSessions(prev => {
+      const updated = prev.map(s => {
+        if (s.id !== activeSession) return s;
+        const newSessions = s.sessions.map((sess,i) => i===s.currentSession ? {...sess, completed:true, score: currentStep?.result?.score||5} : sess);
+        const nextIdx = Math.min(s.currentSession+1, s.sessions.length-1);
+        return { ...s, sessions:newSessions, currentSession:nextIdx, xp:(s.xp||0)+50 };
+      });
+      saveS(updated);
+      return updated;
+    });
+    setCurrentStep(null); setUserAnswer("");
+  };
+
+  const active = sessions.find(s=>s.id===activeSession);
+  const levels = ["débutant","intermédiaire","avancé","expert"];
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar sessions */}
+      <div style={{width:200,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--s1)"}}>
+        <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:12,color:"var(--ac)",marginBottom:8}}>🎓 IA Mentor</div>
+          <button onClick={()=>setCreating(true)}
+            style={{width:"100%",padding:"6px 10px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+            + Nouveau programme
+          </button>
+        </div>
+        <div style={{flex:1,overflow:"auto"}}>
+          {sessions.length===0&&<div style={{padding:16,fontSize:9,color:"var(--mu)",textAlign:"center"}}>Aucun programme</div>}
+          {sessions.map(s=>{
+            const done = s.sessions?.filter(x=>x.completed).length||0;
+            const total = s.sessions?.length||0;
+            const pct = total>0?Math.round(done/total*100):0;
+            return <div key={s.id} onClick={()=>{setActiveSession(s.id);setCreating(false);setCurrentStep(null);}}
+              style={{padding:"9px 12px",cursor:"pointer",borderBottom:"1px solid var(--bd)",background:activeSession===s.id?"rgba(212,168,83,.08)":"transparent",borderLeft:"3px solid "+(activeSession===s.id?"var(--ac)":"transparent")}}>
+              <div style={{fontSize:10,fontWeight:600,color:activeSession===s.id?"var(--ac)":"var(--tx)",marginBottom:3}}>{s.titre||s.topic}</div>
+              <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
+                <div style={{flex:1,height:3,background:"var(--s2)",borderRadius:2}}><div style={{height:"100%",width:pct+"%",background:"var(--green)",borderRadius:2}}/></div>
+                <span style={{fontSize:7,color:"var(--mu)"}}>{pct}%</span>
+              </div>
+              <div style={{fontSize:7,color:"var(--mu)"}}>{s.level} · ⚡{s.xp||0} XP · {done}/{total}</div>
+            </div>;
+          })}
+        </div>
+      </div>
+
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"14px 16px"}}>
+        {/* Créer un programme */}
+        {creating && (
+          <div style={{maxWidth:500}}>
+            <div style={{fontWeight:700,fontSize:14,color:"var(--ac)",marginBottom:14,fontFamily:"var(--font-display)"}}>🆕 Nouveau programme d'apprentissage</div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>JE VEUX APPRENDRE</div>
+              <input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="Ex: Python, Marketing digital, Photographie…"
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:11,padding:"8px 11px",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div>
+                <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>MON NIVEAU</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {levels.map(l=><button key={l} onClick={()=>setLevel(l)}
+                    style={{padding:"4px 9px",borderRadius:10,border:"1px solid "+(level===l?"var(--ac)":"var(--bd)"),background:level===l?"rgba(212,168,83,.12)":"transparent",color:level===l?"var(--ac)":"var(--mu)",fontSize:8,cursor:"pointer"}}>{l}</button>)}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>NOMBRE DE SESSIONS</div>
+                <div style={{display:"flex",gap:4}}>
+                  {[4,6,8,10].map(n=><button key={n} onClick={()=>setSessionCount(n)}
+                    style={{flex:1,padding:"4px",borderRadius:6,border:"1px solid "+(sessionCount===n?"var(--ac)":"var(--bd)"),background:sessionCount===n?"rgba(212,168,83,.12)":"transparent",color:sessionCount===n?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer"}}>{n}</button>)}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={createSession} disabled={generating||!topic.trim()||!judge}
+                style={{flex:1,padding:"8px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                {generating?"⏳ Génération du programme…":"✨ Créer le programme"}
+              </button>
+              <button onClick={()=>setCreating(false)} style={{padding:"8px 14px",background:"transparent",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>Annuler</button>
+            </div>
+          </div>
+        )}
+
+        {/* Session active */}
+        {active && !creating && (
+          <>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:15,color:"var(--tx)"}}>{active.titre}</div>
+              <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:9,color:"var(--green)",fontWeight:700}}>⚡ {active.xp} XP</span>
+                <span style={{fontSize:9,color:"var(--mu)"}}>{active.sessions?.filter(s=>s.completed).length||0}/{active.sessions?.length||0} sessions</span>
+              </div>
+            </div>
+            {/* Barre de progression globale */}
+            <div style={{marginBottom:14}}>
+              <div style={{height:6,background:"var(--s2)",borderRadius:3,overflow:"hidden"}}>
+                <div style={{height:"100%",width:((active.sessions?.filter(s=>s.completed).length||0)/(active.sessions?.length||1)*100)+"%",background:"var(--green)",borderRadius:3,transition:"width .5s"}}/>
+              </div>
+            </div>
+            {/* Sessions roadmap */}
+            <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+              {active.sessions?.map((s,i)=>(
+                <div key={i} style={{flexShrink:0,width:110,padding:"8px 10px",borderRadius:8,border:"2px solid "+(i===active.currentSession?"var(--ac)":s.completed?"var(--green)":"var(--bd)"),background:i===active.currentSession?"rgba(212,168,83,.08)":s.completed?"rgba(74,222,128,.06)":"var(--s1)",cursor:"pointer",opacity:i>active.currentSession+1?.6:1}}
+                  onClick={()=>{setSessions(prev=>{const u=prev.map(x=>x.id===active.id?{...x,currentSession:i}:x);saveS(u);return u;});setCurrentStep(null);}}>
+                  <div style={{fontSize:9,color:s.completed?"var(--green)":i===active.currentSession?"var(--ac)":"var(--mu)",fontWeight:700,marginBottom:2}}>{s.completed?"✓":i===active.currentSession?"▶":"○"} S{i+1}</div>
+                  <div style={{fontSize:8,color:"var(--tx)",lineHeight:1.3}}>{s.titre}</div>
+                  {s.score!==null&&<div style={{fontSize:7,color:"var(--ac)",marginTop:2}}>★ {s.score}/10</div>}
+                </div>
+              ))}
+            </div>
+
+            {/* Session courante */}
+            {active.sessions?.[active.currentSession] && (
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"14px 16px",marginBottom:14}}>
+                <div style={{fontWeight:700,fontSize:13,color:"var(--ac)",marginBottom:4}}>
+                  Session {active.currentSession+1} : {active.sessions[active.currentSession].titre}
+                </div>
+                <div style={{fontSize:9,color:"var(--mu)",marginBottom:10}}>{active.sessions[active.currentSession].objectif}</div>
+                {!currentStep && !stepLoading && (
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {[["📖","lesson","Leçon"],["✏️","exercise","Exercice"],["❓","quiz","Quiz"]].map(([ico,type,label])=>(
+                      <button key={type} onClick={()=>launchStep(active,type)}
+                        style={{padding:"8px 16px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                        {ico} {label}
+                      </button>
+                    ))}
+                    {active.sessions[active.currentSession].completed && (
+                      <div style={{fontSize:9,color:"var(--green)",padding:"8px",display:"flex",alignItems:"center",gap:4}}>✅ Session complétée</div>
+                    )}
+                  </div>
+                )}
+                {stepLoading && <div style={{fontSize:10,color:"var(--mu)",padding:"12px 0"}}>⏳ Génération en cours…</div>}
+                {currentStep && !stepLoading && (
+                  <div>
+                    <div style={{fontSize:8,color:"var(--ac)",fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>
+                      {currentStep.type==="lesson"?"📖 Leçon":currentStep.type==="exercise"?"✏️ Exercice":"❓ Quiz"}
+                    </div>
+                    <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,marginBottom:12,whiteSpace:"pre-wrap"}}>{currentStep.content}</div>
+                    {currentStep.type !== "lesson" && !currentStep.result && (
+                      <>
+                        <textarea value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} placeholder="Ta réponse…" rows={3}
+                          style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+                        <button onClick={submitAnswer} disabled={!userAnswer.trim()}
+                          style={{padding:"7px 18px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                          Soumettre ma réponse
+                        </button>
+                      </>
+                    )}
+                    {currentStep.result && (
+                      <div style={{padding:"10px 12px",borderRadius:8,background:currentStep.result.correct?"rgba(74,222,128,.08)":"rgba(248,113,113,.08)",border:"1px solid "+(currentStep.result.correct?"rgba(74,222,128,.3)":"rgba(248,113,113,.3)"),marginTop:8}}>
+                        <div style={{fontWeight:700,fontSize:11,color:currentStep.result.correct?"var(--green)":"var(--red)",marginBottom:4}}>
+                          {currentStep.result.correct?"✅ Correct !":"❌ Pas tout à fait…"} — {currentStep.result.score}/10
+                        </div>
+                        <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.6,marginBottom:6}}>{currentStep.result.feedback}</div>
+                        {currentStep.result.bonne_reponse && <div style={{fontSize:9,color:"var(--ac)",padding:"6px 8px",background:"rgba(212,168,83,.06)",borderRadius:5}}>✨ {currentStep.result.bonne_reponse}</div>}
+                      </div>
+                    )}
+                    <div style={{display:"flex",gap:8,marginTop:10}}>
+                      <button onClick={()=>{setCurrentStep(null);setUserAnswer("");}} style={{fontSize:9,padding:"5px 12px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>↺ Réessayer</button>
+                      {(currentStep.type==="lesson"||currentStep.result) && (
+                        <button onClick={completeSession} style={{fontSize:9,padding:"5px 12px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",cursor:"pointer",fontWeight:700}}>
+                          ✓ Session suivante →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+        {!active && !creating && <div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Sélectionne ou crée un programme d'apprentissage</div>}
+      </div>
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  3. PROMPT DNA — Généalogie des meilleurs prompts            ║
+// ╚══════════════════════════════════════════════════════════════╝
+function PromptDNATab({ onInject }) {
+  const DNA_KEY = "multiia_prompt_dna";
+  const [nodes, setNodes] = React.useState(() => { try { return JSON.parse(localStorage.getItem(DNA_KEY)||"[]"); } catch { return []; } });
+  const [selected, setSelected] = React.useState(null);
+  const [adding, setAdding] = React.useState(false);
+  const [newPrompt, setNewPrompt] = React.useState("");
+  const [newTitle, setNewTitle] = React.useState("");
+  const [parentId, setParentId] = React.useState(null);
+  const [search, setSearch] = React.useState("");
+
+  const saveN = (n) => { setNodes(n); try { localStorage.setItem(DNA_KEY, JSON.stringify(n)); } catch {} };
+
+  const addNode = () => {
+    if (!newPrompt.trim()) return;
+    const node = {
+      id: Date.now().toString(),
+      title: newTitle || newPrompt.slice(0,40)+"…",
+      prompt: newPrompt,
+      parentId: parentId || null,
+      children: [],
+      stars: 0,
+      uses: 0,
+      createdAt: new Date().toISOString(),
+      tags: [],
+    };
+    const updated = [...nodes, node];
+    // Ajouter l'enfant dans le parent
+    if (parentId) {
+      const withChild = updated.map(n => n.id===parentId ? {...n, children:[...n.children, node.id]} : n);
+      saveN(withChild);
+    } else {
+      saveN(updated);
+    }
+    setAdding(false); setNewPrompt(""); setNewTitle(""); setParentId(null);
+    setSelected(node.id);
+  };
+
+  const starNode = (id) => {
+    const updated = nodes.map(n => n.id===id ? {...n, stars:(n.stars||0)+1} : n);
+    saveN(updated);
+  };
+
+  const useNode = (id) => {
+    const updated = nodes.map(n => n.id===id ? {...n, uses:(n.uses||0)+1} : n);
+    saveN(updated);
+    const node = nodes.find(n=>n.id===id);
+    if (node) onInject(node.prompt);
+  };
+
+  const deleteNode = (id) => {
+    const updated = nodes.filter(n=>n.id!==id).map(n=>({...n, children:n.children.filter(c=>c!==id)}));
+    saveN(updated); if(selected===id) setSelected(null);
+  };
+
+  // Racines (nodes sans parent)
+  const roots = nodes.filter(n=>!n.parentId);
+  const getChildren = (id) => nodes.filter(n=>n.parentId===id);
+  const filtered = search ? nodes.filter(n=>n.title.toLowerCase().includes(search.toLowerCase())||n.prompt.toLowerCase().includes(search.toLowerCase())) : null;
+  const sel = nodes.find(n=>n.id===selected);
+
+  const renderNode = (node, depth=0) => (
+    <div key={node.id} style={{marginLeft:depth*16}}>
+      <div onClick={()=>setSelected(node.id)}
+        style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:6,cursor:"pointer",border:"1px solid "+(selected===node.id?"rgba(212,168,83,.4)":"transparent"),background:selected===node.id?"rgba(212,168,83,.06)":"transparent",marginBottom:2}}>
+        {depth>0&&<span style={{color:"var(--mu)",fontSize:10,flexShrink:0}}>└</span>}
+        <span style={{fontSize:9,color:"var(--tx)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{node.title}</span>
+        {node.stars>0&&<span style={{fontSize:8,color:"var(--ac)"}}>★{node.stars}</span>}
+        {node.uses>0&&<span style={{fontSize:7,color:"var(--mu)"}}>×{node.uses}</span>}
+        {getChildren(node.id).length>0&&<span style={{fontSize:7,color:"var(--blue)",flexShrink:0}}>⬡{getChildren(node.id).length}</span>}
+      </div>
+      {getChildren(node.id).map(c=>renderNode(c, depth+1))}
+    </div>
+  );
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar arbre */}
+      <div style={{width:220,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:12,color:"var(--ac)",marginBottom:8}}>🧬 Prompt DNA</div>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher…"
+            style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:8,padding:"5px 8px",outline:"none",boxSizing:"border-box",marginBottom:6}}/>
+          <button onClick={()=>{setAdding(true);setParentId(null);}}
+            style={{width:"100%",padding:"5px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:8,cursor:"pointer",fontWeight:700}}>
+            + Nouveau prompt racine
+          </button>
+        </div>
+        <div style={{flex:1,overflow:"auto",padding:"6px 4px"}}>
+          {nodes.length===0&&<div style={{padding:12,fontSize:9,color:"var(--mu)",textAlign:"center"}}>Aucun prompt.<br/>Ajoute ton premier !</div>}
+          {(filtered||roots).map(n=>renderNode(n))}
+        </div>
+        {nodes.length>0&&(
+          <div style={{padding:"8px 12px",borderTop:"1px solid var(--bd)",fontSize:8,color:"var(--mu)"}}>
+            {nodes.length} prompts · {nodes.reduce((a,n)=>a+(n.stars||0),0)} ★ total
+          </div>
+        )}
+      </div>
+
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"14px 16px"}}>
+        {/* Formulaire d'ajout */}
+        {adding && (
+          <div style={{background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:10,padding:"14px 16px",marginBottom:14}}>
+            <div style={{fontWeight:700,fontSize:12,color:"var(--ac)",marginBottom:10}}>{parentId?"🌿 Variante de :"+nodes.find(n=>n.id===parentId)?.title:"🌱 Nouveau prompt racine"}</div>
+            <input value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder="Titre court (optionnel)"
+              style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 10px",outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            <textarea value={newPrompt} onChange={e=>setNewPrompt(e.target.value)} placeholder="Le prompt complet…" rows={4}
+              style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={addNode} disabled={!newPrompt.trim()}
+                style={{padding:"7px 16px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                💾 Enregistrer
+              </button>
+              <button onClick={()=>{setAdding(false);setNewPrompt("");setNewTitle("");setParentId(null);}}
+                style={{padding:"7px 12px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,cursor:"pointer"}}>Annuler</button>
+            </div>
+          </div>
+        )}
+
+        {/* Détail du prompt sélectionné */}
+        {sel && !adding && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"var(--tx)",flex:1}}>{sel.title}</div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>starNode(sel.id)} style={{padding:"5px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer"}}>★ Star ({sel.stars||0})</button>
+                <button onClick={()=>useNode(sel.id)} style={{padding:"5px 10px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:9,cursor:"pointer",fontWeight:700}}>▶ Utiliser</button>
+                <button onClick={()=>{setAdding(true);setParentId(sel.id);setNewPrompt(sel.prompt+" ");}} style={{padding:"5px 10px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",fontSize:9,cursor:"pointer"}}>⬡ Créer variante</button>
+                <button onClick={()=>deleteNode(sel.id)} style={{padding:"5px 10px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",fontSize:9,cursor:"pointer"}}>🗑</button>
+              </div>
+            </div>
+            {/* Généalogie */}
+            {sel.parentId && (
+              <div style={{marginBottom:10,fontSize:9,color:"var(--mu)",display:"flex",alignItems:"center",gap:4}}>
+                <span>Dérivé de :</span>
+                <button onClick={()=>setSelected(sel.parentId)} style={{background:"transparent",border:"none",color:"var(--blue)",fontSize:9,cursor:"pointer",textDecoration:"underline"}}>
+                  {nodes.find(n=>n.id===sel.parentId)?.title||"parent"}
+                </button>
+              </div>
+            )}
+            {/* Stats */}
+            <div style={{display:"flex",gap:10,marginBottom:12}}>
+              {[["★","Stars",sel.stars||0],["▶","Utilisations",sel.uses||0],["⬡","Variantes",getChildren(sel.id).length],["📅","Créé",new Date(sel.createdAt).toLocaleDateString("fr-FR")]].map(([ico,l,v])=>(
+                <div key={l} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,padding:"6px 10px",textAlign:"center",minWidth:60}}>
+                  <div style={{fontSize:14}}>{ico}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:"var(--ac)"}}>{v}</div>
+                  <div style={{fontSize:7,color:"var(--mu)"}}>{l}</div>
+                </div>
+              ))}
+            </div>
+            {/* Prompt */}
+            <div style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px",marginBottom:12,position:"relative"}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>PROMPT COMPLET</div>
+              <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{sel.prompt}</div>
+              <button onClick={()=>navigator.clipboard.writeText(sel.prompt)}
+                style={{position:"absolute",top:8,right:8,fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋</button>
+            </div>
+            {/* Variantes enfants */}
+            {getChildren(sel.id).length>0 && (
+              <div>
+                <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>⬡ VARIANTES ({getChildren(sel.id).length})</div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  {getChildren(sel.id).map(c=>(
+                    <div key={c.id} onClick={()=>setSelected(c.id)}
+                      style={{padding:"8px 10px",borderRadius:6,border:"1px solid var(--bd)",background:"var(--s1)",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:9,color:"var(--blue)"}}>└</span>
+                      <span style={{fontSize:9,color:"var(--tx)",flex:1}}>{c.title}</span>
+                      <span style={{fontSize:8,color:"var(--ac)"}}>★{c.stars||0}</span>
+                      <span style={{fontSize:8,color:"var(--mu)"}}>×{c.uses||0}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {!sel&&!adding&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Sélectionne un prompt ou crée-en un nouveau</div>}
+      </div>
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  4. MODE CONFÉRENCE — IAs en chaîne collaborative            ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ConferenceTab({ enabled, apiKeys }) {
+  const [question, setQuestion] = React.useState("");
+  const [chain, setChain] = React.useState([]); // [{iaId, role, output, loading}]
+  const [running, setRunning] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  const [synthesis, setSynthesis] = React.useState("");
+  const [synthLoading, setSynthLoading] = React.useState(false);
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  const ROLES = [
+    { id:"explorateur", label:"🔭 Explorateur", color:"#60A5FA", instruction:"Tu es l'Explorateur. Ton rôle : explorer toutes les pistes, angles et perspectives possibles sur le sujet. Sois large, créatif, ne t'autocensure pas. Propose des idées inattendues." },
+    { id:"critique",    label:"🔍 Critique",    color:"#F87171", instruction:"Tu es le Critique. Ton rôle : analyser rigoureusement ce qu'a dit l'Explorateur. Identifie les failles, les imprécisions, les angles manquants. Sois précis et constructif." },
+    { id:"constructeur",label:"🔨 Constructeur",color:"#4ADE80", instruction:"Tu es le Constructeur. En tenant compte de ce qu'ont dit l'Explorateur ET le Critique, construis la meilleure réponse possible. Synthétise, enrichis, structure clairement." },
+  ];
+
+  const runConference = async () => {
+    if (!question.trim() || activeIds.length < 1) return;
+    setRunning(true); setDone(false); setSynthesis(""); setChain([]);
+    const steps = ROLES.slice(0, Math.min(ROLES.length, activeIds.length));
+    let context = "";
+    const results = [];
+    for (let i = 0; i < steps.length; i++) {
+      const role = steps[i];
+      const iaId = activeIds[i % activeIds.length];
+      const m = MODEL_DEFS[iaId];
+      const newEntry = { iaId, roleId:role.id, roleLabel:role.label, roleColor:role.color, output:"", loading:true };
+      setChain(prev=>[...prev, newEntry]);
+      const prompt = i===0
+        ? `Question : "${question}"\n\n${role.instruction}`
+        : `Question originale : "${question}"\n\nÉchanges précédents :\n${context}\n\n${role.instruction}\n\nAppuie-toi sur ce qui précède pour aller plus loin.`;
+      try {
+        const reply = await callModel(iaId, [{role:"user", content:prompt}], apiKeys, role.instruction);
+        context += `\n\n[${role.label} — ${m.short}]:\n${reply}`;
+        results.push({ ...newEntry, output:reply, loading:false });
+        setChain([...results]);
+      } catch(e) {
+        results.push({ ...newEntry, output:"❌ "+e.message, loading:false });
+        setChain([...results]);
+      }
+    }
+    setRunning(false); setDone(true);
+  };
+
+  const runSynthesis = async () => {
+    if (!chain.length) return;
+    setSynthLoading(true);
+    const judge = activeIds[activeIds.length-1] || activeIds[0];
+    const fullContext = chain.map(c=>`[${c.roleLabel}]:\n${c.output}`).join("\n\n");
+    const prompt = `Voici une conférence IA en 3 étapes sur : "${question}"\n\n${fullContext}\n\nTu es le Synthétiseur Final. Produis une réponse définitive, claire et actionnable qui capitalise sur toute cette réflexion collective. Structure : 1) Réponse principale, 2) Points clés, 3) Prochaines étapes concrètes.`;
+    try {
+      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Tu es le Synthétiseur Final d'une conférence IA.");
+      setSynthesis(reply);
+    } catch(e) { setSynthesis("❌ "+e.message); }
+    setSynthLoading(false);
+  };
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#A78BFA"}}>🎙 Mode Conférence</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— 3 IAs en chaîne : Explorateur → Critique → Constructeur</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(167,139,250,.06)",border:"1px solid rgba(167,139,250,.15)",borderRadius:6}}>
+        Contrairement au Débat (positions opposées), ici chaque IA <strong style={{color:"var(--tx)"}}>construit sur la précédente</strong>. Le résultat final est collectivement meilleur que n'importe quelle IA seule.
+      </div>
+
+      {/* Rôles visuels */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {ROLES.map((r,i)=>{
+          const iaId = activeIds[i%activeIds.length];
+          const m = iaId ? MODEL_DEFS[iaId] : null;
+          return <div key={r.id} style={{flex:1,minWidth:140,padding:"10px 12px",background:"var(--s1)",border:"1px solid "+r.color+"33",borderRadius:8}}>
+            <div style={{fontSize:12,color:r.color,fontWeight:700,marginBottom:3}}>{r.label}</div>
+            <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.4}}>{r.instruction.split(":")[1]?.trim().slice(0,80)}…</div>
+            {m&&<div style={{marginTop:5,fontSize:8,color:m.color,fontWeight:700}}>→ {m.icon} {m.short}</div>}
+          </div>;
+        })}
+      </div>
+
+      {/* Input */}
+      <div style={{marginBottom:12}}>
+        <textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Pose ta question ou sujet à la conférence…"
+          rows={3} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+      </div>
+      <button onClick={runConference} disabled={running||!question.trim()||!activeIds.length}
+        style={{padding:"9px 22px",background:running?"var(--s2)":"rgba(167,139,250,.15)",border:"1px solid "+(running?"var(--bd)":"rgba(167,139,250,.4)"),borderRadius:6,color:running?"var(--mu)":"#A78BFA",fontSize:10,cursor:running?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)",marginBottom:16}}>
+        {running?"🎙 Conférence en cours…":"🎙 Lancer la conférence"}
+      </button>
+
+      {/* Chaîne de réponses */}
+      {chain.length>0 && (
+        <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16,position:"relative"}}>
+          {/* Ligne verticale */}
+          <div style={{position:"absolute",left:20,top:20,bottom:20,width:2,background:"linear-gradient(to bottom,#60A5FA,#F87171,#4ADE80)",borderRadius:2,zIndex:0}}/>
+          {chain.map((c,i)=>(
+            <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",position:"relative",zIndex:1}}>
+              <div style={{width:40,height:40,borderRadius:"50%",background:"var(--bg)",border:"2px solid "+c.roleColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+                {c.roleLabel.slice(0,2)}
+              </div>
+              <div style={{flex:1,background:"var(--s1)",border:"1px solid "+c.roleColor+"33",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                  <span style={{fontWeight:700,fontSize:10,color:c.roleColor}}>{c.roleLabel}</span>
+                  <span style={{fontSize:8,color:MODEL_DEFS[c.iaId]?.color,fontWeight:600}}>— {MODEL_DEFS[c.iaId]?.icon} {MODEL_DEFS[c.iaId]?.short}</span>
+                  {i<chain.length-1&&<span style={{fontSize:8,color:"var(--mu)",marginLeft:"auto"}}>↓ transmis au suivant</span>}
+                </div>
+                {c.loading
+                  ? <div style={{fontSize:9,color:"var(--mu)"}}>⏳ En cours…</div>
+                  : <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{c.output}</div>
+                }
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Synthèse finale */}
+      {done && (
+        <div style={{background:"var(--s1)",border:"1px solid rgba(167,139,250,.3)",borderRadius:10,padding:"14px 16px"}}>
+          {!synthesis && !synthLoading && (
+            <button onClick={runSynthesis}
+              style={{padding:"8px 20px",background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.4)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>
+              ✨ Générer la synthèse finale
+            </button>
+          )}
+          {synthLoading && <div style={{fontSize:10,color:"var(--mu)"}}>⏳ Synthèse en cours…</div>}
+          {synthesis && (
+            <>
+              <div style={{fontSize:9,color:"#A78BFA",fontWeight:700,marginBottom:8}}>✨ SYNTHÈSE FINALE</div>
+              <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{synthesis}</div>
+              <button onClick={()=>navigator.clipboard.writeText(synthesis)} style={{marginTop:10,fontSize:8,padding:"3px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋 Copier la synthèse</button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  5. CONSENSUS SCORE — Fiabilité par vote croisé              ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ConsensusTab({ enabled, apiKeys, conversations }) {
+  const [claim, setClaim] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  // Pré-remplir depuis le chat
+  const lastResponses = React.useMemo(() => {
+    return activeIds.map(id => {
+      const msgs = conversations[id]||[];
+      const last = [...msgs].reverse().find(m=>m.role==="assistant");
+      return last ? {id, text:last.content.slice(0,300)} : null;
+    }).filter(Boolean).slice(0,3);
+  }, [conversations, activeIds]);
+
+  const runConsensus = async () => {
+    if (!claim.trim() || activeIds.length < 2) return;
+    setLoading(true); setResult(null);
+    const voters = activeIds.filter(id=>!MODEL_DEFS[id]?.serial).slice(0, 6);
+    const votes = await Promise.all(voters.map(async (id) => {
+      const prompt = `Évalue cette affirmation : "${claim.slice(0,500)}"
+
+Réponds UNIQUEMENT en JSON :
+{"verdict":"vrai|faux|partiel|incertain","confiance":85,"raison":"1 phrase","sources_suggérées":["source 1","source 2"]}
+
+- vrai = tu es certain que c'est correct
+- faux = tu es certain que c'est incorrect  
+- partiel = partiellement vrai/faux
+- incertain = tu ne peux pas vérifier`;
+      try {
+        const reply = await callModel(id, [{role:"user",content:prompt}], apiKeys, "Vérificateur de faits. JSON uniquement.");
+        const clean = reply.replace(/```json|```/g,"").trim();
+        const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+        return { id, ...data, ok:true };
+      } catch(e) { return { id, verdict:"incertain", confiance:0, raison:"Erreur: "+e.message, ok:false }; }
+    }));
+
+    // Calcul du score de consensus
+    const verdictCounts = {vrai:0, faux:0, partiel:0, incertain:0};
+    votes.forEach(v=>{ if(verdictCounts[v.verdict]!==undefined) verdictCounts[v.verdict]++; });
+    const total = votes.length;
+    const topVerdict = Object.entries(verdictCounts).sort(([,a],[,b])=>b-a)[0];
+    const consensusRate = Math.round((topVerdict[1]/total)*100);
+    const avgConfidence = Math.round(votes.reduce((a,v)=>a+(v.confiance||0),0)/total);
+    const reliabilityScore = Math.round((consensusRate*0.6 + avgConfidence*0.4));
+    const sources = [...new Set(votes.flatMap(v=>v.sources_suggérées||[]))].slice(0,5);
+
+    setResult({ votes, verdictCounts, topVerdict:topVerdict[0], consensusRate, avgConfidence, reliabilityScore, sources, total });
+    setLoading(false);
+  };
+
+  const verdictColor = v => ({vrai:"var(--green)",faux:"var(--red)",partiel:"var(--orange)",incertain:"var(--mu)"}[v]||"var(--mu)");
+  const verdictLabel = v => ({vrai:"✅ Vrai",faux:"❌ Faux",partiel:"⚠️ Partiel",incertain:"❓ Incertain"}[v]||v);
+  const scoreColor = s => s>=75?"var(--green)":s>=50?"var(--orange)":"var(--red)";
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#34D399"}}>🔎 Consensus Score</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Fiabilité d'une affirmation par vote croisé de toutes tes IAs</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(52,211,153,.06)",border:"1px solid rgba(52,211,153,.15)",borderRadius:6}}>
+        Colle une affirmation, un fait, ou la réponse d'une IA. Toutes tes IAs actives votent indépendamment. Plus le consensus est élevé, plus l'affirmation est fiable.
+      </div>
+
+      {/* Pré-remplir */}
+      {lastResponses.length>0 && (
+        <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>VÉRIFIER UNE RÉPONSE DU CHAT</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {lastResponses.map(r=>{
+              const m=MODEL_DEFS[r.id];
+              return <button key={r.id} onClick={()=>setClaim(r.text)}
+                style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+m.color+"44",background:m.color+"11",color:m.color,fontSize:8,cursor:"pointer"}}>
+                {m.icon} Réponse {m.short}
+              </button>;
+            })}
+          </div>
+        </div>
+      )}
+
+      <textarea value={claim} onChange={e=>setClaim(e.target.value)}
+        placeholder="Ex: La Terre est plus vieille que le Soleil. / Ex: colle ici la réponse d'une IA à vérifier…"
+        rows={3} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+      <button onClick={runConsensus} disabled={loading||!claim.trim()||activeIds.length<2}
+        style={{padding:"9px 22px",background:loading?"var(--s2)":"rgba(52,211,153,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(52,211,153,.4)"),borderRadius:6,color:loading?"var(--mu)":"#34D399",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)",marginBottom:16}}>
+        {loading?"🔎 Vote en cours…":"🔎 Lancer le vote de fiabilité"}
+      </button>
+      {activeIds.length<2&&<div style={{fontSize:9,color:"var(--red)",marginBottom:10}}>Active au moins 2 IAs pour le vote croisé</div>}
+
+      {result && (
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {/* Score principal */}
+          <div style={{padding:"16px 20px",background:"var(--s1)",border:"2px solid "+scoreColor(result.reliabilityScore)+"55",borderRadius:12,textAlign:"center"}}>
+            <div style={{fontSize:48,fontWeight:900,color:scoreColor(result.reliabilityScore),fontFamily:"var(--font-display)",lineHeight:1}}>
+              {result.reliabilityScore}%
+            </div>
+            <div style={{fontSize:12,color:"var(--tx)",marginTop:4,fontWeight:700}}>Score de fiabilité</div>
+            <div style={{fontSize:10,color:verdictColor(result.topVerdict),marginTop:4,fontWeight:700}}>
+              {verdictLabel(result.topVerdict)} · {result.consensusRate}% de consensus · Confiance moy. {result.avgConfidence}%
+            </div>
+            <div style={{marginTop:10,height:8,background:"var(--s2)",borderRadius:4,overflow:"hidden",maxWidth:300,margin:"10px auto 0"}}>
+              <div style={{height:"100%",width:result.reliabilityScore+"%",background:scoreColor(result.reliabilityScore),borderRadius:4,transition:"width .8s"}}/>
+            </div>
+          </div>
+
+          {/* Distribution des votes */}
+          <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:10}}>DISTRIBUTION DES VOTES ({result.total} IAs)</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {Object.entries(result.verdictCounts).filter(([,v])=>v>0).map(([verdict,count])=>(
+                <div key={verdict} style={{flex:1,minWidth:80,padding:"8px",background:verdictColor(verdict)+"11",border:"1px solid "+verdictColor(verdict)+"33",borderRadius:8,textAlign:"center"}}>
+                  <div style={{fontSize:18}}>{verdictLabel(verdict).split(" ")[0]}</div>
+                  <div style={{fontSize:16,fontWeight:900,color:verdictColor(verdict)}}>{count}</div>
+                  <div style={{fontSize:8,color:"var(--mu)",textTransform:"capitalize"}}>{verdict}</div>
+                  <div style={{fontSize:9,color:verdictColor(verdict),fontWeight:700}}>{Math.round(count/result.total*100)}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Votes détaillés */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8}}>
+            {result.votes.map((v,i)=>{
+              const m=MODEL_DEFS[v.id];
+              return <div key={i} style={{background:"var(--s1)",border:"1px solid "+verdictColor(v.verdict)+"33",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+                  <span style={{color:m.color,fontSize:12}}>{m.icon}</span>
+                  <span style={{fontWeight:700,fontSize:10,color:m.color}}>{m.short}</span>
+                  <span style={{marginLeft:"auto",padding:"2px 7px",borderRadius:8,background:verdictColor(v.verdict)+"22",color:verdictColor(v.verdict),fontSize:8,fontWeight:700}}>{verdictLabel(v.verdict)}</span>
+                </div>
+                <div style={{fontSize:9,color:"var(--mu)",marginBottom:4}}>Confiance : <span style={{color:v.confiance>70?"var(--green)":v.confiance>40?"var(--orange)":"var(--red)",fontWeight:700}}>{v.confiance}%</span></div>
+                <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.5}}>{v.raison}</div>
+              </div>;
+            })}
+          </div>
+
+          {/* Sources suggérées */}
+          {result.sources.length>0 && (
+            <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>📚 SOURCES SUGGÉRÉES POUR VÉRIFIER</div>
+              {result.sources.map((s,i)=><div key={i} style={{fontSize:9,color:"var(--blue)",marginBottom:3}}>• {s}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  MORNING BRIEF — Briefing IA proactif personnalisé           ║
+// ╚══════════════════════════════════════════════════════════════╝
+function MorningBriefTab({ enabled, apiKeys, projects, memFacts, usageStats, MODEL_DEFS, callModel }) {
+  const BRIEF_KEY = "multiia_morning_brief";
+  const BRIEF_CONF = "multiia_brief_config";
+
+  const [config, setConfig] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(BRIEF_CONF) || "{}"); } catch { return {}; }
+  });
+  const [brief, setBrief] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(BRIEF_KEY) || "null"); } catch { return null; }
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [editConfig, setEditConfig] = React.useState(false);
+
+  const saveConfig = (c) => { setConfig(c); try { localStorage.setItem(BRIEF_CONF, JSON.stringify(c)); } catch {} };
+  const saveBrief  = (b) => { setBrief(b);  try { localStorage.setItem(BRIEF_KEY, JSON.stringify(b)); } catch {} };
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const bestIA    = activeIds.find(id => ["groq","mistral","cerebras","sambanova"].includes(id)) || activeIds[0];
+
+  // Vérification auto chaque minute — génère le brief si l'heure est atteinte
+  React.useEffect(() => {
+    if (!config.autoTime || !config.enabled) return;
+    const iv = setInterval(() => {
+      const now  = new Date();
+      const hhmm = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
+      const today = now.toISOString().slice(0,10);
+      if (hhmm === config.autoTime && brief?.date !== today) {
+        generateBrief(true); // silent auto-generation
+      }
+    }, 60000);
+    return () => clearInterval(iv);
+  }, [config, brief]);
+
+  const generateBrief = async (silent = false) => {
+    if (!bestIA) return;
+    if (!silent) setLoading(true);
+
+    // Contexte personnalisé
+    const topIA = Object.entries(usageStats?.msgs || {}).sort(([,a],[,b])=>b-a)[0];
+    const activeProjects = (projects || []).filter(p => p.context || p.notes).slice(0,2);
+    const memories = (memFacts || []).slice(0,5).map(f => "- " + f.text).join("\n");
+
+    const date = new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+    const sections = config.sections || ["actu","taches","conseil","citation"];
+
+    const sectionPrompts = {
+      actu:     "📰 ACTUALITÉS IA DU JOUR (3 tendances ou nouvelles importantes du monde de l'IA aujourd'hui)",
+      taches:   "✅ TOP 3 TÂCHES (basé sur les projets actifs, suggère les 3 actions les plus impactantes pour aujourd'hui)",
+      conseil:  "💡 CONSEIL IA DU JOUR (1 astuce pratique pour mieux utiliser les LLMs aujourd'hui)",
+      citation: "✨ INSPIRATION (1 citation motivante en lien avec l'IA ou la créativité)",
+      meteo_ia: "🌡️ MÉTÉO IA (température du marché IA : chaud/tiède/calme, et pourquoi en 1 phrase)",
+      prompt:   "🎯 PROMPT DU JOUR (1 prompt prêt à l'emploi, utile et original)",
+    };
+
+    const prompt = `Tu es l'assistant personnel de quelqu'un qui utilise des IAs tous les jours. Génère son briefing du matin pour ${date}.
+
+CONTEXTE UTILISATEUR :
+- IA préférée : ${topIA ? MODEL_DEFS[topIA[0]]?.name : "non définie"}
+- Projets actifs : ${activeProjects.map(p=>p.name+"("+p.desc+")").join(", ") || "aucun"}
+- Mémoire personnelle : ${memories || "vide"}
+- Sections demandées : ${sections.join(", ")}
+
+Génère UNIQUEMENT un JSON valide :
+{
+  "salutation": "Bonjour [prénom si connu, sinon utilisateur] !",
+  "date_str": "${date}",
+  "sections": {
+    ${sections.map(s => `"${s}": ${s === "taches" ? '["tâche 1","tâche 2","tâche 3"]' : s === "actu" ? '["actu 1","actu 2","actu 3"]' : '"contenu"'}`).join(",\n    ")}
+  },
+  "ia_du_jour": {"id":"${bestIA}","raison":"pourquoi utiliser cette IA aujourd'hui"},
+  "minute_a_retenir": "1 chose importante à savoir aujourd'hui en IA (max 2 phrases)"
+}`;
+
+    try {
+      const reply = await callModel(bestIA, [{role:"user", content:prompt}], apiKeys, "Assistant personnel briefing. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data  = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0] || clean);
+      const result = { ...data, generatedAt: new Date().toISOString(), date: new Date().toISOString().slice(0,10), ia: bestIA };
+      saveBrief(result);
+    } catch(e) {
+      if (!silent) saveBrief({ error: e.message, generatedAt: new Date().toISOString(), date: new Date().toISOString().slice(0,10) });
+    }
+    if (!silent) setLoading(false);
+  };
+
+  const SECTION_LABELS = {
+    actu:     { icon:"📰", label:"Actualités IA" },
+    taches:   { icon:"✅", label:"Mes 3 tâches" },
+    conseil:  { icon:"💡", label:"Conseil du jour" },
+    citation: { icon:"✨", label:"Inspiration" },
+    meteo_ia: { icon:"🌡️", label:"Météo IA" },
+    prompt:   { icon:"🎯", label:"Prompt du jour" },
+  };
+
+  const isToday = brief?.date === new Date().toISOString().slice(0,10);
+  const m = MODEL_DEFS[brief?.ia];
+
+  return (
+    <div style={{flex:1, overflow:"auto", padding:"clamp(10px,2vw,16px)"}}>
+      {/* Header */}
+      <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:6, flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)", fontWeight:800, fontSize:"clamp(14px,2.5vw,20px)", color:"var(--ac)"}}>☀️ Morning Brief</div>
+        <div style={{fontSize:9, color:"var(--mu)"}}>— Ton briefing IA personnalisé, chaque matin</div>
+        <div style={{marginLeft:"auto", display:"flex", gap:8}}>
+          <button onClick={()=>setEditConfig(v=>!v)}
+            style={{padding:"5px 12px", background:"transparent", border:"1px solid var(--bd)", borderRadius:5, color:"var(--mu)", fontSize:9, cursor:"pointer"}}>
+            ⚙ Configurer
+          </button>
+          <button onClick={()=>generateBrief()} disabled={loading||!bestIA}
+            style={{padding:"5px 14px", background:"rgba(212,168,83,.15)", border:"1px solid rgba(212,168,83,.4)", borderRadius:5, color:"var(--ac)", fontSize:9, cursor:"pointer", fontWeight:700}}>
+            {loading ? "⏳ Génération…" : "🔄 Générer maintenant"}
+          </button>
+        </div>
+      </div>
+
+      {/* Config panel */}
+      {editConfig && (
+        <div style={{marginBottom:14, background:"var(--s1)", border:"1px solid var(--bd)", borderRadius:10, padding:"14px 16px"}}>
+          <div style={{fontWeight:700, fontSize:11, color:"var(--tx)", marginBottom:12}}>⚙ Configuration du brief</div>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12}}>
+            <div>
+              <div style={{fontSize:8, color:"var(--mu)", fontWeight:700, marginBottom:5}}>GÉNÉRATION AUTO</div>
+              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                <input type="checkbox" checked={!!config.enabled} onChange={e=>saveConfig({...config, enabled:e.target.checked})}/>
+                <label style={{fontSize:9, color:"var(--tx)"}}>Activer le brief automatique</label>
+              </div>
+              <div style={{marginTop:6, display:"flex", alignItems:"center", gap:6}}>
+                <span style={{fontSize:9, color:"var(--mu)"}}>Heure :</span>
+                <input type="time" value={config.autoTime||"08:00"} onChange={e=>saveConfig({...config, autoTime:e.target.value})}
+                  style={{background:"var(--s2)", border:"1px solid var(--bd)", borderRadius:4, color:"var(--tx)", fontSize:9, padding:"3px 8px", outline:"none"}}/>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:8, color:"var(--mu)", fontWeight:700, marginBottom:5}}>SECTIONS INCLUSES</div>
+              <div style={{display:"flex", flexWrap:"wrap", gap:4}}>
+                {Object.entries(SECTION_LABELS).map(([k,{icon,label}])=>{
+                  const active = (config.sections||["actu","taches","conseil","citation"]).includes(k);
+                  return <button key={k} onClick={()=>{
+                    const cur = config.sections||["actu","taches","conseil","citation"];
+                    const next = active ? cur.filter(s=>s!==k) : [...cur,k];
+                    saveConfig({...config, sections:next});
+                  }} style={{padding:"3px 8px", borderRadius:8, border:"1px solid "+(active?"var(--ac)":"var(--bd)"), background:active?"rgba(212,168,83,.12)":"transparent", color:active?"var(--ac)":"var(--mu)", fontSize:8, cursor:"pointer"}}>
+                    {icon} {label}
+                  </button>;
+                })}
+              </div>
+            </div>
+          </div>
+          <div style={{fontSize:8, color:"var(--mu)", fontStyle:"italic"}}>
+            💡 Le brief utilise tes projets actifs, ta mémoire personnelle et ton historique d'usage pour personnaliser le contenu.
+          </div>
+        </div>
+      )}
+
+      {/* Pas de brief */}
+      {!brief && !loading && (
+        <div style={{textAlign:"center", padding:"60px 20px"}}>
+          <div style={{fontSize:48, marginBottom:12}}>☀️</div>
+          <div style={{fontSize:14, fontWeight:700, color:"var(--tx)", marginBottom:6}}>Aucun brief généré</div>
+          <div style={{fontSize:10, color:"var(--mu)", marginBottom:20}}>Clique sur "Générer maintenant" pour recevoir ton premier briefing personnalisé.</div>
+          <button onClick={()=>generateBrief()} disabled={!bestIA}
+            style={{padding:"10px 24px", background:"rgba(212,168,83,.15)", border:"1px solid rgba(212,168,83,.4)", borderRadius:8, color:"var(--ac)", fontSize:11, cursor:"pointer", fontWeight:700}}>
+            ☀️ Créer mon premier brief
+          </button>
+          {!bestIA && <div style={{marginTop:8, fontSize:9, color:"var(--red)"}}>Active au moins une IA dans Config</div>}
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div style={{textAlign:"center", padding:"60px 20px"}}>
+          <div style={{fontSize:32, marginBottom:10, animation:"spin 2s linear infinite", display:"inline-block"}}>⚙️</div>
+          <div style={{fontSize:11, color:"var(--mu)"}}>Génération de ton briefing personnalisé…</div>
+        </div>
+      )}
+
+      {/* Brief affiché */}
+      {brief && !loading && !brief.error && (
+        <div>
+          {/* En-tête */}
+          <div style={{marginBottom:16, padding:"16px 20px", background:"linear-gradient(135deg, rgba(212,168,83,.12), rgba(212,168,83,.04))", border:"1px solid rgba(212,168,83,.3)", borderRadius:12}}>
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:6}}>
+              <div>
+                <div style={{fontFamily:"var(--font-display)", fontWeight:800, fontSize:"clamp(16px,3vw,22px)", color:"var(--ac)", marginBottom:2}}>{brief.salutation || "Bonjour !"}</div>
+                <div style={{fontSize:10, color:"var(--mu)"}}>{brief.date_str}</div>
+              </div>
+              <div style={{display:"flex", alignItems:"center", gap:6, fontSize:9, color:"var(--mu)"}}>
+                {m && <><span style={{color:m.color}}>{m.icon} {m.short}</span> · </>}
+                {isToday ? <span style={{color:"var(--green)"}}>✓ Aujourd'hui</span> : <span style={{color:"var(--orange)"}}>Hier</span>}
+              </div>
+            </div>
+            {brief.minute_a_retenir && (
+              <div style={{marginTop:10, padding:"8px 12px", background:"rgba(212,168,83,.08)", borderRadius:6, fontSize:10, color:"var(--tx)", lineHeight:1.6, fontStyle:"italic"}}>
+                🔑 {brief.minute_a_retenir}
+              </div>
+            )}
+          </div>
+
+          {/* IA du jour */}
+          {brief.ia_du_jour && MODEL_DEFS[brief.ia_du_jour.id] && (
+            <div style={{marginBottom:12, padding:"10px 14px", background:"var(--s1)", border:"1px solid "+MODEL_DEFS[brief.ia_du_jour.id].color+"33", borderRadius:8, display:"flex", alignItems:"center", gap:10}}>
+              <span style={{fontSize:20}}>{MODEL_DEFS[brief.ia_du_jour.id].icon}</span>
+              <div>
+                <div style={{fontSize:9, color:"var(--mu)", fontWeight:700}}>IA DU JOUR</div>
+                <div style={{fontSize:10, fontWeight:700, color:MODEL_DEFS[brief.ia_du_jour.id].color}}>{MODEL_DEFS[brief.ia_du_jour.id].name}</div>
+                <div style={{fontSize:9, color:"var(--mu)"}}>{brief.ia_du_jour.raison}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Sections */}
+          <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:10}}>
+            {Object.entries(brief.sections || {}).map(([key, content]) => {
+              const meta = SECTION_LABELS[key] || {icon:"📌", label:key};
+              const isList = Array.isArray(content);
+              return (
+                <div key={key} style={{background:"var(--s1)", border:"1px solid var(--bd)", borderRadius:10, padding:"12px 14px"}}>
+                  <div style={{fontSize:9, fontWeight:700, color:"var(--ac)", marginBottom:8}}>{meta.icon} {meta.label.toUpperCase()}</div>
+                  {isList
+                    ? content.map((item,i) => (
+                        <div key={i} style={{display:"flex", gap:8, marginBottom:6, fontSize:10, color:"var(--tx)", lineHeight:1.5}}>
+                          <span style={{color:"var(--ac)", flexShrink:0, fontWeight:700}}>{i+1}.</span>{item}
+                        </div>
+                      ))
+                    : <div style={{fontSize:10, color:"var(--tx)", lineHeight:1.7}}>{content}</div>
+                  }
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div style={{marginTop:12, display:"flex", gap:8, justifyContent:"flex-end"}}>
+            <button onClick={()=>{ const txt = `☀️ Morning Brief — ${brief.date_str}\n\n`+Object.entries(brief.sections||{}).map(([k,v])=>`${SECTION_LABELS[k]?.icon} ${SECTION_LABELS[k]?.label}\n${Array.isArray(v)?v.map((x,i)=>(i+1)+". "+x).join("\n"):v}`).join("\n\n"); navigator.clipboard.writeText(txt); }}
+              style={{fontSize:9, padding:"5px 12px", background:"transparent", border:"1px solid var(--bd)", borderRadius:5, color:"var(--mu)", cursor:"pointer"}}>📋 Copier</button>
+            <button onClick={()=>generateBrief()}
+              style={{fontSize:9, padding:"5px 12px", background:"rgba(212,168,83,.1)", border:"1px solid rgba(212,168,83,.3)", borderRadius:5, color:"var(--ac)", cursor:"pointer"}}>🔄 Regénérer</button>
+          </div>
+        </div>
+      )}
+
+      {brief?.error && <div style={{padding:20, color:"var(--red)", fontSize:10}}>Erreur : {brief.error}</div>}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  TASK TO IAs — Décomposition + routage multi-modèle          ║
+// ╚══════════════════════════════════════════════════════════════╝
+function TaskToIAsTab({ enabled, apiKeys, navigateTab, setChatInput }) {
+  const [task, setTask] = React.useState("");
+  const [plan, setPlan] = React.useState(null);       // [{id,title,type,ia,prompt,status,output}]
+  const [planning, setPlanning] = React.useState(false);
+  const [running, setRunning] = React.useState(false);
+  const [results, setResults] = React.useState([]);
+  const [assembly, setAssembly] = React.useState("");
+  const [assembling, setAssembling] = React.useState(false);
+  const [editingPlan, setEditingPlan] = React.useState(false);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  // Spécialités par IA pour le routage intelligent
+  const IA_SPECIALTIES = {
+    groq:       { best:["vitesse","brainstorming","idées","recherche rapide","liste"], icon:"⚡" },
+    mistral:    { best:["français","rédaction","reformulation","mail","rapport"], icon:"▲" },
+    cohere:     { best:["résumé","extraction","analyse document","rag","structured"], icon:"⌘" },
+    cerebras:   { best:["code","débogage","algorithme","fonction","script"], icon:"◉" },
+    sambanova:  { best:["raisonnement","analyse complexe","stratégie","décision"], icon:"∞" },
+    qwen3:      { best:["code","maths","multilingue","calcul","logique"], icon:"◈" },
+    llama4s:    { best:["multimodal","image","vision","créatif","diversité"], icon:"🦙" },
+    gemma2:     { best:["synthèse rapide","classification","catégorie","format"], icon:"◎" },
+    poll_gpt:   { best:["polyvalent","créatif","général","conversation"], icon:"◈" },
+    poll_claude:{ best:["analyse","nuance","éthique","long texte","profond"], icon:"✦" },
+  };
+
+  const TASK_TYPES = [
+    { id:"recherche",  label:"🔍 Recherche",  color:"#60A5FA", desc:"Trouver, analyser, synthétiser" },
+    { id:"redaction",  label:"✍️ Rédaction",  color:"#34D399", desc:"Écrire, reformuler, structurer" },
+    { id:"code",       label:"💻 Code",       color:"#A78BFA", desc:"Programmer, déboguer, optimiser" },
+    { id:"strategie",  label:"🎯 Stratégie",  color:"#F97316", desc:"Planifier, décider, prioriser" },
+    { id:"analyse",    label:"🔬 Analyse",    color:"#F87171", desc:"Critiquer, évaluer, comparer" },
+    { id:"creation",   label:"🎨 Création",   color:"#EC4899", desc:"Générer, inventer, brainstormer" },
+  ];
+
+  // Routage intelligent : trouve la meilleure IA pour un type de tâche
+  const routeTask = (taskType) => {
+    const available = activeIds;
+    if (!available.length) return available[0];
+    // Cherche l'IA dont les spécialités matchent le type
+    const scored = available.map(id => {
+      const spec = IA_SPECIALTIES[id]?.best || [];
+      const score = spec.filter(s => taskType.toLowerCase().includes(s) || s.includes(taskType.toLowerCase())).length;
+      return { id, score };
+    }).sort((a,b) => b.score - a.score);
+    return scored[0]?.id || available[0];
+  };
+
+  const generatePlan = async () => {
+    if (!task.trim() || !activeIds.length) return;
+    setPlanning(true); setPlan(null); setResults([]); setAssembly("");
+
+    const plannerIA = activeIds.find(id=>["groq","mistral","sambanova"].includes(id)) || activeIds[0];
+    const availableIAs = activeIds.map(id => `- ${id} (${MODEL_DEFS[id]?.short}): spécialités ${IA_SPECIALTIES[id]?.best?.join(", ")||"généraliste"}`).join("\n");
+
+    const prompt = `Tu es un orchestrateur d'agents IA. L'utilisateur veut accomplir cette tâche complexe :
+"${task}"
+
+IAs disponibles :
+${availableIAs}
+
+Décompose cette tâche en 3 à 6 sous-tâches, en assignant chaque sous-tâche à l'IA la plus adaptée.
+Types disponibles : recherche, redaction, code, strategie, analyse, creation.
+
+Réponds UNIQUEMENT en JSON valide :
+[
+  {
+    "id": "step1",
+    "title": "Titre court de la sous-tâche",
+    "type": "recherche|redaction|code|strategie|analyse|creation",
+    "ia": "id_de_lia",
+    "rationale": "pourquoi cette IA pour cette tâche (1 phrase)",
+    "prompt": "Le prompt complet et précis à envoyer à cette IA pour accomplir SA partie"
+  }
+]`;
+
+    try {
+      const reply = await callModel(plannerIA, [{role:"user",content:prompt}], apiKeys, "Orchestrateur d'agents. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const steps = JSON.parse(clean.match(/\[[\s\S]*\]/)?.[0] || clean);
+      // Override le routage avec notre logique si l'IA suggérée n'est pas disponible
+      const validatedSteps = steps.map((s,i) => ({
+        ...s,
+        id: `step${i+1}`,
+        ia: activeIds.includes(s.ia) ? s.ia : routeTask(s.type),
+        status: "pending",
+        output: null,
+      }));
+      setPlan(validatedSteps);
+    } catch(e) {
+      alert("Erreur lors de la planification : " + e.message);
+    }
+    setPlanning(false);
+  };
+
+  const runPlan = async () => {
+    if (!plan?.length) return;
+    setRunning(true); setResults([]); setAssembly("");
+
+    const newResults = [];
+    for (const step of plan) {
+      // Mettre à jour le statut
+      setPlan(prev => prev.map(s => s.id===step.id ? {...s, status:"running"} : s));
+
+      // Enrichir le prompt avec les outputs précédents si pertinent
+      const prevOutputs = newResults.map(r => `[${r.title}]:\n${r.output}`).join("\n\n");
+      const enrichedPrompt = prevOutputs
+        ? `Contexte des étapes précédentes :\n${prevOutputs}\n\n---\nTa mission :\n${step.prompt}`
+        : step.prompt;
+
+      try {
+        const start = Date.now();
+        const output = await callModel(step.ia, [{role:"user", content:enrichedPrompt}], apiKeys,
+          `Tu es un expert spécialisé en ${step.type}. Tu travailles sur la tâche : "${task}". Sois précis et actionnable.`
+        );
+        const duration = ((Date.now()-start)/1000).toFixed(1);
+        const result = { ...step, output, status:"done", duration };
+        newResults.push(result);
+        setPlan(prev => prev.map(s => s.id===step.id ? result : s));
+        setResults([...newResults]);
+      } catch(e) {
+        const result = { ...step, output:`❌ ${e.message}`, status:"error" };
+        newResults.push(result);
+        setPlan(prev => prev.map(s => s.id===step.id ? result : s));
+        setResults([...newResults]);
+      }
+    }
+    setRunning(false);
+  };
+
+  const assembleResults = async () => {
+    if (!results.length) return;
+    setAssembling(true);
+    const assemblerIA = activeIds.find(id=>["mistral","groq","sambanova","poll_claude"].includes(id)) || activeIds[0];
+    const allOutputs = results.filter(r=>r.status==="done").map((r,i) => `## Étape ${i+1} — ${r.title}\n${r.output}`).join("\n\n");
+
+    const prompt = `Tu es un expert en synthèse. Voici les résultats d'un pipeline multi-IA pour accomplir :
+"${task}"
+
+Résultats des différentes IAs :
+${allOutputs}
+
+Assemble ces résultats en un livrable final cohérent, structuré et actionnable. 
+Format : titre, introduction, sections claires, conclusion avec prochaines étapes.`;
+
+    try {
+      const output = await callModel(assemblerIA, [{role:"user",content:prompt}], apiKeys, "Expert en assemblage et synthèse. Produis un document final professionnel.");
+      setAssembly(output);
+    } catch(e) { setAssembly("❌ " + e.message); }
+    setAssembling(false);
+  };
+
+  const typeInfo = (type) => TASK_TYPES.find(t=>t.id===type) || {label:type, color:"var(--mu)", icon:"📌"};
+  const statusIcon = s => ({pending:"○", running:"⟳", done:"✓", error:"✗"}[s]||"○");
+  const statusColor = s => ({pending:"var(--mu)", running:"var(--ac)", done:"var(--green)", error:"var(--red)"}[s]||"var(--mu)");
+
+  return (
+    <div style={{flex:1, overflow:"auto", padding:"clamp(10px,2vw,16px)"}}>
+      {/* Header */}
+      <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:6, flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)", fontWeight:800, fontSize:"clamp(14px,2.5vw,18px)", color:"#F97316"}}>🔀 Task to IAs</div>
+        <div style={{fontSize:9, color:"var(--mu)"}}>— Décompose une tâche complexe et route chaque partie vers la meilleure IA</div>
+      </div>
+      <div style={{fontSize:9, color:"var(--mu)", marginBottom:14, padding:"8px 12px", background:"rgba(249,115,22,.06)", border:"1px solid rgba(249,115,22,.15)", borderRadius:6}}>
+        Tu décris une tâche complexe. Une IA orchestre et décompose en sous-tâches. <strong style={{color:"var(--tx)"}}>Chaque sous-tâche est automatiquement routée vers l'IA la plus adaptée</strong> (vitesse, rédaction, code, analyse…). Les résultats sont assemblés en un livrable final.
+      </div>
+
+      {/* IAs disponibles + spécialités */}
+      <div style={{marginBottom:12, display:"flex", gap:6, flexWrap:"wrap"}}>
+        {activeIds.map(id => {
+          const m = MODEL_DEFS[id];
+          const spec = IA_SPECIALTIES[id]?.best?.slice(0,2).join(", ") || "généraliste";
+          return <div key={id} style={{padding:"4px 10px", borderRadius:8, border:"1px solid "+m.color+"33", background:m.color+"0A", fontSize:8}}>
+            <span style={{color:m.color, fontWeight:700}}>{m.icon} {m.short}</span>
+            <span style={{color:"var(--mu)"}}> · {spec}</span>
+          </div>;
+        })}
+        {activeIds.length === 0 && <span style={{fontSize:9, color:"var(--red)"}}>Active des IAs dans Config</span>}
+      </div>
+
+      {/* Input */}
+      {!plan && !planning && (
+        <>
+          <textarea value={task} onChange={e=>setTask(e.target.value)}
+            placeholder="Décris ta tâche complexe…&#10;Ex: Lancer une newsletter IA hebdomadaire&#10;Ex: Créer un cours en ligne sur Python pour débutants&#10;Ex: Analyser et améliorer ma stratégie LinkedIn"
+            rows={4} style={{width:"100%", background:"var(--s2)", border:"1px solid var(--bd)", borderRadius:8, color:"var(--tx)", fontSize:11, padding:"10px 12px", resize:"vertical", outline:"none", boxSizing:"border-box", marginBottom:10}}/>
+
+          {/* Exemples rapides */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:8, color:"var(--mu)", fontWeight:700, marginBottom:6}}>EXEMPLES RAPIDES</div>
+            <div style={{display:"flex", gap:6, flexWrap:"wrap"}}>
+              {[
+                "Lancer une newsletter IA hebdomadaire",
+                "Créer un tutoriel vidéo sur React",
+                "Préparer une présentation business pour investisseurs",
+                "Rédiger un plan de formation Python débutants",
+                "Analyser et améliorer une stratégie marketing",
+              ].map(ex => (
+                <button key={ex} onClick={()=>setTask(ex)}
+                  style={{padding:"4px 10px", borderRadius:10, border:"1px solid var(--bd)", background:"var(--s1)", color:"var(--mu)", fontSize:8, cursor:"pointer"}}>
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={generatePlan} disabled={planning||!task.trim()||activeIds.length<1}
+            style={{padding:"9px 22px", background:"rgba(249,115,22,.15)", border:"1px solid rgba(249,115,22,.4)", borderRadius:6, color:"#F97316", fontSize:10, cursor:"pointer", fontWeight:700, fontFamily:"var(--font-mono)"}}>
+            🧠 Planifier et router les tâches
+          </button>
+        </>
+      )}
+
+      {planning && (
+        <div style={{textAlign:"center", padding:"40px 20px"}}>
+          <div style={{fontSize:28, marginBottom:8, display:"inline-block", animation:"spin 1.5s linear infinite"}}>🔀</div>
+          <div style={{fontSize:11, color:"var(--mu)"}}>Analyse de la tâche et création du plan d'exécution…</div>
+        </div>
+      )}
+
+      {/* Plan d'exécution */}
+      {plan && (
+        <div style={{marginBottom:16}}>
+          {/* Tâche + actions */}
+          <div style={{display:"flex", alignItems:"flex-start", gap:10, marginBottom:12, padding:"10px 14px", background:"var(--s1)", border:"1px solid rgba(249,115,22,.3)", borderRadius:8, flexWrap:"wrap"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:8, color:"#F97316", fontWeight:700, marginBottom:2}}>TÂCHE PRINCIPALE</div>
+              <div style={{fontSize:11, color:"var(--tx)", fontWeight:600}}>{task}</div>
+              <div style={{fontSize:8, color:"var(--mu)", marginTop:3}}>{plan.length} sous-tâches · {activeIds.length} IAs disponibles</div>
+            </div>
+            <div style={{display:"flex", gap:6, flexShrink:0}}>
+              <button onClick={()=>{setPlan(null);setResults([]);setAssembly("");}}
+                style={{fontSize:8, padding:"4px 10px", background:"transparent", border:"1px solid var(--bd)", borderRadius:5, color:"var(--mu)", cursor:"pointer"}}>
+                ✕ Recréer
+              </button>
+              {!running && results.length === 0 && (
+                <button onClick={runPlan}
+                  style={{fontSize:9, padding:"6px 16px", background:"rgba(249,115,22,.15)", border:"1px solid rgba(249,115,22,.4)", borderRadius:5, color:"#F97316", cursor:"pointer", fontWeight:700}}>
+                  ▶ Exécuter le plan
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Étapes avec pipeline visuel */}
+          <div style={{position:"relative"}}>
+            <div style={{position:"absolute", left:19, top:0, bottom:0, width:2, background:"linear-gradient(to bottom,#F97316,#A78BFA,#34D399)", borderRadius:2, zIndex:0}}/>
+            {plan.map((step, i) => {
+              const m = MODEL_DEFS[step.ia];
+              const type = typeInfo(step.type);
+              const isDone = step.status === "done";
+              const isRunning = step.status === "running";
+              return (
+                <div key={step.id} style={{display:"flex", gap:12, alignItems:"flex-start", marginBottom:10, position:"relative", zIndex:1}}>
+                  {/* Numéro step */}
+                  <div style={{width:38, height:38, borderRadius:"50%", background:"var(--bg)", border:"2px solid "+(isDone?"var(--green)":isRunning?"var(--ac)":"var(--bd)"), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:isRunning?16:12, color:statusColor(step.status), fontWeight:700, transition:"all .3s"}}>
+                    {isRunning ? <span style={{animation:"spin 1s linear infinite", display:"inline-block"}}>⟳</span> : isDone ? "✓" : i+1}
+                  </div>
+                  {/* Contenu */}
+                  <div style={{flex:1, background:"var(--s1)", border:"1px solid "+(isDone?"var(--green)33":isRunning?"rgba(212,168,83,.3)":"var(--bd)"), borderRadius:10, padding:"10px 14px", marginBottom:2, transition:"border-color .3s"}}>
+                    <div style={{display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap"}}>
+                      <span style={{fontSize:9, fontWeight:700, color:type.color, padding:"2px 6px", background:type.color+"18", borderRadius:6}}>{type.label}</span>
+                      <span style={{fontSize:10, fontWeight:700, color:"var(--tx)", flex:1}}>{step.title}</span>
+                      {m && <span style={{fontSize:8, color:m.color, fontWeight:600, display:"flex", alignItems:"center", gap:3}}>{m.icon} {m.short}</span>}
+                      {step.duration && <span style={{fontSize:7, color:"var(--mu)", fontFamily:"var(--font-mono)"}}>{step.duration}s</span>}
+                    </div>
+                    {step.rationale && <div style={{fontSize:8, color:"var(--mu)", marginBottom:step.output?6:0, fontStyle:"italic"}}>{step.rationale}</div>}
+                    {step.output && isDone && (
+                      <div style={{fontSize:9, color:"var(--tx)", lineHeight:1.6, maxHeight:120, overflow:"auto", paddingTop:6, borderTop:"1px solid var(--bd)"}}>
+                        {step.output.slice(0,400)}{step.output.length>400?"…":""}
+                      </div>
+                    )}
+                    {step.output && step.status==="error" && (
+                      <div style={{fontSize:9, color:"var(--red)", paddingTop:4}}>{step.output}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Assemblage */}
+          {results.filter(r=>r.status==="done").length >= 2 && !running && (
+            <div style={{marginTop:16, background:"var(--s1)", border:"1px solid rgba(52,211,153,.25)", borderRadius:10, padding:"14px 16px"}}>
+              {!assembly && !assembling && (
+                <button onClick={assembleResults}
+                  style={{padding:"8px 20px", background:"rgba(52,211,153,.12)", border:"1px solid rgba(52,211,153,.35)", borderRadius:6, color:"var(--green)", fontSize:10, cursor:"pointer", fontWeight:700}}>
+                  ✨ Assembler le livrable final
+                </button>
+              )}
+              {assembling && <div style={{fontSize:10, color:"var(--mu)"}}>⏳ Assemblage en cours…</div>}
+              {assembly && (
+                <>
+                  <div style={{fontSize:9, color:"var(--green)", fontWeight:700, marginBottom:10}}>✨ LIVRABLE FINAL</div>
+                  <div style={{fontSize:10, color:"var(--tx)", lineHeight:1.8, whiteSpace:"pre-wrap"}}>{assembly}</div>
+                  <div style={{display:"flex", gap:8, marginTop:12}}>
+                    <button onClick={()=>navigator.clipboard.writeText(assembly)}
+                      style={{fontSize:9, padding:"5px 12px", background:"transparent", border:"1px solid var(--bd)", borderRadius:5, color:"var(--mu)", cursor:"pointer"}}>📋 Copier</button>
+                    <button onClick={()=>{setChatInput(assembly); navigateTab("chat");}}
+                      style={{fontSize:9, padding:"5px 12px", background:"rgba(212,168,83,.1)", border:"1px solid rgba(212,168,83,.3)", borderRadius:5, color:"var(--ac)", cursor:"pointer"}}>→ Continuer dans le Chat</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  IA JOURNALISTE — Rapport de recherche multi-angles          ║
+// ╚══════════════════════════════════════════════════════════════╝
+function JournalisteTab({ enabled, apiKeys }) {
+  const [subject, setSubject] = React.useState("");
+  const [depth, setDepth] = React.useState("standard"); // rapide|standard|approfondi
+  const [angles, setAngles] = React.useState([]);
+  const [report, setReport] = React.useState(null);
+  const [running, setRunning] = React.useState(false);
+  const [phase, setPhase] = React.useState("idle"); // idle|planning|researching|writing|done
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const SAVED_KEY = "multiia_journalist_reports";
+  const [savedReports, setSavedReports] = React.useState(() => { try { return JSON.parse(localStorage.getItem(SAVED_KEY)||"[]"); } catch { return []; } });
+  const [viewReport, setViewReport] = React.useState(null);
+
+  const ANGLES_PRESETS = {
+    rapide:    ["📰 Faits essentiels", "🔍 Analyse critique", "🎯 Conclusions pratiques"],
+    standard:  ["📰 Actualité & contexte", "📊 Données & chiffres", "🔍 Analyse experte", "🎯 Impact pratique", "🔮 Perspectives"],
+    approfondi:["📰 Contexte historique", "📊 Données & sources", "🔍 Angles contradictoires", "🌍 Dimension internationale", "⚖️ Enjeux éthiques", "🎯 Applications concrètes", "🔮 Scénarios futurs"],
+  };
+
+  const QUICK_SUBJECTS = [
+    "L'impact de l'IA générative sur l'emploi en 2026",
+    "DeepSeek vs GPT-4 : qui domine vraiment ?",
+    "Faut-il réguler les LLMs open source ?",
+    "L'IA dans la santé : promesses et dangers",
+    "Le marché des agents IA autonomes en 2026",
+    "Mistral AI : l'espoir européen face à OpenAI",
+  ];
+
+  const generateReport = async () => {
+    if (!subject.trim() || !activeIds.length) return;
+    setRunning(true); setReport(null); setPhase("planning");
+    const selectedAngles = ANGLES_PRESETS[depth];
+    const numAngles = selectedAngles.length;
+    const results = [];
+
+    // Phase 1 : Chaque IA couvre un angle différent en parallèle
+    setPhase("researching");
+    await Promise.all(selectedAngles.map(async (angle, i) => {
+      const iaId = activeIds[i % activeIds.length];
+      const prompt = `Tu es un journaliste expert. Rédige une section d'article sur : "${subject}"
+      
+ANGLE ASSIGNÉ : ${angle}
+
+Règles :
+- 200-350 mots maximum
+- Commence directement par le contenu (pas d'intro type "Dans cette section...")
+- Inclus des faits concrets, des chiffres ou des exemples précis si possible
+- Sois percutant et informatif
+- Termine par 1 phrase de transition vers la suite`;
+
+      try {
+        const output = await callModel(iaId, [{role:"user", content:prompt}], apiKeys,
+          `Tu es un journaliste expert spécialisé en ${angle.replace(/[^a-zA-ZÀ-ÿ\s]/g,"")}. Réponds directement avec le contenu.`
+        );
+        results[i] = { angle, iaId, output, ok:true };
+      } catch(e) {
+        results[i] = { angle, iaId, output:`⚠️ Erreur : ${e.message}`, ok:false };
+      }
+    }));
+
+    // Phase 2 : IA rédactrice en chef assemble le rapport final
+    setPhase("writing");
+    const redacIa = activeIds.find(id => ["mistral","poll_claude","sambanova","groq"].includes(id)) || activeIds[0];
+    const sections = results.map((r,i) => `### ${r.angle}\n${r.output}`).join("\n\n");
+
+    const assemblPrompt = `Tu es rédacteur en chef. Voici les sections rédigées par différents journalistes sur : "${subject}"
+
+${sections}
+
+Assemble ces sections en un rapport journalistique cohérent et professionnel :
+1. Ajoute un **titre accrocheur**
+2. Écris un **chapeau** (2-3 phrases d'intro percutantes)
+3. Intègre les sections en fluidifiant les transitions
+4. Ajoute une **conclusion** avec les 3 points à retenir
+5. Génère 3 **questions ouvertes** pour approfondir le sujet
+
+Format Markdown propre.`;
+
+    let finalReport = "";
+    try {
+      finalReport = await callModel(redacIa, [{role:"user", content:assemblPrompt}], apiKeys,
+        "Tu es rédacteur en chef senior. Tu produis des rapports journalistiques clairs et percutants."
+      );
+    } catch(e) {
+      finalReport = sections;
+    }
+
+    const reportObj = {
+      id: Date.now().toString(),
+      subject,
+      depth,
+      angles: selectedAngles,
+      sections: results,
+      finalReport,
+      redacIa,
+      date: new Date().toISOString(),
+      ias: [...new Set(results.map(r=>r.iaId))],
+    };
+
+    setReport(reportObj);
+    const updated = [reportObj, ...savedReports].slice(0, 10);
+    setSavedReports(updated);
+    try { localStorage.setItem(SAVED_KEY, JSON.stringify(updated)); } catch {}
+    setPhase("done");
+    setRunning(false);
+  };
+
+  const DEPTH_OPTIONS = [
+    { id:"rapide",     label:"⚡ Flash",      desc:"3 angles · ~1 min", color:"#4ADE80" },
+    { id:"standard",   label:"📰 Standard",   desc:"5 angles · ~2 min", color:"#60A5FA" },
+    { id:"approfondi", label:"🔬 Approfondi", desc:"7 angles · ~4 min", color:"#A78BFA" },
+  ];
+
+  const PHASE_LABELS = {
+    planning:"🧠 Analyse du sujet…", researching:"📰 Journalistes en cours…", writing:"✍️ Rédaction du rapport final…"
+  };
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar rapports sauvegardés */}
+      {savedReports.length > 0 && (
+        <div style={{width:180,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--s1)"}}>
+          <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)",fontSize:8,color:"var(--mu)",fontWeight:700}}>RAPPORTS SAUVEGARDÉS</div>
+          <div style={{flex:1,overflow:"auto"}}>
+            {savedReports.map(r=>(
+              <div key={r.id} onClick={()=>setViewReport(r.id===viewReport?null:r.id)}
+                style={{padding:"8px 12px",cursor:"pointer",borderBottom:"1px solid var(--bd)",background:viewReport===r.id?"rgba(212,168,83,.08)":"transparent",borderLeft:"3px solid "+(viewReport===r.id?"var(--ac)":"transparent")}}>
+                <div style={{fontSize:9,fontWeight:600,color:viewReport===r.id?"var(--ac)":"var(--tx)",lineHeight:1.3,marginBottom:2}}>{r.subject.slice(0,45)}{r.subject.length>45?"…":""}</div>
+                <div style={{fontSize:7,color:"var(--mu)"}}>{new Date(r.date).toLocaleDateString("fr-FR")} · {r.angles.length} angles</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#60A5FA"}}>📰 IA Journaliste</div>
+          <div style={{fontSize:9,color:"var(--mu)"}}>— Rapport complet multi-angles généré par tes IAs en équipe</div>
+        </div>
+        <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(96,165,250,.06)",border:"1px solid rgba(96,165,250,.15)",borderRadius:6}}>
+          Chaque IA couvre un angle différent (faits, données, analyse, impact…) en parallèle. Une IA rédactrice en chef assemble le tout en un rapport professionnel.
+        </div>
+
+        {/* Rapport sauvegardé affiché */}
+        {viewReport && (() => {
+          const r = savedReports.find(x=>x.id===viewReport);
+          if (!r) return null;
+          return (
+            <div>
+              <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
+                <button onClick={()=>setViewReport(null)} style={{fontSize:9,padding:"4px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>← Retour</button>
+                <button onClick={()=>navigator.clipboard.writeText(r.finalReport)} style={{fontSize:9,padding:"4px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",cursor:"pointer"}}>📋 Copier</button>
+                <button onClick={()=>{setSavedReports(prev=>{const u=prev.filter(x=>x.id!==viewReport);try{localStorage.setItem(SAVED_KEY,JSON.stringify(u));}catch{}return u;});setViewReport(null);}} style={{fontSize:9,padding:"4px 10px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer"}}>🗑</button>
+              </div>
+              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10,padding:"16px",fontSize:10,lineHeight:1.8,color:"var(--tx)",whiteSpace:"pre-wrap"}}>{r.finalReport}</div>
+            </div>
+          );
+        })()}
+
+        {/* Formulaire */}
+        {!viewReport && !running && !report && (
+          <>
+            <textarea value={subject} onChange={e=>setSubject(e.target.value)}
+              placeholder="Sur quel sujet veux-tu un rapport complet ?"
+              rows={3} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+            {/* Exemples */}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>SUJETS POPULAIRES</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {QUICK_SUBJECTS.map(s=>(
+                  <button key={s} onClick={()=>setSubject(s)}
+                    style={{padding:"4px 10px",borderRadius:10,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+                    {s.slice(0,40)}{s.length>40?"…":""}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Profondeur */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>PROFONDEUR D'ANALYSE</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {DEPTH_OPTIONS.map(d=>(
+                  <button key={d.id} onClick={()=>setDepth(d.id)}
+                    style={{flex:1,minWidth:100,padding:"10px 12px",borderRadius:8,border:"2px solid "+(depth===d.id?d.color:"var(--bd)"),background:depth===d.id?d.color+"15":"transparent",cursor:"pointer",textAlign:"center",transition:"all .15s"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:depth===d.id?d.color:"var(--tx)"}}>{d.label}</div>
+                    <div style={{fontSize:8,color:"var(--mu)",marginTop:2}}>{d.desc}</div>
+                    <div style={{marginTop:6,display:"flex",gap:3,justifyContent:"center"}}>
+                      {ANGLES_PRESETS[d.id].map((a,i)=>(
+                        <div key={i} style={{width:6,height:6,borderRadius:"50%",background:depth===d.id?d.color:"var(--bd)"}}/>
+                      ))}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* IAs assignées */}
+            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>IAs ASSIGNÉES AUX ANGLES</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {ANGLES_PRESETS[depth].map((angle,i)=>{
+                  const iaId = activeIds[i%activeIds.length];
+                  const m = iaId ? MODEL_DEFS[iaId] : null;
+                  return (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:9}}>
+                      <span style={{width:160,color:"var(--tx)"}}>{angle}</span>
+                      <span style={{color:"var(--bd)"}}>→</span>
+                      {m ? <span style={{color:m.color,fontWeight:700}}>{m.icon} {m.short}</span> : <span style={{color:"var(--red)"}}>Aucune IA active</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button onClick={generateReport} disabled={!subject.trim()||!activeIds.length}
+              style={{padding:"10px 24px",background:"rgba(96,165,250,.15)",border:"1px solid rgba(96,165,250,.4)",borderRadius:6,color:"#60A5FA",fontSize:11,cursor:"pointer",fontWeight:700,fontFamily:"var(--font-mono)"}}>
+              📰 Lancer la rédaction en équipe
+            </button>
+          </>
+        )}
+
+        {/* Loading */}
+        {running && (
+          <div style={{textAlign:"center",padding:"50px 20px"}}>
+            <div style={{fontSize:32,marginBottom:12,display:"inline-block",animation:"spin 2s linear infinite"}}>📰</div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--tx)",marginBottom:6}}>{PHASE_LABELS[phase]}</div>
+            <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap",marginTop:12}}>
+              {ANGLES_PRESETS[depth].map((a,i)=>(
+                <div key={i} style={{fontSize:8,padding:"4px 10px",borderRadius:8,background:"var(--s1)",border:"1px solid var(--bd)",color:"var(--mu)"}}>{a}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Rapport généré */}
+        {report && !running && !viewReport && (
+          <div>
+            <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
+              <div style={{fontSize:9,color:"var(--mu)"}}>
+                {report.ias.map(id=>MODEL_DEFS[id]?.icon+""+MODEL_DEFS[id]?.short).join(" · ")}
+                <span style={{marginLeft:6}}>· {report.angles.length} angles couverts</span>
+              </div>
+              <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+                <button onClick={()=>navigator.clipboard.writeText(report.finalReport)} style={{fontSize:9,padding:"4px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",cursor:"pointer"}}>📋 Copier</button>
+                <button onClick={()=>{setReport(null);setSubject("");setPhase("idle");}} style={{fontSize:9,padding:"4px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>+ Nouveau rapport</button>
+              </div>
+            </div>
+            <div style={{background:"var(--s1)",border:"1px solid rgba(96,165,250,.2)",borderRadius:10,padding:"16px",fontSize:10,lineHeight:1.9,color:"var(--tx)",whiteSpace:"pre-wrap"}}>{report.finalReport}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  SKILL BUILDER — Crée tes automatisations en langage naturel ║
+// ╚══════════════════════════════════════════════════════════════╝
+function SkillBuilderTab({ enabled, apiKeys, navigateTab, setChatInput }) {
+  const SKILLS_KEY = "multiia_skills";
+  const [skills, setSkills] = React.useState(() => { try { return JSON.parse(localStorage.getItem(SKILLS_KEY)||"[]"); } catch { return []; } });
+  const [creating, setCreating] = React.useState(false);
+  const [description, setDescription] = React.useState("");
+  const [generating, setGenerating] = React.useState(false);
+  const [draft, setDraft] = React.useState(null);
+  const [selected, setSelected] = React.useState(null);
+  const [running, setRunning] = React.useState({});
+  const [outputs, setOutputs] = React.useState({});
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const bestIA = activeIds.find(id=>["groq","mistral","sambanova"].includes(id)) || activeIds[0];
+
+  const saveSkills = (s) => { setSkills(s); try { localStorage.setItem(SKILLS_KEY, JSON.stringify(s)); } catch {} };
+
+  const SKILL_TEMPLATES = [
+    { desc:"Chaque matin, génère-moi 3 idées de posts LinkedIn sur les actualités IA" },
+    { desc:"Analyse n'importe quel texte que je colle et donne-moi ses points forts et faiblesses" },
+    { desc:"Quand je colle une URL d'article, fais-en un résumé en 5 points avec une opinion critique" },
+    { desc:"Transforme n'importe quelle idée brute en plan de projet structuré en 5 étapes" },
+    { desc:"Lis mon texte et réécris-le dans un style professionnel adapté à LinkedIn" },
+    { desc:"Prends n'importe quelle question technique et explique-la avec une analogie du quotidien" },
+  ];
+
+  const generateSkill = async () => {
+    if (!description.trim() || !bestIA) return;
+    setGenerating(true); setDraft(null);
+
+    const prompt = `Tu es un expert en prompt engineering et automatisation IA. L'utilisateur veut créer ce skill automatisé :
+"${description}"
+
+Génère la configuration complète de ce skill. Réponds UNIQUEMENT en JSON valide :
+{
+  "name": "Nom court du skill (3-5 mots)",
+  "icon": "emoji représentatif",
+  "description": "Ce que fait ce skill en 1 phrase",
+  "category": "Productivité|Rédaction|Analyse|Code|Créatif|Recherche",
+  "color": "#hexcolor",
+  "trigger": "Manuel|Auto-matin|Auto-soir|Sur texte collé",
+  "inputLabel": "Ce que l'utilisateur doit fournir (ex: Ton texte à analyser)",
+  "inputPlaceholder": "Exemple de ce qu'on peut coller ici",
+  "needsInput": true,
+  "systemPrompt": "Le system prompt complet pour ce skill (role, ton, règles)",
+  "userPromptTemplate": "Le template de prompt avec {{input}} pour le contenu de l'utilisateur",
+  "outputFormat": "Texte|Liste|JSON|Markdown|Tableau",
+  "estimatedTime": "~10s|~30s|~1min",
+  "tips": ["Conseil d'utilisation 1", "Conseil d'utilisation 2"]
+}`;
+
+    try {
+      const reply = await callModel(bestIA, [{role:"user",content:prompt}], apiKeys, "Expert prompt engineering. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      setDraft({ ...data, id:Date.now().toString(), createdAt:new Date().toISOString(), uses:0 });
+    } catch(e) {
+      alert("Erreur : "+e.message);
+    }
+    setGenerating(false);
+  };
+
+  const saveSkill = () => {
+    if (!draft) return;
+    const updated = [draft, ...skills];
+    saveSkills(updated);
+    setSelected(draft.id);
+    setDraft(null); setCreating(false); setDescription("");
+  };
+
+  const runSkill = async (skill, userInput="") => {
+    if (!activeIds.length) return;
+    const ia = activeIds.find(id=>["groq","mistral","cerebras"].includes(id)) || activeIds[0];
+    setRunning(prev=>({...prev,[skill.id]:true}));
+    setOutputs(prev=>({...prev,[skill.id]:""}));
+    try {
+      const prompt = skill.needsInput
+        ? skill.userPromptTemplate.replace("{{input}}", userInput || "[Aucune entrée fournie]")
+        : skill.userPromptTemplate;
+      const output = await callModel(ia, [{role:"user",content:prompt}], apiKeys, skill.systemPrompt);
+      setOutputs(prev=>({...prev,[skill.id]:output}));
+      // Incrémenter les uses
+      saveSkills(skills.map(s => s.id===skill.id ? {...s, uses:(s.uses||0)+1} : s));
+    } catch(e) {
+      setOutputs(prev=>({...prev,[skill.id]:"❌ "+e.message}));
+    }
+    setRunning(prev=>({...prev,[skill.id]:false}));
+  };
+
+  const deleteSkill = (id) => {
+    saveSkills(skills.filter(s=>s.id!==id));
+    if (selected===id) setSelected(null);
+  };
+
+  const CATS = ["Tout", ...new Set(skills.map(s=>s.category||"Autre"))];
+  const [catFilter, setCatFilter] = React.useState("Tout");
+  const [userInputs, setUserInputs] = React.useState({});
+  const filteredSkills = catFilter==="Tout" ? skills : skills.filter(s=>s.category===catFilter);
+  const sel = skills.find(s=>s.id===selected);
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar */}
+      <div style={{width:200,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--s1)"}}>
+        <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:12,color:"var(--ac)",marginBottom:8}}>🛠 Mes Skills</div>
+          <button onClick={()=>{setCreating(true);setSelected(null);setDraft(null);}}
+            style={{width:"100%",padding:"6px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+            + Créer un skill
+          </button>
+        </div>
+        {/* Filtre catégories */}
+        {CATS.length > 1 && (
+          <div style={{padding:"6px 8px",borderBottom:"1px solid var(--bd)",display:"flex",gap:3,flexWrap:"wrap"}}>
+            {CATS.map(c=>(
+              <button key={c} onClick={()=>setCatFilter(c)}
+                style={{padding:"2px 6px",borderRadius:6,border:"1px solid "+(catFilter===c?"var(--ac)":"transparent"),background:catFilter===c?"rgba(212,168,83,.12)":"transparent",color:catFilter===c?"var(--ac)":"var(--mu)",fontSize:7,cursor:"pointer"}}>
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{flex:1,overflow:"auto"}}>
+          {filteredSkills.length===0 && <div style={{padding:16,fontSize:9,color:"var(--mu)",textAlign:"center"}}>Aucun skill.<br/>Crée le tien !</div>}
+          {filteredSkills.map(s=>(
+            <div key={s.id} onClick={()=>{setSelected(s.id);setCreating(false);}}
+              style={{padding:"9px 12px",cursor:"pointer",borderBottom:"1px solid var(--bd)",background:selected===s.id?"rgba(212,168,83,.08)":"transparent",borderLeft:"3px solid "+(selected===s.id?s.color||"var(--ac)":"transparent")}}>
+              <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:2}}>
+                <span style={{fontSize:12}}>{s.icon}</span>
+                <span style={{fontSize:9,fontWeight:600,color:selected===s.id?"var(--ac)":"var(--tx)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</span>
+              </div>
+              <div style={{fontSize:7,color:"var(--mu)"}}>{s.category||"Général"} · ×{s.uses||0}</div>
+            </div>
+          ))}
+        </div>
+        {skills.length>0 && (
+          <div style={{padding:"6px 12px",borderTop:"1px solid var(--bd)",fontSize:7,color:"var(--mu)"}}>
+            {skills.length} skills · {skills.reduce((a,s)=>a+(s.uses||0),0)} utilisations
+          </div>
+        )}
+      </div>
+
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"14px 16px"}}>
+
+        {/* Créer */}
+        {creating && (
+          <div style={{maxWidth:580}}>
+            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"var(--ac)",marginBottom:14}}>🆕 Nouveau Skill</div>
+            <div style={{fontSize:9,color:"var(--mu)",marginBottom:10,padding:"8px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6}}>
+              Décris ce que tu veux automatiser en langage naturel. L'IA génère automatiquement le prompt, les paramètres et la configuration.
+            </div>
+
+            {/* Templates */}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>EXEMPLES D'AUTOMATISATIONS</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {SKILL_TEMPLATES.map((t,i)=>(
+                  <button key={i} onClick={()=>setDescription(t.desc)}
+                    style={{padding:"6px 10px",textAlign:"left",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:9,cursor:"pointer",lineHeight:1.4}}>
+                    → {t.desc}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <textarea value={description} onChange={e=>setDescription(e.target.value)}
+              placeholder="Décris ton automatisation en langage naturel…"
+              rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:11,padding:"9px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+            {!draft && (
+              <button onClick={generateSkill} disabled={generating||!description.trim()||!bestIA}
+                style={{padding:"8px 20px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                {generating?"⏳ Génération…":"✨ Générer le skill"}
+              </button>
+            )}
+
+            {/* Aperçu du draft */}
+            {draft && (
+              <div style={{marginTop:12,background:"var(--s1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:10,padding:"14px 16px"}}>
+                <div style={{fontSize:9,color:"var(--green)",fontWeight:700,marginBottom:10}}>✓ Skill généré — Aperçu</div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                  <span style={{fontSize:24}}>{draft.icon}</span>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:13,color:"var(--tx)"}}>{draft.name}</div>
+                    <div style={{fontSize:9,color:"var(--mu)"}}>{draft.category} · {draft.trigger} · {draft.estimatedTime}</div>
+                  </div>
+                </div>
+                <div style={{fontSize:9,color:"var(--tx)",marginBottom:8,lineHeight:1.5}}>{draft.description}</div>
+                <div style={{fontSize:8,color:"var(--mu)",marginBottom:4,fontWeight:700}}>PROMPT SYSTÈME</div>
+                <div style={{fontSize:9,color:"var(--mu)",background:"var(--s2)",borderRadius:5,padding:"6px 10px",marginBottom:10,lineHeight:1.5}}>{draft.systemPrompt?.slice(0,150)}…</div>
+                {draft.tips?.length>0 && (
+                  <div style={{fontSize:8,color:"var(--ac)",marginBottom:10}}>
+                    {draft.tips.map((t,i)=><div key={i}>💡 {t}</div>)}
+                  </div>
+                )}
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={saveSkill}
+                    style={{padding:"7px 18px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                    💾 Sauvegarder ce skill
+                  </button>
+                  <button onClick={()=>setDraft(null)}
+                    style={{padding:"7px 12px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,cursor:"pointer"}}>Regénérer</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Skill sélectionné */}
+        {sel && !creating && (() => {
+          const skillOutput = outputs[sel.id];
+          const isRunning = running[sel.id];
+          const userInput = userInputs[sel.id]||"";
+          return (
+            <div>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:14,flexWrap:"wrap"}}>
+                <span style={{fontSize:32}}>{sel.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:16,color:sel.color||"var(--ac)",marginBottom:2}}>{sel.name}</div>
+                  <div style={{fontSize:9,color:"var(--mu)",marginBottom:4}}>{sel.category} · {sel.trigger} · {sel.estimatedTime} · ×{sel.uses||0} utilisation{sel.uses!==1?"s":""}</div>
+                  <div style={{fontSize:10,color:"var(--tx)"}}>{sel.description}</div>
+                </div>
+                <button onClick={()=>deleteSkill(sel.id)} style={{fontSize:9,padding:"4px 10px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer"}}>🗑</button>
+              </div>
+
+              {/* Input utilisateur */}
+              {sel.needsInput && (
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>{sel.inputLabel||"ENTRÉE"}</div>
+                  <textarea value={userInput} onChange={e=>setUserInputs(prev=>({...prev,[sel.id]:e.target.value}))}
+                    placeholder={sel.inputPlaceholder||"Colle ton contenu ici…"}
+                    rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                </div>
+              )}
+
+              <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+                <button onClick={()=>runSkill(sel, userInput)} disabled={isRunning||(sel.needsInput&&!userInput.trim())}
+                  style={{padding:"8px 20px",background:isRunning?"var(--s2)":`${sel.color||"#D4A853"}22`,border:`1px solid ${sel.color||"var(--ac)"}66`,borderRadius:6,color:isRunning?"var(--mu)":(sel.color||"var(--ac)"),fontSize:10,cursor:isRunning?"default":"pointer",fontWeight:700}}>
+                  {isRunning?"⏳ Exécution…":`${sel.icon} Exécuter`}
+                </button>
+              </div>
+
+              {/* Résultat */}
+              {skillOutput && (
+                <div style={{background:"var(--s1)",border:`1px solid ${sel.color||"var(--ac)"}33`,borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <div style={{fontSize:9,color:sel.color||"var(--ac)",fontWeight:700}}>RÉSULTAT</div>
+                    <button onClick={()=>navigator.clipboard.writeText(skillOutput)} style={{fontSize:8,padding:"2px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋</button>
+                    <button onClick={()=>{setChatInput(skillOutput);navigateTab("chat");}} style={{fontSize:8,padding:"2px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>→ Chat</button>
+                  </div>
+                  <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{skillOutput}</div>
+                </div>
+              )}
+
+              {/* Conseils */}
+              {sel.tips?.length>0 && !skillOutput && (
+                <div style={{marginTop:10,padding:"10px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8}}>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>CONSEILS D'UTILISATION</div>
+                  {sel.tips.map((t,i)=><div key={i} style={{fontSize:9,color:"var(--tx)",marginBottom:3}}>💡 {t}</div>)}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {!creating && !sel && (
+          <div style={{textAlign:"center",padding:"50px 20px"}}>
+            <div style={{fontSize:40,marginBottom:10}}>🛠</div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Skill Builder</div>
+            <div style={{fontSize:10,color:"var(--mu)",marginBottom:20,maxWidth:360,margin:"0 auto 20px"}}>Crée des automatisations IA personnalisées en décrivant ce que tu veux en langage naturel. L'IA génère le prompt parfait.</div>
+            <button onClick={()=>setCreating(true)} style={{padding:"10px 24px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:8,color:"var(--ac)",fontSize:11,cursor:"pointer",fontWeight:700}}>
+              ✨ Créer mon premier skill
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  CONTRADICTION DETECTOR — Scan de contradictions & biais     ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ContradictionTab({ enabled, apiKeys, conversations }) {
+  const [textA, setTextA] = React.useState("");
+  const [textB, setTextB] = React.useState("");
+  const [labelA, setLabelA] = React.useState("Texte A");
+  const [labelB, setLabelB] = React.useState("Texte B");
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [mode, setMode] = React.useState("compare"); // compare|single
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const judge = activeIds.find(id=>["sambanova","mistral","groq","poll_claude"].includes(id)) || activeIds[0];
+
+  // Pré-remplir depuis les réponses du chat
+  const lastResponses = React.useMemo(() => {
+    return activeIds.map(id => {
+      const msgs = conversations[id]||[];
+      const last = [...msgs].reverse().find(m=>m.role==="assistant");
+      return last ? {id, text:last.content, name:MODEL_DEFS[id]?.short} : null;
+    }).filter(Boolean).slice(0,4);
+  }, [conversations, activeIds]);
+
+  const analyze = async () => {
+    if (mode==="compare" && (!textA.trim()||!textB.trim())) return;
+    if (mode==="single" && !textA.trim()) return;
+    if (!judge) return;
+    setLoading(true); setResult(null);
+
+    const prompt = mode==="compare"
+      ? `Tu es un expert en logique, rhétorique et analyse critique. Analyse ces deux textes :
+
+TEXTE A (${labelA}) :
+${textA.slice(0,1500)}
+
+TEXTE B (${labelB}) :
+${textB.slice(0,1500)}
+
+Identifie toutes les contradictions, désaccords factuels et incohérences logiques entre eux.
+Réponds UNIQUEMENT en JSON valide :
+{
+  "score_coherence": 75,
+  "resume": "Résumé de la relation entre les deux textes (2 phrases)",
+  "contradictions": [
+    {
+      "type": "Factuel|Logique|Rhétorique|Nuance",
+      "gravite": "haute|moyenne|faible",
+      "claim_a": "Ce que dit le texte A",
+      "claim_b": "Ce que dit le texte B",
+      "explication": "Pourquoi c'est contradictoire",
+      "verdict": "A a raison|B a raison|Les deux|Aucun des deux|Contextuel"
+    }
+  ],
+  "points_communs": ["Point sur lequel ils s'accordent"],
+  "recommandation": "Que faire face à ces contradictions ?"
+}`
+      : `Tu es un expert en analyse critique et détection de biais. Analyse ce texte :
+
+${textA.slice(0,2000)}
+
+Effectue une analyse complète : contradictions internes, biais cognitifs, arguments fallacieux.
+Réponds UNIQUEMENT en JSON valide :
+{
+  "score_coherence": 75,
+  "resume": "Résumé de la qualité argumentative (2 phrases)",
+  "contradictions": [
+    {
+      "type": "Contradiction interne|Biais cognitif|Argument fallacieux|Généralisation",
+      "gravite": "haute|moyenne|faible",
+      "passage": "Le passage problématique (courte citation)",
+      "explication": "Pourquoi c'est problématique",
+      "suggestion": "Comment l'améliorer"
+    }
+  ],
+  "biais_detectes": ["Biais 1", "Biais 2"],
+  "points_forts": ["Ce qui est bien argumenté"],
+  "recommandation": "Conseil global pour améliorer ce texte"
+}`;
+
+    try {
+      const reply = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Expert logique et analyse critique. JSON uniquement, sans markdown.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      setResult(data);
+    } catch(e) {
+      setResult({score_coherence:0, resume:"Erreur d'analyse : "+e.message, contradictions:[], points_communs:[], recommandation:""});
+    }
+    setLoading(false);
+  };
+
+  const graviteColor = g => ({haute:"var(--red)",moyenne:"var(--orange)",faible:"var(--mu)"}[g]||"var(--mu)");
+  const scoreColor   = s => s>=75?"var(--green)":s>=50?"var(--orange)":"var(--red)";
+  const typeColors   = {"Factuel":"#F87171","Logique":"#F97316","Rhétorique":"#A78BFA","Nuance":"#60A5FA","Contradiction interne":"#F87171","Biais cognitif":"#F97316","Argument fallacieux":"#A78BFA","Généralisation":"#FCD34D"};
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#F97316"}}>⚡ Contradiction Detector</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Contradictions, biais et incohérences logiques détectés par IA</div>
+      </div>
+
+      {/* Mode switch */}
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        {[["compare","⚖️ Comparer 2 textes"],["single","🔬 Analyser 1 texte"]].map(([m,l])=>(
+          <button key={m} onClick={()=>{setMode(m);setResult(null);}}
+            style={{padding:"6px 14px",borderRadius:8,border:"1px solid "+(mode===m?"var(--ac)":"var(--bd)"),background:mode===m?"rgba(212,168,83,.12)":"transparent",color:mode===m?"var(--ac)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:mode===m?700:400}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Pré-remplir depuis le chat */}
+      {lastResponses.length>=2 && (
+        <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>COMPARER LES RÉPONSES DU CHAT</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {lastResponses.map((r,i)=>{
+              const m=MODEL_DEFS[r.id];
+              return <button key={r.id} onClick={()=>{
+                if(i===0||mode==="single"){setTextA(r.text.slice(0,1500));setLabelA(m.short);}
+                else{setTextB(r.text.slice(0,1500));setLabelB(m.short);}
+              }}
+                style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+m.color+"44",background:m.color+"11",color:m.color,fontSize:8,cursor:"pointer"}}>
+                {i===0||mode==="single"?"A":"B"}: {m.icon} {m.short}
+              </button>;
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Inputs */}
+      <div style={{display:"grid",gridTemplateColumns:mode==="compare"?"1fr 1fr":"1fr",gap:10,marginBottom:12}}>
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+            <input value={mode==="compare"?labelA:"Texte à analyser"} readOnly={mode==="single"} onChange={e=>setLabelA(e.target.value)}
+              style={{flex:1,background:"transparent",border:"none",color:"var(--ac)",fontSize:9,fontWeight:700,outline:"none",fontFamily:"var(--font-mono)"}}/>
+          </div>
+          <textarea value={textA} onChange={e=>setTextA(e.target.value)}
+            placeholder={mode==="compare"?"Colle le premier texte, article ou réponse IA…":"Colle le texte à analyser…"}
+            rows={6} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+          <div style={{fontSize:7,color:"var(--mu)",marginTop:2}}>{textA.length} caractères</div>
+        </div>
+        {mode==="compare" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+              <input value={labelB} onChange={e=>setLabelB(e.target.value)}
+                style={{flex:1,background:"transparent",border:"none",color:"#60A5FA",fontSize:9,fontWeight:700,outline:"none",fontFamily:"var(--font-mono)"}}/>
+            </div>
+            <textarea value={textB} onChange={e=>setTextB(e.target.value)}
+              placeholder="Colle le deuxième texte, article ou réponse IA…"
+              rows={6} style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            <div style={{fontSize:7,color:"var(--mu)",marginTop:2}}>{textB.length} caractères</div>
+          </div>
+        )}
+      </div>
+
+      <button onClick={analyze} disabled={loading||!judge||(mode==="compare"?(!textA.trim()||!textB.trim()):!textA.trim())}
+        style={{padding:"9px 22px",background:loading?"var(--s2)":"rgba(249,115,22,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(249,115,22,.4)"),borderRadius:6,color:loading?"var(--mu)":"#F97316",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)",marginBottom:16}}>
+        {loading?"⚡ Analyse en cours…":"⚡ Lancer l'analyse"}
+      </button>
+
+      {/* Résultats */}
+      {result && (
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {/* Score */}
+          <div style={{padding:"14px 18px",background:"var(--s1)",border:"2px solid "+scoreColor(result.score_coherence)+"44",borderRadius:12,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+            <div style={{textAlign:"center",minWidth:70}}>
+              <div style={{fontSize:36,fontWeight:900,color:scoreColor(result.score_coherence),fontFamily:"var(--font-display)",lineHeight:1}}>{result.score_coherence}%</div>
+              <div style={{fontSize:8,color:"var(--mu)"}}>Cohérence</div>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:6}}>{result.resume}</div>
+              {result.recommandation && <div style={{fontSize:9,color:"var(--ac)",fontStyle:"italic"}}>→ {result.recommandation}</div>}
+            </div>
+          </div>
+
+          {/* Contradictions */}
+          {result.contradictions?.length>0 && (
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--red)",marginBottom:8}}>⚡ {result.contradictions.length} contradiction{result.contradictions.length>1?"s":""} détectée{result.contradictions.length>1?"s":""}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {result.contradictions.map((c,i)=>(
+                  <div key={i} style={{background:"var(--s1)",border:"1px solid "+graviteColor(c.gravite)+"44",borderRadius:10,padding:"12px 14px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                      <span style={{padding:"2px 8px",borderRadius:8,background:(typeColors[c.type]||"var(--mu)")+"22",color:typeColors[c.type]||"var(--mu)",fontSize:8,fontWeight:700}}>{c.type}</span>
+                      <span style={{padding:"2px 8px",borderRadius:8,background:graviteColor(c.gravite)+"22",color:graviteColor(c.gravite),fontSize:8,fontWeight:700}}>Gravité {c.gravite}</span>
+                      {c.verdict && <span style={{fontSize:8,color:"var(--mu)",marginLeft:"auto"}}>Verdict : <strong style={{color:"var(--tx)"}}>{c.verdict}</strong></span>}
+                    </div>
+                    {mode==="compare" ? (
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                        <div style={{background:"rgba(212,168,83,.06)",borderRadius:6,padding:"6px 8px"}}>
+                          <div style={{fontSize:7,color:"var(--ac)",fontWeight:700,marginBottom:3}}>{labelA}</div>
+                          <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.5}}>{c.claim_a}</div>
+                        </div>
+                        <div style={{background:"rgba(96,165,250,.06)",borderRadius:6,padding:"6px 8px"}}>
+                          <div style={{fontSize:7,color:"#60A5FA",fontWeight:700,marginBottom:3}}>{labelB}</div>
+                          <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.5}}>{c.claim_b}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{background:"rgba(248,113,113,.06)",borderRadius:6,padding:"6px 8px",marginBottom:8}}>
+                        <div style={{fontSize:7,color:"var(--red)",fontWeight:700,marginBottom:3}}>PASSAGE PROBLÉMATIQUE</div>
+                        <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.5,fontStyle:"italic"}}>"{c.passage}"</div>
+                      </div>
+                    )}
+                    <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5}}>{c.explication}</div>
+                    {c.suggestion && <div style={{marginTop:5,fontSize:9,color:"var(--green)"}}>✓ {c.suggestion}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Points communs ou forts */}
+          {(result.points_communs||result.points_forts||result.biais_detectes) && (
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:8}}>
+              {(result.points_communs||result.points_forts)?.length>0 && (
+                <div style={{background:"var(--s1)",border:"1px solid rgba(74,222,128,.2)",borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{fontSize:8,color:"var(--green)",fontWeight:700,marginBottom:6}}>{mode==="compare"?"✓ POINTS COMMUNS":"✓ POINTS FORTS"}</div>
+                  {(result.points_communs||result.points_forts||[]).map((p,i)=><div key={i} style={{fontSize:9,color:"var(--tx)",marginBottom:3}}>• {p}</div>)}
+                </div>
+              )}
+              {result.biais_detectes?.length>0 && (
+                <div style={{background:"var(--s1)",border:"1px solid rgba(249,115,22,.2)",borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{fontSize:8,color:"var(--orange)",fontWeight:700,marginBottom:6}}>🧠 BIAIS DÉTECTÉS</div>
+                  {result.biais_detectes.map((b,i)=><div key={i} style={{fontSize:9,color:"var(--tx)",marginBottom:3}}>• {b}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  SECOND BRAIN EXPORT — Export total vers Obsidian/Notion/MD  ║
+// ╚══════════════════════════════════════════════════════════════╝
+function SecondBrainTab({ savedConvs, projects, memFacts, usageStats, apiKeys, enabled, MODEL_DEFS, callModel }) {
+  const [generating, setGenerating] = React.useState(false);
+  const [preview, setPreview] = React.useState(null);
+  const [exportFormat, setExportFormat] = React.useState("obsidian");
+  const [includeOptions, setIncludeOptions] = React.useState({
+    conversations:true, projects:true, memory:true, prompts:true, stats:true, profile:true
+  });
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const bestIA = activeIds.find(id=>["groq","mistral","cerebras"].includes(id)) || activeIds[0];
+
+  const FORMATS = [
+    { id:"obsidian", label:"🟣 Obsidian", ext:".md", desc:"Vault Markdown avec liens [[wikilinks]]" },
+    { id:"notion",   label:"⬜ Notion",   ext:".md", desc:"Markdown compatible import Notion" },
+    { id:"markdown", label:"📄 Markdown", ext:".md", desc:"Markdown universel" },
+    { id:"json",     label:"📦 JSON",     ext:".json", desc:"Données structurées complètes" },
+  ];
+
+  const buildExport = async () => {
+    setGenerating(true); setPreview(null);
+    const fmt = exportFormat;
+    const sections = [];
+    const now = new Date().toLocaleDateString("fr-FR", {day:"2-digit",month:"long",year:"numeric"});
+
+    if (fmt === "json") {
+      const data = {
+        exportDate: new Date().toISOString(),
+        source: "Multi-IA Hub",
+        version: "export-v1",
+        memory: includeOptions.memory ? memFacts : [],
+        projects: includeOptions.projects ? projects : [],
+        conversations: includeOptions.conversations ? (savedConvs||[]).slice(0,20).map(c=>({
+          id:c.id, title:c.title, date:c.date, ias:c.ias,
+          summary: Object.values(c.conversations||{}).flat().filter(m=>m.role==="user").slice(0,1).map(m=>m.content?.slice(0,100)).join("")
+        })) : [],
+        stats: includeOptions.stats ? usageStats : {},
+      };
+      setPreview(JSON.stringify(data, null, 2));
+      setGenerating(false);
+      return;
+    }
+
+    const h = fmt==="obsidian" ? (n,l) => "#".repeat(l)+" "+n+"\n" : (n,l) => "#".repeat(l)+" "+n+"\n";
+    const link = fmt==="obsidian" ? (t) => `[[${t}]]` : (t) => `**${t}**`;
+
+    sections.push(`${h("🧠 Second Brain — Multi-IA Hub",1)}`);
+    sections.push(`> Exporté le ${now} depuis Multi-IA Hub\n`);
+
+    // Profil utilisateur généré par IA
+    if (includeOptions.profile && bestIA && memFacts?.length > 0) {
+      try {
+        const facts = memFacts.map(f=>"- "+f.text).join("\n");
+        const topIA = Object.entries(usageStats?.msgs||{}).sort(([,a],[,b])=>b-a)[0];
+        const profilePrompt = `À partir de ces informations sur un utilisateur de Multi-IA Hub, génère un profil utilisateur en 3-5 phrases qui capture qui il est, ses intérêts et sa façon d'utiliser l'IA :\n\nMémoires :\n${facts}\n\nIA préférée : ${topIA?MODEL_DEFS[topIA[0]]?.name:"inconnue"}\nNombre de conversations : ${usageStats?.convs||0}\n\nRéponds directement avec le profil, sans intro.`;
+        const profile = await callModel(bestIA, [{role:"user",content:profilePrompt}], apiKeys, "Tu génères des profils utilisateurs concis et précis.");
+        sections.push(`${h("👤 Mon Profil IA",2)}\n${profile}\n`);
+      } catch {}
+    }
+
+    // Mémoire
+    if (includeOptions.memory && memFacts?.length > 0) {
+      sections.push(`${h("📌 Mémoire Persistante",2)}`);
+      memFacts.forEach(f => sections.push(`- ${f.text}`));
+      sections.push("");
+    }
+
+    // Projets
+    if (includeOptions.projects && projects?.length > 0) {
+      sections.push(`${h("📁 Projets",2)}`);
+      projects.forEach(p => {
+        sections.push(`${h(p.name, 3)}`);
+        if (p.desc) sections.push(`> ${p.desc}\n`);
+        if (p.context) sections.push(`**Contexte IA :**\n${p.context}\n`);
+        if (p.notes) sections.push(`**Notes :**\n${p.notes}\n`);
+        sections.push(`*Créé le ${new Date(p.createdAt).toLocaleDateString("fr-FR")}*\n`);
+      });
+    }
+
+    // Historique conversations
+    if (includeOptions.conversations && savedConvs?.length > 0) {
+      sections.push(`${h("💬 Historique des Conversations",2)}`);
+      const convs = savedConvs.slice(0, 30);
+      convs.forEach(c => {
+        sections.push(`${h(c.title||"Sans titre", 3)}`);
+        sections.push(`*${c.date} · IAs : ${(c.ias||[]).map(id=>MODEL_DEFS[id]?.short||id).join(", ")}*\n`);
+        // Premier message utilisateur
+        const firstUserMsg = Object.values(c.conversations||{}).flat().find(m=>m.role==="user");
+        if (firstUserMsg) sections.push(`**Question :** ${firstUserMsg.content?.slice(0,200)}${firstUserMsg.content?.length>200?"…":""}\n`);
+      });
+    }
+
+    // Stats
+    if (includeOptions.stats) {
+      const totalMsgs = Object.values(usageStats?.msgs||{}).reduce((a,b)=>a+b,0);
+      const totalTok = Object.values(usageStats?.tokens||{}).reduce((a,b)=>a+b,0);
+      const topIA = Object.entries(usageStats?.msgs||{}).sort(([,a],[,b])=>b-a)[0];
+      sections.push(`${h("📊 Mes Statistiques",2)}`);
+      sections.push(`| Métrique | Valeur |`);
+      sections.push(`|----------|--------|`);
+      sections.push(`| Conversations | ${usageStats?.convs||0} |`);
+      sections.push(`| Messages envoyés | ${totalMsgs.toLocaleString()} |`);
+      sections.push(`| Tokens estimés | ${(totalTok/1000).toFixed(1)}k |`);
+      if (topIA) sections.push(`| IA préférée | ${MODEL_DEFS[topIA[0]]?.name} (${topIA[1]} msgs) |`);
+      sections.push("");
+      // Top IAs
+      sections.push(`${h("Utilisation par IA", 3)}`);
+      Object.entries(usageStats?.msgs||{}).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a).forEach(([id,count])=>{
+        const m = MODEL_DEFS[id];
+        if (m) sections.push(`- **${m.name}** : ${count} messages`);
+      });
+    }
+
+    setPreview(sections.join("\n"));
+    setGenerating(false);
+  };
+
+  const downloadExport = () => {
+    if (!preview) return;
+    const fmt = FORMATS.find(f=>f.id===exportFormat);
+    const blob = new Blob([preview], {type:"text/plain;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=`second-brain-multiia${fmt.ext}`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const totalItems = (savedConvs?.length||0) + (projects?.length||0) + (memFacts?.length||0);
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#A78BFA"}}>🧠 Second Brain Export</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Exporte tout ton Multi-IA Hub vers Obsidian, Notion ou Markdown</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(167,139,250,.06)",border:"1px solid rgba(167,139,250,.15)",borderRadius:6}}>
+        Toutes tes données (conversations, projets, mémoire, stats) sont compilées en un fichier structuré. Une IA génère aussi ton <strong style={{color:"var(--tx)"}}>profil utilisateur</strong> basé sur ton usage.
+      </div>
+
+      {/* Inventaire */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["💬",savedConvs?.length||0,"Conversations"],["📁",projects?.length||0,"Projets"],["📌",memFacts?.length||0,"Souvenirs"],["📊",Object.values(usageStats?.msgs||{}).reduce((a,b)=>a+b,0),"Messages"]].map(([ico,n,l])=>(
+          <div key={l} style={{flex:1,minWidth:80,padding:"10px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,textAlign:"center"}}>
+            <div style={{fontSize:18}}>{ico}</div>
+            <div style={{fontSize:16,fontWeight:900,color:"var(--ac)",fontFamily:"var(--font-display)"}}>{n}</div>
+            <div style={{fontSize:8,color:"var(--mu)"}}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+        {/* Format */}
+        <div>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>FORMAT D'EXPORT</div>
+          {FORMATS.map(f=>(
+            <button key={f.id} onClick={()=>setExportFormat(f.id)}
+              style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"7px 10px",marginBottom:4,borderRadius:6,border:"1px solid "+(exportFormat===f.id?"rgba(167,139,250,.4)":"var(--bd)"),background:exportFormat===f.id?"rgba(167,139,250,.08)":"transparent",cursor:"pointer",textAlign:"left"}}>
+              <span style={{fontSize:12,flexShrink:0}}>{f.label.slice(0,2)}</span>
+              <div>
+                <div style={{fontSize:9,fontWeight:700,color:exportFormat===f.id?"#A78BFA":"var(--tx)"}}>{f.label.slice(2).trim()}</div>
+                <div style={{fontSize:7,color:"var(--mu)"}}>{f.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        {/* Contenu */}
+        <div>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>CONTENU INCLUS</div>
+          {Object.entries({conversations:"💬 Conversations",projects:"📁 Projets",memory:"📌 Mémoire",stats:"📊 Statistiques",profile:"🤖 Profil IA généré"}).map(([k,l])=>(
+            <label key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,cursor:"pointer"}}>
+              <input type="checkbox" checked={!!includeOptions[k]} onChange={e=>setIncludeOptions(p=>({...p,[k]:e.target.checked}))}/>
+              <span style={{fontSize:9,color:"var(--tx)"}}>{l}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        <button onClick={buildExport} disabled={generating||totalItems===0}
+          style={{padding:"9px 22px",background:generating?"var(--s2)":"rgba(167,139,250,.15)",border:"1px solid "+(generating?"var(--bd)":"rgba(167,139,250,.4)"),borderRadius:6,color:generating?"var(--mu)":"#A78BFA",fontSize:10,cursor:generating?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)"}}>
+          {generating?"⏳ Génération…":"🧠 Générer le Second Brain"}
+        </button>
+        {preview && (
+          <button onClick={downloadExport}
+            style={{padding:"9px 22px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,color:"var(--green)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+            ⬇️ Télécharger {FORMATS.find(f=>f.id===exportFormat)?.ext}
+          </button>
+        )}
+      </div>
+
+      {preview && (
+        <div style={{background:"var(--s1)",border:"1px solid rgba(167,139,250,.2)",borderRadius:10,padding:"14px",maxHeight:400,overflow:"auto"}}>
+          <div style={{fontSize:8,color:"#A78BFA",fontWeight:700,marginBottom:8}}>APERÇU</div>
+          <pre style={{fontSize:9,color:"var(--tx)",lineHeight:1.7,whiteSpace:"pre-wrap",fontFamily:"var(--font-mono)"}}>{preview.slice(0,3000)}{preview.length>3000?"\n\n[… "+Math.round((preview.length-3000)/1000)+"k caractères supplémentaires …]":""}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  LIVE DEBATE TIMER — Débat Oxford gamifié                    ║
+// ╚══════════════════════════════════════════════════════════════╝
+function LiveDebateTimerTab({ enabled, apiKeys }) {
+  const [topic, setTopic] = React.useState("");
+  const [phase, setPhase] = React.useState("setup"); // setup|running|done
+  const [rounds, setRounds] = React.useState([]);
+  const [currentRound, setCurrentRound] = React.useState(0);
+  const [timer, setTimer] = React.useState(0);
+  const [timerRunning, setTimerRunning] = React.useState(false);
+  const [scores, setScores] = React.useState({});
+  const [userVotes, setUserVotes] = React.useState([]);
+  const [finalScore, setFinalScore] = React.useState(null);
+  const [scoringIA, setScoringIA] = React.useState(null);
+  const timerRef = React.useRef(null);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const MAX_TOKENS = 300; // ~300 mots par réponse pour le timer
+  const TIME_PER_ROUND = 90; // 90 secondes par tour
+
+  const ROUND_STRUCTURE = [
+    { label:"🎙 Ouverture",    role:"Pour",   desc:"Argumente EN FAVEUR de la proposition. Sois convaincant, concis, cite des faits. MAX 300 mots." },
+    { label:"🎙 Ouverture",    role:"Contre", desc:"Argumente CONTRE la proposition. Démonte les arguments précédents. MAX 300 mots." },
+    { label:"🔁 Réplique",     role:"Pour",   desc:"Réponds aux arguments adverses. Défends ta position et attaque les faiblesses de l'adversaire. MAX 250 mots." },
+    { label:"🔁 Réplique",     role:"Contre", desc:"Réponds aux répliques. Renforce ta position avec des exemples concrets. MAX 250 mots." },
+    { label:"🏁 Conclusion",   role:"Pour",   desc:"Conclusion finale POUR. Résume tes 3 arguments les plus forts. MAX 150 mots." },
+    { label:"🏁 Conclusion",   role:"Contre", desc:"Conclusion finale CONTRE. Résume tes 3 contre-arguments. MAX 150 mots." },
+  ];
+
+  const QUICK_TOPICS = [
+    "L'IA remplacera plus d'emplois qu'elle n'en créera d'ici 2030",
+    "Les LLMs open source représentent un danger pour la société",
+    "L'IA générative va tuer la créativité humaine",
+    "Les réseaux sociaux font plus de mal que de bien",
+    "Le travail à distance devrait être la norme par défaut",
+    "La vie sur Mars est une priorité plus urgente que les problèmes terrestres",
+  ];
+
+  // Timer
+  React.useEffect(() => {
+    if (timerRunning) {
+      timerRef.current = setInterval(() => {
+        setTimer(t => {
+          if (t <= 1) { clearInterval(timerRef.current); setTimerRunning(false); return 0; }
+          return t - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [timerRunning]);
+
+  const startDebate = async () => {
+    if (!topic.trim() || activeIds.length < 1) return;
+    setPhase("running"); setRounds([]); setCurrentRound(0); setScores({}); setUserVotes([]); setFinalScore(null);
+    const iaFor = activeIds[0];
+    const iaAgainst = activeIds[1] || activeIds[0];
+    // Générer le premier tour immédiatement
+    await generateRound(0, iaFor, iaAgainst, []);
+  };
+
+  const generateRound = async (roundIdx, iaFor, iaAgainst, prevRounds) => {
+    if (roundIdx >= ROUND_STRUCTURE.length) { setPhase("done"); return; }
+    const roundDef = ROUND_STRUCTURE[roundIdx];
+    const iaId = roundDef.role === "Pour" ? iaFor : iaAgainst;
+    const m = MODEL_DEFS[iaId];
+    setScoringIA(iaId);
+    setTimer(TIME_PER_ROUND); setTimerRunning(true);
+
+    const context = prevRounds.length > 0
+      ? `\n\nÉchanges précédents :\n${prevRounds.map(r=>`[${r.role} — ${r.label}]: ${r.content.slice(0,200)}`).join("\n")}`
+      : "";
+
+    const prompt = `Débat Oxford sur : "${topic}"
+Tu défends la position : ${roundDef.role==="Pour"?"EN FAVEUR":"CONTRE"}
+${roundDef.desc}${context}
+
+Commence directement par ton argument. Sois percutant et convaincant.`;
+
+    try {
+      const content = await callModel(iaId, [{role:"user",content:prompt}], apiKeys,
+        `Tu es un débatteur expert. Tu défends la position "${roundDef.role==="Pour"?"POUR":"CONTRE"}" de façon convaincante et factuelle.`
+      );
+      const newRound = { roundIdx, label:roundDef.label, role:roundDef.role, iaId, iaName:m?.short||iaId, iaColor:m?.color||"#D4A853", content, ts:Date.now() };
+      setRounds(prev => {
+        const updated = [...prev, newRound];
+        return updated;
+      });
+      setScoringIA(null);
+    } catch(e) {
+      setRounds(prev => [...prev, { roundIdx, label:roundDef.label, role:roundDef.role, iaId, content:`❌ ${e.message}`, ts:Date.now() }]);
+    }
+    setCurrentRound(roundIdx+1);
+  };
+
+  const nextRound = async () => {
+    if (currentRound >= ROUND_STRUCTURE.length) { await computeFinalScore(); return; }
+    const iaFor = activeIds[0];
+    const iaAgainst = activeIds[1] || activeIds[0];
+    await generateRound(currentRound, iaFor, iaAgainst, rounds);
+  };
+
+  const voteRound = (roundIdx, vote) => {
+    setUserVotes(prev => {
+      const filtered = prev.filter(v=>v.roundIdx!==roundIdx);
+      return [...filtered, {roundIdx, vote}]; // "pour"|"contre"|"nul"
+    });
+  };
+
+  const computeFinalScore = async () => {
+    const judge = activeIds.find(id=>!activeIds.slice(0,2).includes(id)) || activeIds[activeIds.length-1] || activeIds[0];
+    const transcript = rounds.map(r=>`[${r.role} — ${r.label}]:\n${r.content.slice(0,300)}`).join("\n\n");
+    const userVotesSummary = userVotes.map(v=>`Tour ${v.roundIdx+1}: ${v.vote}`).join(", ");
+
+    try {
+      const reply = await callModel(judge, [{role:"user",content:`Tu es arbitre d'un débat Oxford sur : "${topic}"\n\nTranscript complet :\n${transcript}\n\nVotes du public : ${userVotesSummary||"aucun vote"}\n\nDécide du vainqueur. Réponds en JSON :\n{"winner":"Pour|Contre|Match nul","score_pour":7,"score_contre":6,"raison":"2 phrases","arguments_forts_pour":["arg1"],"arguments_forts_contre":["arg1"]}`}], apiKeys, "Arbitre objectif. JSON uniquement.");
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const data = JSON.parse(clean.match(/\{[\s\S]*\}/)?.[0]||clean);
+      setFinalScore(data);
+    } catch(e) {
+      setFinalScore({winner:"Match nul",score_pour:5,score_contre:5,raison:"Impossible de calculer le score : "+e.message});
+    }
+    setPhase("done");
+  };
+
+  const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  const timerColor = timer > 30 ? "var(--green)" : timer > 10 ? "var(--orange)" : "var(--red)";
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#F59E0B"}}>⏱ Live Debate Timer</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Format Oxford gamifié : 6 tours, timer, votes public, score final</div>
+      </div>
+
+      {/* Setup */}
+      {phase==="setup" && (
+        <>
+          <textarea value={topic} onChange={e=>setTopic(e.target.value)}
+            placeholder="La proposition à débattre…"
+            rows={2} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>PROPOSITIONS RAPIDES</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {QUICK_TOPICS.map(t=>(
+                <button key={t} onClick={()=>setTopic(t)}
+                  style={{padding:"4px 10px",borderRadius:10,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+                  {t.slice(0,42)}{t.length>42?"…":""}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Assignation IAs */}
+          <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
+            <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:8}}>DÉBATTEURS</div>
+            <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+              {[["🟢 POUR",activeIds[0]],["🔴 CONTRE",activeIds[1]||activeIds[0]]].map(([role,id])=>{
+                const m=id?MODEL_DEFS[id]:null;
+                return <div key={role} style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:10,fontWeight:700,color:role.includes("POUR")?"var(--green)":"var(--red)"}}>{role}</span>
+                  <span style={{fontSize:10}}>{m?`${m.icon} ${m.short}`:"Aucune IA"}</span>
+                </div>;
+              })}
+              {activeIds.length<2 && <div style={{fontSize:9,color:"var(--orange)"}}>⚠️ Active au moins 2 IAs pour un vrai débat</div>}
+            </div>
+            <div style={{marginTop:8,fontSize:8,color:"var(--mu)"}}>Format : 6 tours · Ouverture → Réplique → Conclusion · 90s par tour</div>
+          </div>
+          <button onClick={startDebate} disabled={!topic.trim()||!activeIds.length}
+            style={{padding:"10px 24px",background:"rgba(245,158,11,.15)",border:"1px solid rgba(245,158,11,.4)",borderRadius:6,color:"#F59E0B",fontSize:11,cursor:"pointer",fontWeight:700}}>
+            ⏱ Lancer le débat
+          </button>
+        </>
+      )}
+
+      {/* Débat en cours */}
+      {(phase==="running"||phase==="done") && (
+        <div>
+          {/* Proposition */}
+          <div style={{padding:"10px 14px",background:"var(--s1)",border:"1px solid rgba(245,158,11,.3)",borderRadius:8,marginBottom:12}}>
+            <div style={{fontSize:8,color:"#F59E0B",fontWeight:700,marginBottom:2}}>PROPOSITION</div>
+            <div style={{fontSize:11,fontWeight:700,color:"var(--tx)"}}>{topic}</div>
+          </div>
+
+          {/* Timer */}
+          {phase==="running" && (
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,padding:"10px 14px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,flexWrap:"wrap"}}>
+              <div style={{fontSize:28,fontWeight:900,color:timerColor,fontFamily:"var(--font-mono)",minWidth:60}}>{fmtTime(timer)}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:8,color:"var(--mu)"}}>Tour {currentRound}/{ROUND_STRUCTURE.length}</div>
+                {scoringIA && <div style={{fontSize:9,color:MODEL_DEFS[scoringIA]?.color}}>⏳ {MODEL_DEFS[scoringIA]?.short} rédige…</div>}
+                <div style={{marginTop:4,height:4,background:"var(--s2)",borderRadius:2}}><div style={{height:"100%",width:`${(currentRound/ROUND_STRUCTURE.length)*100}%`,background:"#F59E0B",borderRadius:2,transition:"width .5s"}}/></div>
+              </div>
+              {!scoringIA && currentRound < ROUND_STRUCTURE.length && (
+                <button onClick={nextRound}
+                  style={{padding:"6px 16px",background:"rgba(245,158,11,.15)",border:"1px solid rgba(245,158,11,.4)",borderRadius:5,color:"#F59E0B",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                  ▶ Tour suivant
+                </button>
+              )}
+              {!scoringIA && currentRound >= ROUND_STRUCTURE.length && !finalScore && (
+                <button onClick={computeFinalScore}
+                  style={{padding:"6px 16px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700}}>
+                  🏆 Calculer le score
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Tours */}
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+            {rounds.map((r,i)=>{
+              const isPour = r.role==="Pour";
+              const uVote = userVotes.find(v=>v.roundIdx===i);
+              return (
+                <div key={i} style={{background:"var(--s1)",border:"1px solid "+(isPour?"rgba(74,222,128,.2)":"rgba(248,113,113,.2)"),borderRadius:10,padding:"12px 14px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                    <span style={{padding:"2px 8px",borderRadius:8,background:isPour?"rgba(74,222,128,.12)":"rgba(248,113,113,.12)",color:isPour?"var(--green)":"var(--red)",fontSize:8,fontWeight:700}}>{isPour?"🟢 POUR":"🔴 CONTRE"}</span>
+                    <span style={{fontSize:9,color:"var(--mu)"}}>{r.label}</span>
+                    <span style={{fontSize:8,color:r.iaColor||"var(--ac)",fontWeight:600,marginLeft:"auto"}}>{r.iaName}</span>
+                  </div>
+                  <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7}}>{r.content}</div>
+                  {/* Vote utilisateur */}
+                  <div style={{marginTop:8,display:"flex",gap:5,alignItems:"center"}}>
+                    <span style={{fontSize:8,color:"var(--mu)"}}>Ton vote :</span>
+                    {[["pour","🟢 Pour"],["contre","🔴 Contre"],["nul","⚖️ Nul"]].map(([v,l])=>(
+                      <button key={v} onClick={()=>voteRound(i,v)}
+                        style={{padding:"2px 8px",borderRadius:6,border:"1px solid "+(uVote?.vote===v?"var(--ac)":"var(--bd)"),background:uVote?.vote===v?"rgba(212,168,83,.12)":"transparent",color:uVote?.vote===v?"var(--ac)":"var(--mu)",fontSize:8,cursor:"pointer"}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Score final */}
+          {finalScore && (
+            <div style={{padding:"16px 20px",background:"var(--s1)",border:"2px solid rgba(245,158,11,.4)",borderRadius:12}}>
+              <div style={{fontSize:9,color:"#F59E0B",fontWeight:700,marginBottom:10}}>🏆 VERDICT FINAL</div>
+              <div style={{fontSize:22,fontWeight:900,color:"var(--ac)",fontFamily:"var(--font-display)",marginBottom:6}}>{finalScore.winner}</div>
+              <div style={{display:"flex",gap:16,marginBottom:10}}>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:900,color:"var(--green)"}}>{finalScore.score_pour}/10</div><div style={{fontSize:8,color:"var(--mu)"}}>POUR</div></div>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:900,color:"var(--red)"}}>{finalScore.score_contre}/10</div><div style={{fontSize:8,color:"var(--mu)"}}>CONTRE</div></div>
+                <div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:900,color:"var(--ac)"}}>{userVotes.filter(v=>v.vote==="pour").length}/{userVotes.length}</div><div style={{fontSize:8,color:"var(--mu)"}}>Votes POUR</div></div>
+              </div>
+              <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>{finalScore.raison}</div>
+              <div style={{display:"flex",gap:10}}>
+                {[["var(--green)","Arguments POUR",finalScore.arguments_forts_pour],["var(--red)","Arguments CONTRE",finalScore.arguments_forts_contre]].map(([c,l,args])=>args?.length>0&&(
+                  <div key={l} style={{flex:1,padding:"8px 10px",background:c+"11",border:"1px solid "+c+"33",borderRadius:6}}>
+                    <div style={{fontSize:7,color:c,fontWeight:700,marginBottom:4}}>{l}</div>
+                    {args.map((a,i)=><div key={i} style={{fontSize:8,color:"var(--tx)",marginBottom:2}}>• {a}</div>)}
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>{setPhase("setup");setTopic("");setRounds([]);setCurrentRound(0);setFinalScore(null);setUserVotes([]);}}
+                style={{marginTop:12,fontSize:9,padding:"5px 14px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,color:"var(--ac)",cursor:"pointer"}}>
+                + Nouveau débat
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  CONTEXT TRANSLATOR — 5 niveaux de compréhension            ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ContextTranslatorTab({ enabled, apiKeys }) {
+  const [text, setText] = React.useState("");
+  const [results, setResults] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [domain, setDomain] = React.useState("auto");
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  const LEVELS = [
+    { id:"enfant",    label:"👦 Enfant 10 ans",   color:"#4ADE80", desc:"Mots simples, analogies jouets/jeux" },
+    { id:"lyceen",    label:"🎒 Lycéen",           color:"#60A5FA", desc:"Concepts de base, exemples concrets" },
+    { id:"adulte",    label:"👤 Adulte lambda",    color:"#F59E0B", desc:"Langage courant, sans jargon" },
+    { id:"expert",    label:"🔬 Expert",           color:"#A78BFA", desc:"Terminologie technique complète" },
+    { id:"tweet",     label:"🐦 Tweet (280 car.)", color:"#EC4899", desc:"Ultra-condensé, percutant" },
+  ];
+
+  const DOMAINS = [
+    {id:"auto",label:"🤖 Auto-detect"},{id:"medical",label:"🏥 Médical"},{id:"juridique",label:"⚖️ Juridique"},
+    {id:"financier",label:"💰 Financier"},{id:"technique",label:"💻 Technique"},{id:"scientifique",label:"🔬 Scientifique"},
+  ];
+
+  const QUICK_TEXTS = [
+    "Les LLMs utilisent l'attention multi-têtes pour pondérer les tokens dans leur fenêtre de contexte.",
+    "La clause de non-concurrence stipule que le salarié s'interdit d'exercer toute activité concurrente pendant 24 mois.",
+    "Le QE3 (Quantitative Easing) de la Fed a injecté 85 milliards de dollars mensuels en MBS et Treasuries.",
+    "L'ARNm code pour la séquence d'acides aminés lors de la traduction ribosomale.",
+  ];
+
+  const translate = async () => {
+    if (!text.trim() || !activeIds.length) return;
+    setLoading(true); setResults(null);
+
+    const domainCtx = domain!=="auto" ? ` (domaine : ${domain})` : "";
+    const results = {};
+
+    await Promise.all(LEVELS.map(async (level, i) => {
+      const iaId = activeIds[i % activeIds.length];
+      const prompts = {
+        enfant:  `Explique ce texte${domainCtx} à un enfant de 10 ans. Utilise des analogies avec des jouets, la nourriture, les jeux ou le quotidien. MAX 80 mots :\n\n${text}`,
+        lyceen:  `Explique ce texte${domainCtx} à un lycéen de 16 ans. Utilise le vocabulaire de base, sans jargon. MAX 100 mots :\n\n${text}`,
+        adulte:  `Explique ce texte${domainCtx} à un adulte cultivé mais sans expertise dans ce domaine. Langage courant, exemples du quotidien. MAX 100 mots :\n\n${text}`,
+        expert:  `Explique ce texte${domainCtx} à un expert du domaine. Utilise la terminologie technique précise, les nuances et les références pertinentes. MAX 150 mots :\n\n${text}`,
+        tweet:   `Résume ce texte${domainCtx} en un tweet percutant de 280 caractères maximum. Sois direct, impactant :\n\n${text}`,
+      };
+      try {
+        const output = await callModel(iaId, [{role:"user",content:prompts[level.id]}], apiKeys,
+          `Tu es expert en vulgarisation ${domain!=="auto"?domain+".":"."} Réponds directement sans intro.`
+        );
+        results[level.id] = { output: output.trim(), iaId, ok:true };
+      } catch(e) {
+        results[level.id] = { output:"❌ "+e.message, iaId, ok:false };
+      }
+    }));
+
+    setResults(results);
+    setLoading(false);
+  };
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#4ADE80"}}>🔄 Traducteur de Contexte</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— N'importe quel texte traduit en 5 niveaux de compréhension simultanément</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.15)",borderRadius:6}}>
+        Colle n'importe quel texte technique, juridique, médical ou financier. Tes IAs le réécrivent en parallèle pour : enfant de 10 ans, lycéen, adulte lambda, expert du domaine et tweet.
+      </div>
+
+      {/* Exemples */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>EXEMPLES RAPIDES</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {QUICK_TEXTS.map((t,i)=>(
+            <button key={i} onClick={()=>setText(t)}
+              style={{padding:"4px 10px",borderRadius:8,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+              {t.slice(0,45)}…
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <textarea value={text} onChange={e=>setText(e.target.value)}
+        placeholder="Colle ton texte technique, juridique, médical ou financier…"
+        rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {DOMAINS.map(d=>(
+            <button key={d.id} onClick={()=>setDomain(d.id)}
+              style={{padding:"4px 9px",borderRadius:8,border:"1px solid "+(domain===d.id?"var(--ac)":"var(--bd)"),background:domain===d.id?"rgba(212,168,83,.1)":"transparent",color:domain===d.id?"var(--ac)":"var(--mu)",fontSize:8,cursor:"pointer"}}>
+              {d.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={translate} disabled={loading||!text.trim()||!activeIds.length}
+          style={{marginLeft:"auto",padding:"8px 20px",background:loading?"var(--s2)":"rgba(74,222,128,.12)",border:"1px solid "+(loading?"var(--bd)":"rgba(74,222,128,.3)"),borderRadius:6,color:loading?"var(--mu)":"var(--green)",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700}}>
+          {loading?"⏳ Traduction…":"🔄 Traduire les 5 niveaux"}
+        </button>
+      </div>
+
+      {results && (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10}}>
+          {LEVELS.map(level=>{
+            const r = results[level.id];
+            if (!r) return null;
+            const m = MODEL_DEFS[r.iaId];
+            const isTweet = level.id==="tweet";
+            const charCount = r.output?.length||0;
+            return (
+              <div key={level.id} style={{background:"var(--s1)",border:"1px solid "+level.color+"33",borderRadius:10,padding:"12px 14px",position:"relative"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:9,fontWeight:700,color:level.color,padding:"2px 7px",background:level.color+"18",borderRadius:8}}>{level.label}</span>
+                  {m&&<span style={{fontSize:7,color:m.color,marginLeft:"auto"}}>{m.icon}{m.short}</span>}
+                </div>
+                <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.7}}>{r.output}</div>
+                {isTweet&&<div style={{marginTop:6,fontSize:8,color:charCount>280?"var(--red)":"var(--mu)",textAlign:"right"}}>{charCount}/280</div>}
+                <button onClick={()=>navigator.clipboard.writeText(r.output)}
+                  style={{position:"absolute",bottom:8,right:8,fontSize:8,padding:"2px 6px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.2)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  API OPTIMIZER — Optimise l'utilisation de tes clés API      ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ApiOptimizerTab({ usageStats, enabled }) {
+  const [recommendations, setRecommendations] = React.useState(null);
+
+  React.useEffect(() => { computeRecommendations(); }, [usageStats]);
+
+  const computeRecommendations = () => {
+    const msgs    = usageStats?.msgs    || {};
+    const tokens  = usageStats?.tokens  || {};
+    const byHour  = usageStats?.byHour  || {};
+    const totalMsgs = Object.values(msgs).reduce((a,b)=>a+b,0);
+    if (totalMsgs === 0) { setRecommendations(null); return; }
+
+    const recs = [];
+    const costs = {};
+    let totalSaved = 0;
+
+    // Analyse chaque IA utilisée
+    Object.entries(msgs).filter(([,v])=>v>0).forEach(([id, count]) => {
+      const m = MODEL_DEFS[id];
+      const tok = tokens[id]||0;
+      const tp = TOKEN_PRICE[id];
+      if (!m || !tp) return;
+      const actualCost = (tok*0.7/1e6)*tp.in + (tok*0.3/1e6)*tp.out;
+      costs[id] = { count, tok, actualCost };
+
+      // Analyser les messages courts (< 500 tokens estimés = 2000 chars)
+      const avgTok = tok / count;
+
+      // Recommandation 1 : messages courts → Cerebras/Gemma (ultra rapide et gratuit)
+      if (avgTok < 500 && count > 10 && !["cerebras","gemma2"].includes(id) && enabled["cerebras"]) {
+        const altCost = (tok*0.7/1e6)*0.1 + (tok*0.3/1e6)*0.1;
+        const saving = actualCost - altCost;
+        if (saving > 0.001) {
+          recs.push({
+            type:"speed", icon:"⚡", priority:"haute",
+            title:`Tes ${count} messages courts sur ${m.short}`,
+            detail:`Tes messages sont courts (≈ ${Math.round(avgTok)} tokens/msg). Cerebras traite ça 10× plus vite pour le même prix.`,
+            suggestion:`Utilise Cerebras pour les requêtes rapides < 500 tokens`,
+            saving, altId:"cerebras"
+          });
+          totalSaved += saving;
+        }
+      }
+
+      // Recommandation 2 : textes français → Mistral
+      if (id !== "mistral" && count > 5 && enabled["mistral"]) {
+        recs.push({
+          type:"quality", icon:"▲", priority:"moyenne",
+          title:`Rédaction française avec ${m.short}`,
+          detail:`Mistral Small est optimisé pour le français et coûte moins cher pour la rédaction.`,
+          suggestion:`Pour tes textes en français, Mistral Small donne souvent de meilleurs résultats`,
+          saving:null, altId:"mistral"
+        });
+      }
+
+      // Recommandation 3 : messages très longs → Cohere (RAG natif)
+      if (avgTok > 3000 && count > 3 && id !== "cohere" && enabled["cohere"]) {
+        recs.push({
+          type:"rag", icon:"⌘", priority:"haute",
+          title:`Tes ${count} longs messages sur ${m.short}`,
+          detail:`Tes messages sont très longs (≈ ${Math.round(avgTok)} tokens). Cohere a un RAG natif avec citations — parfait pour l'analyse de documents.`,
+          suggestion:`Pour les longs documents, utilise Cohere Command R+`,
+          saving:null, altId:"cohere"
+        });
+      }
+    });
+
+    // Analyse heure de pointe
+    const peakHour = Object.entries(byHour).sort(([,a],[,b])=>b-a)[0];
+    if (peakHour) {
+      const h = parseInt(peakHour[0]);
+      const groqLimited = h >= 8 && h <= 10; // matin = souvent rate limited
+      if (groqLimited) {
+        recs.push({
+          type:"timing", icon:"🕐", priority:"info",
+          title:`Pic d'usage à ${h}h`,
+          detail:`Tu utilises beaucoup l'app à ${h}h. C'est l'heure de pointe où Groq peut être rate-limited.`,
+          suggestion:`Prépare tes prompts longs le matin et bascule sur Mistral si Groq est limité`,
+          saving:null, altId:null
+        });
+      }
+    }
+
+    // Calcul économies potentielles totales
+    const totalActualCost = Object.values(costs).reduce((a,c)=>a+c.actualCost,0);
+
+    setRecommendations({
+      recs: recs.slice(0,6),
+      totalActualCost,
+      totalSaved,
+      totalMsgs,
+      costs,
+      peakHour: peakHour?parseInt(peakHour[0]):null,
+    });
+  };
+
+  const prioColor = p => ({haute:"var(--red)",moyenne:"var(--orange)",info:"var(--blue)"}[p]||"var(--mu)");
+  const fmtCost = c => c<0.001?"< $0.001":"$"+c.toFixed(4);
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#34D399"}}>💡 API Optimizer</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Analyse ton historique et optimise l'usage de tes clés API</div>
+      </div>
+
+      {!recommendations && (
+        <div style={{textAlign:"center",padding:"60px 20px"}}>
+          <div style={{fontSize:40,marginBottom:10}}>📊</div>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Pas encore de données</div>
+          <div style={{fontSize:10,color:"var(--mu)"}}>Utilise l'app pendant quelques jours — l'optimiseur analysera ton historique.</div>
+        </div>
+      )}
+
+      {recommendations && (
+        <div>
+          {/* Résumé */}
+          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+            {[
+              ["💬", recommendations.totalMsgs.toLocaleString(), "Messages analysés"],
+              ["💰", fmtCost(recommendations.totalActualCost), "Coût estimé total"],
+              ["✂️", recommendations.totalSaved>0?fmtCost(recommendations.totalSaved):"—", "Économies potentielles"],
+              ["📋", recommendations.recs.length.toString(), "Recommandations"],
+            ].map(([ico,val,lbl])=>(
+              <div key={lbl} style={{flex:1,minWidth:90,padding:"10px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,textAlign:"center"}}>
+                <div style={{fontSize:16}}>{ico}</div>
+                <div style={{fontSize:14,fontWeight:900,color:"var(--ac)",fontFamily:"var(--font-display)"}}>{val}</div>
+                <div style={{fontSize:7,color:"var(--mu)"}}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Utilisation par IA */}
+          <div style={{marginBottom:16,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+            <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:10}}>RÉPARTITION ACTUELLE</div>
+            {Object.entries(recommendations.costs).sort(([,a],[,b])=>b.count-a.count).map(([id,c])=>{
+              const m=MODEL_DEFS[id]; if(!m)return null;
+              const pct=Math.round(c.count/recommendations.totalMsgs*100);
+              return <div key={id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <span style={{color:m.color,width:20,fontSize:11}}>{m.icon}</span>
+                <span style={{fontSize:9,color:"var(--tx)",width:80,flexShrink:0}}>{m.short}</span>
+                <div style={{flex:1,height:6,background:"var(--s2)",borderRadius:3}}><div style={{height:"100%",width:pct+"%",background:m.color,borderRadius:3}}/></div>
+                <span style={{fontSize:8,color:"var(--mu)",width:30,textAlign:"right"}}>{pct}%</span>
+                <span style={{fontSize:8,color:"var(--mu)",width:60,textAlign:"right",fontFamily:"var(--font-mono)"}}>{fmtCost(c.actualCost)}</span>
+              </div>;
+            })}
+          </div>
+
+          {/* Recommandations */}
+          {recommendations.recs.length > 0 ? (
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10}}>💡 RECOMMANDATIONS PERSONNALISÉES</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {recommendations.recs.map((rec,i)=>{
+                  const altM = rec.altId ? MODEL_DEFS[rec.altId] : null;
+                  return (
+                    <div key={i} style={{background:"var(--s1)",border:"1px solid "+prioColor(rec.priority)+"33",borderRadius:10,padding:"12px 14px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:14}}>{rec.icon}</span>
+                        <span style={{fontSize:10,fontWeight:700,color:"var(--tx)",flex:1}}>{rec.title}</span>
+                        <span style={{fontSize:7,padding:"2px 6px",borderRadius:6,background:prioColor(rec.priority)+"22",color:prioColor(rec.priority),fontWeight:700}}>{rec.priority}</span>
+                        {rec.saving>0&&<span style={{fontSize:8,color:"var(--green)",fontWeight:700}}>Économie : {fmtCost(rec.saving)}</span>}
+                      </div>
+                      <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5,marginBottom:6}}>{rec.detail}</div>
+                      <div style={{fontSize:9,color:"var(--ac)",display:"flex",alignItems:"center",gap:6}}>
+                        <span>→</span>
+                        <span>{rec.suggestion}</span>
+                        {altM&&<span style={{color:altM.color,fontWeight:700,marginLeft:4}}>{altM.icon} {altM.short}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div style={{textAlign:"center",padding:24,color:"var(--green)",fontSize:10}}>✅ Ton usage est déjà optimisé !</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  COMPARATEUR DE CIVILISATIONS                                ║
+// ╚══════════════════════════════════════════════════════════════╝
+function CivilisationsTab({ enabled, apiKeys }) {
+  const [question, setQuestion] = React.useState("");
+  const [results, setResults] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [synthesis, setSynthesis] = React.useState("");
+  const [synthLoading, setSynthLoading] = React.useState(false);
+  const [selectedCivs, setSelectedCivs] = React.useState(["grece","islam","chine","lumières","silicon"]);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+
+  const CIVILISATIONS = [
+    { id:"grece",      label:"🏛️ Grèce antique",        color:"#60A5FA", period:"Ve-IVe s. av. J.-C.",
+      system:"Tu es un philosophe de la Grèce antique (mélange de Socrate, Aristote, Platon). Tu raisonnes par la dialectique, la vertu, le bien commun et la recherche de la vérité. Tu cites des exemples de la cité, de la nature, des dieux grecs." },
+    { id:"rome",       label:"⚔️ Rome impériale",         color:"#F87171", period:"Ier-IIe s. apr. J.-C.",
+      system:"Tu es un penseur romain (mélange de Marc Aurèle, Cicéron, Sénèque). Tu raisonnes par la pragmatique, la loi, la discipline stoïcienne, et le service de l'Empire. Tu valorises l'ordre, la hiérarchie et la vertu romaine." },
+    { id:"chine",      label:"🐉 Chine impériale",         color:"#34D399", period:"Dynasties Tang-Song, VIIe-XIIIe s.",
+      system:"Tu es un lettré confucéen de la Chine impériale (mélange de Confucius, Zhuangzi, Sun Tzu). Tu raisonnes par l'harmonie, la hiérarchie sociale, le yin-yang, la sagesse ancestrale et l'équilibre de la nature." },
+    { id:"islam",      label:"🌙 Âge d'or islamique",      color:"#A78BFA", period:"VIIIe-XIIIe s.",
+      system:"Tu es un savant de l'âge d'or islamique (mélange d'Ibn Rushd, Al-Ghazali, Ibn Khaldoun). Tu raisonnes par la foi, la raison, la connaissance comme devoir, et l'harmonie entre sciences et spiritualité." },
+    { id:"moyen_age",  label:"⛪ Europe médiévale",        color:"#FCD34D", period:"XIIe-XIVe s.",
+      system:"Tu es un théologien médiéval (mélange de Thomas d'Aquin, Abélard). Tu raisonnes par la foi chrétienne, la scolastique, la grâce divine et l'ordre naturel voulu par Dieu. La Bible et Aristote sont tes références." },
+    { id:"lumières",   label:"💡 Lumières européennes",    color:"#FB923C", period:"XVIIIe s.",
+      system:"Tu es un philosophe des Lumières (mélange de Voltaire, Rousseau, Kant). Tu raisonnes par la raison, la liberté individuelle, le contrat social, les droits naturels et le progrès de l'humanité." },
+    { id:"japon",      label:"🗾 Japon féodal",            color:"#F472B6", period:"Ère Edo, XVIIe-XIXe s.",
+      system:"Tu es un penseur japonais de l'ère Edo (mélange de Musashi, maîtres zen, confucéens japonais). Tu raisonnes par le Bushido, la discipline, le respect des ancêtres, la beauté dans la simplicité, et l'harmonie avec la nature." },
+    { id:"africain",   label:"🌍 Afrique subsaharienne",   color:"#4ADE80", period:"Traditions bantou-yoruba",
+      system:"Tu es un sage de la tradition africaine (philosophie ubuntu, traditions yoruba, bantou). Tu raisonnes par 'Je suis parce que nous sommes' (Ubuntu), la communauté, les ancêtres, l'interconnexion de tous les êtres vivants." },
+    { id:"amerindien", label:"🦅 Peuples premiers",         color:"#38BDF8", period:"Traditions lakotas-aztèques",
+      system:"Tu es un sage amérindien (traditions lakotas, aztèques, mayas). Tu raisonnes par la relation sacrée avec la Terre-mère, le respect des cycles naturels, la responsabilité envers les 7 générations futures." },
+    { id:"silicon",    label:"💻 Silicon Valley 2026",     color:"#D4A853", period:"Époque actuelle",
+      system:"Tu es un tech entrepreneur de la Silicon Valley en 2026 (pensée d'Elon Musk, Sam Altman, Reid Hoffman). Tu raisonnes par l'innovation disruptive, l'IA comme levier de transformation, la croissance exponentielle, le 'move fast', l'optimisme technologique radical." },
+    { id:"stoicisme",  label:"⚖️ Stoïcisme",               color:"#94A3B8", period:"Antiquité tardive",
+      system:"Tu es un stoïcien (Marc Aurèle, Épictète, Sénèque). Tu distingues ce qui dépend de toi de ce qui n'en dépend pas. Tu valorises la vertu, le détachement des passions, la discipline intérieure et l'acceptation du destin." },
+    { id:"bouddhisme", label:"🪷 Bouddhisme",              color:"#EC4899", period:"Tradition Theravada-Mahayana",
+      system:"Tu es un maître bouddhiste (mélange de traditions Theravada et Zen). Tu raisonnes par l'impermanence, la souffrance née de l'attachement, la voie du milieu, la compassion pour tous les êtres et l'éveil." },
+  ];
+
+  const QUICK_QUESTIONS = [
+    "Qu'est-ce que le bonheur et comment l'atteindre ?",
+    "Quelle est la place de l'individu face à la société ?",
+    "Comment faire face à la mort ?",
+    "L'intelligence artificielle est-elle une menace ou une opportunité ?",
+    "Qu'est-ce qu'un chef ou un bon dirigeant ?",
+    "Comment réagir face à l'injustice ?",
+  ];
+
+  const toggleCiv = (id) => {
+    setSelectedCivs(prev => prev.includes(id) ? prev.filter(c=>c!==id) : [...prev,id].slice(0,6));
+  };
+
+  const run = async () => {
+    if (!question.trim() || !activeIds.length || !selectedCivs.length) return;
+    setLoading(true); setResults([]); setSynthesis("");
+    const civs = CIVILISATIONS.filter(c => selectedCivs.includes(c.id));
+
+    const allResults = await Promise.all(civs.map(async (civ, i) => {
+      const iaId = activeIds[i % activeIds.length];
+      const prompt = `Question contemporaine posée à ta civilisation :
+"${question}"
+
+Réponds depuis la perspective de ta civilisation et époque. Utilise des références à tes valeurs, tes penseurs, tes exemples historiques. Sois authentique à ton époque — ne connais pas les événements postérieurs. MAX 200 mots.`;
+      try {
+        const output = await callModel(iaId, [{role:"user",content:prompt}], apiKeys, civ.system);
+        return { ...civ, output, iaId, ok:true };
+      } catch(e) {
+        return { ...civ, output:"❌ "+e.message, iaId, ok:false };
+      }
+    }));
+
+    setResults(allResults);
+    setLoading(false);
+  };
+
+  const runSynthesis = async () => {
+    if (!results.length) return;
+    setSynthLoading(true);
+    const judge = activeIds.find(id=>["mistral","groq","sambanova","poll_claude"].includes(id)) || activeIds[0];
+    const transcript = results.map(r=>`[${r.label} — ${r.period}] : ${r.output}`).join("\n\n");
+    const prompt = `Tu es un historien comparatiste. Voici comment différentes civilisations répondent à la question : "${question}"
+
+${transcript}
+
+Synthétise en :
+1. **Convergences universelles** : ce sur quoi toutes (ou la plupart) s'accordent
+2. **Divergences fondamentales** : les points de désaccord profond entre les civilisations
+3. **Ce que 2026 peut apprendre** de ces sagesses anciennes et diverses
+4. **Ta conclusion** en 2 phrases sur ce que révèle cette diversité de réponses`;
+
+    try {
+      const out = await callModel(judge, [{role:"user",content:prompt}], apiKeys, "Historien comparatiste et philosophe. Tu analyses les convergences et divergences entre civilisations.");
+      setSynthesis(out);
+    } catch(e) { setSynthesis("❌ "+e.message); }
+    setSynthLoading(false);
+  };
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#F472B6"}}>🌍 Comparateur de Civilisations</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— La même question vue par 12 civilisations différentes</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(244,114,182,.06)",border:"1px solid rgba(244,114,182,.15)",borderRadius:6}}>
+        Chaque IA incarne une civilisation ou époque. Tu poses une question contemporaine et vois comment chaque culture y répondrait selon ses propres valeurs, philosophie et histoire.
+      </div>
+
+      {/* Sélection civilisations */}
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>CIVILISATIONS (max 6 — {selectedCivs.length}/6 sélectionnées)</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {CIVILISATIONS.map(civ => {
+            const active = selectedCivs.includes(civ.id);
+            const disabled = !active && selectedCivs.length >= 6;
+            return (
+              <button key={civ.id} onClick={()=>!disabled&&toggleCiv(civ.id)}
+                style={{padding:"5px 10px",borderRadius:10,border:"1px solid "+(active?civ.color:"var(--bd)"),background:active?civ.color+"18":"transparent",color:active?civ.color:"var(--mu)",fontSize:8,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.4:1,transition:"all .15s"}}>
+                {civ.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Questions rapides */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>QUESTIONS UNIVERSELLES</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {QUICK_QUESTIONS.map(q=>(
+            <button key={q} onClick={()=>setQuestion(q)}
+              style={{padding:"4px 9px",borderRadius:8,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+              {q.slice(0,38)}{q.length>38?"…":""}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <textarea value={question} onChange={e=>setQuestion(e.target.value)}
+        placeholder="Ta question universelle…"
+        rows={2} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 12px",resize:"vertical",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+      <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+        <button onClick={run} disabled={loading||!question.trim()||!activeIds.length||!selectedCivs.length}
+          style={{padding:"9px 22px",background:loading?"var(--s2)":"rgba(244,114,182,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(244,114,182,.4)"),borderRadius:6,color:loading?"var(--mu)":"#F472B6",fontSize:10,cursor:loading?"default":"pointer",fontWeight:700,fontFamily:"var(--font-mono)"}}>
+          {loading?"🌍 Consultation des civilisations…":"🌍 Consulter les civilisations"}
+        </button>
+        {!activeIds.length&&<span style={{fontSize:9,color:"var(--red)"}}>Active des IAs dans Config</span>}
+      </div>
+
+      {/* Résultats */}
+      {results.length > 0 && (
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10,marginBottom:16}}>
+            {results.map(r=>(
+              <div key={r.id} style={{background:"var(--s1)",border:"1px solid "+r.color+"33",borderRadius:10,padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:11,color:r.color}}>{r.label}</div>
+                    <div style={{fontSize:7,color:"var(--mu)",fontStyle:"italic"}}>{r.period}</div>
+                  </div>
+                  {r.iaId&&<span style={{fontSize:7,color:MODEL_DEFS[r.iaId]?.color}}>{MODEL_DEFS[r.iaId]?.icon}</span>}
+                </div>
+                <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.7}}>{r.output}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Synthèse */}
+          <div style={{background:"var(--s1)",border:"1px solid rgba(244,114,182,.25)",borderRadius:10,padding:"14px 16px"}}>
+            {!synthesis && !synthLoading && (
+              <button onClick={runSynthesis}
+                style={{padding:"8px 20px",background:"rgba(244,114,182,.12)",border:"1px solid rgba(244,114,182,.35)",borderRadius:6,color:"#F472B6",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                🔍 Synthèse comparatiste
+              </button>
+            )}
+            {synthLoading && <div style={{fontSize:10,color:"var(--mu)"}}>⏳ Analyse comparative…</div>}
+            {synthesis && (
+              <>
+                <div style={{fontSize:9,color:"#F472B6",fontWeight:700,marginBottom:10}}>🔍 SYNTHÈSE COMPARATISTE</div>
+                <div style={{fontSize:10,color:"var(--tx)",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{synthesis}</div>
+                <button onClick={()=>navigator.clipboard.writeText(synthesis)} style={{marginTop:10,fontSize:8,padding:"3px 10px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>📋 Copier</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  MODE FLASH — Un prompt → toutes les IAs en 10 secondes      ║
+// ╚══════════════════════════════════════════════════════════════╝
+function ModeFlashTab({ enabled, apiKeys, navigateTab, setChatInput }) {
+  const [prompt, setPrompt] = React.useState("");
+  const [results, setResults] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [startTime, setStartTime] = React.useState(null);
+  const [elapsed, setElapsed] = React.useState(0);
+  const [winner, setWinner] = React.useState(null);
+  const [history, setHistory] = React.useState(() => { try { return JSON.parse(localStorage.getItem("multiia_flash_history")||"[]"); } catch { return []; } });
+  const timerRef = React.useRef(null);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial && !MODEL_DEFS[id]?.serial);
+
+  const FLASH_PROMPTS = [
+    "Explique l'IA générative en 3 phrases",
+    "Quel est le meilleur conseil pour être productif ?",
+    "Nomme 5 startups IA qui vont changer le monde",
+    "Quelle est la différence entre Groq et Mistral ?",
+    "Écris un haïku sur l'intelligence artificielle",
+    "Quel livre lire absolument sur l'IA ?",
+    "Explique-moi les transformers simplement",
+    "Quelle IA choisir pour écrire du code ?",
+  ];
+
+  // Timer en direct
+  React.useEffect(() => {
+    if (loading && startTime) {
+      timerRef.current = setInterval(() => setElapsed(Date.now()-startTime), 100);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [loading, startTime]);
+
+  const flash = async () => {
+    if (!prompt.trim() || !activeIds.length) return;
+    setLoading(true); setResults([]); setWinner(null);
+    const t0 = Date.now(); setStartTime(t0);
+
+    // Lancer toutes les IAs en même temps
+    const promises = activeIds.map(async id => {
+      const t = Date.now();
+      try {
+        const output = await callModel(id, [{role:"user",content:prompt}], apiKeys, "Tu es un assistant ultra-concis. Réponds directement et précisément en 2-5 phrases max.");
+        return { id, output, time:Date.now()-t, ok:true };
+      } catch(e) {
+        return { id, output:"❌ "+e.message, time:Date.now()-t, ok:false };
+      }
+    });
+
+    // Afficher les résultats au fur et à mesure
+    const settled = [];
+    await Promise.all(promises.map(p => p.then(r => {
+      settled.push(r);
+      setResults([...settled].sort((a,b)=>a.time-b.time));
+    })));
+
+    // Déterminer le plus rapide et le meilleur (le plus long = potentiellement plus complet)
+    const successful = settled.filter(r=>r.ok);
+    if (successful.length > 0) {
+      const fastest = successful.reduce((a,b)=>a.time<b.time?a:b);
+      setWinner(fastest.id);
+      // Sauvegarder dans l'historique
+      const entry = {
+        id:Date.now().toString(),
+        prompt,
+        date:new Date().toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}),
+        fastest:fastest.id,
+        count:successful.length,
+        totalTime:Date.now()-t0,
+      };
+      const newHistory = [entry,...history].slice(0,15);
+      setHistory(newHistory);
+      try { localStorage.setItem("multiia_flash_history",JSON.stringify(newHistory)); } catch {}
+    }
+
+    setLoading(false);
+    setElapsed(Date.now()-t0);
+  };
+
+  const fmtMs = ms => ms < 1000 ? ms+"ms" : (ms/1000).toFixed(1)+"s";
+  const fastest = results.filter(r=>r.ok).length>0 ? results.filter(r=>r.ok).reduce((a,b)=>a.time<b.time?a:b) : null;
+  const slowest = results.filter(r=>r.ok).length>0 ? results.filter(r=>r.ok).reduce((a,b)=>a.time>b.time?a:b) : null;
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+        <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"#FCD34D"}}>⚡ Mode Flash</div>
+        <div style={{fontSize:9,color:"var(--mu)"}}>— Un prompt → toutes tes IAs en même temps · Course de vitesse en temps réel</div>
+      </div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:14,padding:"8px 12px",background:"rgba(252,211,77,.06)",border:"1px solid rgba(252,211,77,.15)",borderRadius:6}}>
+        Toutes tes IAs actives reçoivent le même prompt simultanément. Tu vois leurs réponses arriver en temps réel, classées par vitesse. Idéal pour les questions rapides ou comparer les styles.
+      </div>
+
+      {/* Exemples */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>PROMPTS FLASH</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {FLASH_PROMPTS.map(p=>(
+            <button key={p} onClick={()=>setPrompt(p)}
+              style={{padding:"4px 9px",borderRadius:8,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--mu)",fontSize:8,cursor:"pointer"}}>
+              {p.slice(0,36)}{p.length>36?"…":""}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Input */}
+      <div style={{display:"flex",gap:8,marginBottom:14}}>
+        <input value={prompt} onChange={e=>setPrompt(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&!loading&&prompt.trim()&&flash()}
+          placeholder="Tape ton prompt flash (Entrée pour lancer)…"
+          style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,color:"var(--tx)",fontSize:11,padding:"10px 14px",outline:"none"}}/>
+        <button onClick={flash} disabled={loading||!prompt.trim()||!activeIds.length}
+          style={{padding:"10px 20px",background:loading?"var(--s2)":"rgba(252,211,77,.15)",border:"1px solid "+(loading?"var(--bd)":"rgba(252,211,77,.4)"),borderRadius:8,color:loading?"var(--mu)":"#FCD34D",fontSize:12,cursor:loading?"default":"pointer",fontWeight:900,fontFamily:"var(--font-mono)",minWidth:60}}>
+          {loading?"…":"⚡"}
+        </button>
+      </div>
+
+      {/* Timer en direct */}
+      {(loading || results.length > 0) && (
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,padding:"8px 14px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,flexWrap:"wrap"}}>
+          <div style={{fontSize:24,fontWeight:900,color:"#FCD34D",fontFamily:"var(--font-mono)",minWidth:70}}>
+            {fmtMs(loading ? elapsed : elapsed)}
+          </div>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {activeIds.map(id=>{
+                const r = results.find(x=>x.id===id);
+                const m = MODEL_DEFS[id];
+                return <div key={id} style={{padding:"3px 8px",borderRadius:6,background:r?.ok?"rgba(74,222,128,.1)":r?"rgba(248,113,113,.1)":"var(--s2)",border:"1px solid "+(r?.ok?"rgba(74,222,128,.3)":r?"rgba(248,113,113,.3)":"var(--bd)"),fontSize:8,color:r?.ok?"var(--green)":r?"var(--red)":m.color,display:"flex",alignItems:"center",gap:4}}>
+                  {r?.ok ? "✓" : r ? "✗" : <span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⟳</span>}
+                  {m.short}
+                  {r?.ok && <span style={{color:"var(--mu)"}}>{fmtMs(r.time)}</span>}
+                </div>;
+              })}
+            </div>
+          </div>
+          <div style={{fontSize:9,color:"var(--mu)",textAlign:"right"}}>
+            {results.filter(r=>r.ok).length}/{activeIds.length} IAs
+          </div>
+        </div>
+      )}
+
+      {/* Résultats classés */}
+      {results.length > 0 && (
+        <div>
+          {/* Podium */}
+          {!loading && results.filter(r=>r.ok).length >= 2 && (
+            <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"flex-end",justifyContent:"center",flexWrap:"wrap"}}>
+              {results.filter(r=>r.ok).slice(0,3).map((r,i)=>{
+                const m = MODEL_DEFS[r.id];
+                const medals = ["🥇","🥈","🥉"];
+                const heights = [80,60,50];
+                return <div key={r.id} style={{textAlign:"center",minWidth:80}}>
+                  <div style={{fontSize:16}}>{medals[i]}</div>
+                  <div style={{height:heights[i],background:m.color+"22",border:"1px solid "+m.color+"44",borderRadius:"6px 6px 0 0",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 6px"}}>
+                    <div>
+                      <div style={{fontSize:16}}>{m.icon}</div>
+                      <div style={{fontSize:8,color:m.color,fontWeight:700}}>{m.short}</div>
+                    </div>
+                  </div>
+                  <div style={{background:m.color+"33",padding:"4px 8px",borderRadius:"0 0 6px 6px",fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{fmtMs(r.time)}</div>
+                </div>;
+              })}
+            </div>
+          )}
+
+          {/* Réponses */}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {results.map((r,i)=>{
+              const m = MODEL_DEFS[r.id];
+              const isFastest = r.id===fastest?.id && r.ok;
+              const isSlowest = r.id===slowest?.id && r.ok && results.filter(x=>x.ok).length>1;
+              return (
+                <div key={r.id} style={{background:"var(--s1)",border:"1px solid "+(isFastest?"rgba(252,211,77,.4)":r.ok?"var(--bd)":"rgba(248,113,113,.2)"),borderRadius:10,padding:"12px 14px",position:"relative"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                    <span style={{fontSize:18}}>{["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣"][i]||"·"}</span>
+                    <span style={{color:m.color,fontSize:12}}>{m.icon}</span>
+                    <span style={{fontWeight:700,fontSize:10,color:m.color}}>{m.name}</span>
+                    {isFastest&&<span style={{fontSize:8,padding:"2px 6px",background:"rgba(252,211,77,.2)",border:"1px solid rgba(252,211,77,.4)",borderRadius:6,color:"#FCD34D",fontWeight:700}}>⚡ Plus rapide</span>}
+                    {isSlowest&&<span style={{fontSize:8,color:"var(--mu)"}}>🐢</span>}
+                    <span style={{marginLeft:"auto",fontSize:9,color:"var(--mu)",fontFamily:"var(--font-mono)",fontWeight:700}}>{fmtMs(r.time)}</span>
+                  </div>
+                  <div style={{fontSize:10,color:r.ok?"var(--tx)":"var(--red)",lineHeight:1.7}}>{r.output}</div>
+                  {r.ok && (
+                    <div style={{display:"flex",gap:5,marginTop:8}}>
+                      <button onClick={()=>navigator.clipboard.writeText(r.output)} style={{fontSize:8,padding:"2px 7px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>📋</button>
+                      <button onClick={()=>{setChatInput(r.output);navigateTab("chat");}} style={{fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.2)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>→ Chat</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Stats de la session */}
+          {!loading && results.filter(r=>r.ok).length > 1 && (
+            <div style={{marginTop:12,padding:"10px 14px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,display:"flex",gap:16,flexWrap:"wrap",fontSize:9,color:"var(--mu)"}}>
+              <span>⚡ Plus rapide : <strong style={{color:"var(--green)"}}>{fastest&&MODEL_DEFS[fastest.id]?.short} ({fmtMs(fastest?.time||0)})</strong></span>
+              <span>⏱ Plus lent : <strong>{slowest&&MODEL_DEFS[slowest.id]?.short} ({fmtMs(slowest?.time||0)})</strong></span>
+              <span>⏰ Total : <strong style={{color:"#FCD34D"}}>{fmtMs(elapsed)}</strong></span>
+              <span>✓ {results.filter(r=>r.ok).length}/{activeIds.length} IAs</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Historique flash */}
+      {history.length > 0 && !loading && results.length === 0 && (
+        <div style={{marginTop:14}}>
+          <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>HISTORIQUE FLASH</div>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {history.slice(0,8).map(h=>(
+              <div key={h.id} onClick={()=>setPrompt(h.prompt)}
+                style={{padding:"7px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,cursor:"pointer",display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:9,color:"var(--tx)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.prompt}</span>
+                <span style={{fontSize:7,color:MODEL_DEFS[h.fastest]?.color,flexShrink:0}}>⚡ {MODEL_DEFS[h.fastest]?.short}</span>
+                <span style={{fontSize:7,color:"var(--mu)",flexShrink:0,fontFamily:"var(--font-mono)"}}>{fmtMs(h.totalTime)}</span>
+                <span style={{fontSize:7,color:"var(--mu)",flexShrink:0}}>{h.date}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3450,37 +6694,62 @@ function WebIAsTab() {
   const [discMsg, setDiscMsg] = React.useState("");
   const [filterCat, setFilterCat] = React.useState("all");
   const [search, setSearch] = React.useState("");
+  const [sortBy, setSortBy] = React.useState("trend"); // "trend" | "name" | "cat"
+  const [expandedId, setExpandedId] = React.useState(null);
 
   const allAIs = [...BASE_WEB_AIS, ...discovered];
+
   const cats = [
-    {id:"all",      label:"Tout",          icon:"🌐"},
-    {id:"gratuit",  label:"Chatbots",      icon:"💬"},
-    {id:"recherche",label:"Recherche",     icon:"🔍"},
-    {id:"multimodele",label:"Multi-modèles",icon:"🔀"},
-    {id:"image",    label:"Image",         icon:"🎨"},
-    {id:"code",     label:"Code",          icon:"💻"},
-    {id:"audio",    label:"Audio/Musique", icon:"🎵"},
-    {id:"payant",   label:"Premium",       icon:"💳"},
+    {id:"all",        label:"Tout",           icon:"🌐"},
+    {id:"gratuit",    label:"Chatbots",        icon:"💬"},
+    {id:"recherche",  label:"Recherche",       icon:"🔍"},
+    {id:"multimodele",label:"Multi-modèles",   icon:"🔀"},
+    {id:"image",      label:"Image & Vidéo",   icon:"🎨"},
+    {id:"code",       label:"Code & Dev",      icon:"💻"},
+    {id:"audio",      label:"Audio & Musique", icon:"🎵"},
+    {id:"local",      label:"Local / Self-hosted", icon:"🖥"},
+    {id:"payant",     label:"Premium",         icon:"💳"},
   ];
 
-  const filtered = allAIs.filter(ia => {
-    const matchCat = filterCat === "all" || ia.cat === filterCat;
-    const matchSearch = !search || ia.name.toLowerCase().includes(search.toLowerCase()) || ia.desc.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const catColors = {
+    gratuit:"#4ADE80", recherche:"#60A5FA", multimodele:"#F59E0B",
+    image:"#F472B6", code:"#A78BFA", audio:"#34D399", local:"#0EA5E9", payant:"#FB923C"
+  };
+  const catLabels = {
+    gratuit:"GRATUIT", recherche:"RECHERCHE", multimodele:"MULTI-MODÈLES",
+    image:"IMAGE", code:"CODE", audio:"AUDIO", local:"LOCAL", payant:"PREMIUM"
+  };
+
+  // Tri + filtre
+  const filtered = allAIs
+    .filter(ia => {
+      const matchCat = filterCat === "all" || ia.cat === filterCat;
+      const q = search.toLowerCase();
+      const matchSearch = !search || ia.name.toLowerCase().includes(q) ||
+        (ia.desc||"").toLowerCase().includes(q) ||
+        (ia.tags||[]).some(t => t.toLowerCase().includes(q));
+      return matchCat && matchSearch;
+    })
+    .sort((a,b) => {
+      if (sortBy === "trend") return (b.trend||5) - (a.trend||5);
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      return a.cat.localeCompare(b.cat);
+    });
+
+  // Top trending (trend >= 9)
+  const hotCount = filtered.filter(ia => (ia.trend||0) >= 9).length;
 
   async function discoverNewAIs() {
-    setDiscovering(true);
-    setDiscMsg("🔍 Recherche de nouvelles IAs via Groq...");
+    setDiscovering(true); setDiscMsg("🔍 Recherche de nouvelles IAs via Groq...");
     try {
       let groqKey = "";
       try { groqKey = JSON.parse(localStorage.getItem("multiia_keys")||"{}").groq_inf||""; } catch{}
       if (!groqKey) throw new Error("Clé Groq manquante — configure-la dans ⚙ Config d'abord");
-      const prompt = "Tu es un expert en outils IA. Liste 5 nouvelles IAs web accessibles gratuitement en 2025-2026 qui ne font PAS partie de cette liste: " + allAIs.map(a=>a.name).join(", ") + ". Reponds UNIQUEMENT en JSON valide, tableau d objets avec ces champs: [{id,name,subtitle,cat,url,color,icon,desc}] ou cat est parmi: gratuit|recherche|multimodele|image|code|audio|payant. Pas de texte avant ou apres le JSON.";
+      const prompt = "Tu es un expert en outils IA. Liste 5 nouvelles IAs web accessibles en 2025-2026 qui ne font PAS partie de cette liste: " + allAIs.map(a=>a.name).join(", ") + ". Reponds UNIQUEMENT en JSON valide, tableau de 5 objets avec ces champs OBLIGATOIRES:\n[{\"id\":\"identifiant-court\",\"name\":\"Nom de l IA\",\"subtitle\":\"Fournisseur • Prix (ex: OpenAI • Gratuit)\",\"cat\":\"gratuit\",\"url\":\"https://...\",\"color\":\"#RRGGBB\",\"icon\":\"emoji\",\"desc\":\"Description 2-3 phrases sur les spécialisations et forces de cet outil\",\"tags\":[\"tag1\",\"tag2\",\"tag3\"],\"trend\":7}]\nRÈGLES STRICTES: subtitle = NOM_FOURNISSEUR • PRIX uniquement (PAS une URL). icon = 1 seul emoji. desc = 2-3 phrases max. tags = 3 à 5 mots-clés courts. trend = score popularité 1-10. cat parmi: gratuit|recherche|multimodele|image|code|audio|payant. Pas de texte avant ou apres le JSON.";
       const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":"Bearer "+groqKey},
-        body:JSON.stringify({ model:"llama-3.3-70b-versatile", max_tokens:1000,
+        body:JSON.stringify({ model:"llama-3.3-70b-versatile", max_tokens:1200,
           messages:[{role:"user",content:prompt}] })
       });
       const data = await resp.json();
@@ -3488,91 +6757,159 @@ function WebIAsTab() {
       const clean = text.replace(/```json|```/g,"").trim();
       const newAIs = JSON.parse(clean);
       const existing = new Set(allAIs.map(a=>a.id));
-      const toAdd = newAIs.filter(a=>a.id && a.name && a.url && !existing.has(a.id));
+      const toAdd = newAIs
+        .filter(a => a.id && a.name && a.url && !existing.has(a.id))
+        .map(a => ({
+          ...a,
+          subtitle: (a.subtitle && !a.subtitle.startsWith("http")) ? a.subtitle.slice(0,50) : (a.name+" • Web"),
+          icon: a.icon ? String(a.icon).slice(0,2).trim()||"🤖" : "🤖",
+          desc: a.desc ? String(a.desc).slice(0,200) : "Outil IA en ligne",
+          color: /^#[0-9A-Fa-f]{6}$/.test(a.color) ? a.color : "#60A5FA",
+          tags: Array.isArray(a.tags) ? a.tags.slice(0,5).map(t=>String(t).slice(0,20)) : [],
+          trend: typeof a.trend === "number" ? Math.min(10,Math.max(1,a.trend)) : 5,
+        }));
       if(toAdd.length > 0) {
         const updated = [...discovered, ...toAdd];
-        setDiscovered(updated);
-        saveDiscoveredAIs(updated);
+        setDiscovered(updated); saveDiscoveredAIs(updated);
         setDiscMsg(`✅ ${toAdd.length} nouvelle(s) IA(s) ajoutée(s) !`);
-      } else {
-        setDiscMsg("ℹ️ Aucune nouvelle IA trouvée pour l'instant.");
-      }
-    } catch(e) {
-      setDiscMsg("❌ Erreur: " + e.message);
-    }
+      } else { setDiscMsg("ℹ️ Aucune nouvelle IA trouvée."); }
+    } catch(e) { setDiscMsg("❌ Erreur: "+e.message); }
     setDiscovering(false);
-    setTimeout(()=>setDiscMsg(""), 4000);
+    setTimeout(()=>setDiscMsg(""),4000);
   }
 
   function removeDiscovered(id) {
     const updated = discovered.filter(a=>a.id!==id);
-    setDiscovered(updated);
-    saveDiscoveredAIs(updated);
+    setDiscovered(updated); saveDiscoveredAIs(updated);
   }
+
+  const TrendBar = ({score}) => {
+    const color = score>=9?"#4ADE80":score>=7?"#F59E0B":score>=5?"#60A5FA":"#6B7280";
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:4}}>
+        <div style={{display:"flex",gap:1}}>
+          {[1,2,3,4,5].map(i=>(
+            <div key={i} style={{width:5,height:5,borderRadius:1,background:i<=Math.round(score/2)?color:"var(--bd)"}}/>
+          ))}
+        </div>
+        <span style={{fontSize:7,color,fontWeight:700}}>{score>=9?"🔥 TENDANCE":score>=7?"⭐ POPULAIRE":score>=5?"✓ Actif":"○"}</span>
+      </div>
+    );
+  };
 
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {/* Header */}
       <div style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
         <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🌐 IAs Web</div>
-        <div style={{flex:1,fontSize:9,color:"var(--mu)"}}>{allAIs.length} IAs — s'ouvrent dans un nouvel onglet</div>
-        <button onClick={discoverNewAIs} disabled={discovering}
-          style={{padding:"4px 10px",fontSize:9,fontWeight:700,borderRadius:5,border:"1px solid var(--ac)",background:"transparent",color:"var(--ac)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",opacity:discovering?.6:1}}>
-          {discovering?"⏳ Recherche...":"🔭 Découvrir de nouvelles IAs"}
-        </button>
-        {discMsg && <div style={{fontSize:9,color:"var(--green)"}}>{discMsg}</div>}
+        <div style={{fontSize:9,color:"var(--mu)"}}>{allAIs.length} IAs · {hotCount} en tendance</div>
+        <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+          {/* Sort */}
+          <div style={{display:"flex",gap:3}}>
+            {[["trend","🔥 Tendances"],["name","A-Z"],["cat","Catégorie"]].map(([k,l])=>(
+              <button key={k} onClick={()=>setSortBy(k)}
+                style={{fontSize:8,padding:"2px 7px",borderRadius:4,border:`1px solid ${sortBy===k?"var(--ac)":"var(--bd)"}`,background:sortBy===k?"rgba(212,168,83,.15)":"transparent",color:sortBy===k?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <button onClick={discoverNewAIs} disabled={discovering}
+            style={{padding:"4px 10px",fontSize:9,fontWeight:700,borderRadius:5,border:"1px solid var(--ac)",background:"transparent",color:"var(--ac)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",opacity:discovering?.6:1}}>
+            {discovering?"⏳ Recherche...":"🔭 Découvrir nouvelles IAs"}
+          </button>
+        </div>
+        {discMsg && <div style={{fontSize:9,color:"var(--green)",width:"100%"}}>{discMsg}</div>}
       </div>
-      {/* Filtres */}
-      <div style={{display:"flex",gap:6,padding:"8px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,flexWrap:"wrap",alignItems:"center"}}>
-        {cats.map(c=>(
-          <button key={c.id} onClick={()=>setFilterCat(c.id)}
-            style={{padding:"3px 9px",fontSize:9,fontWeight:600,borderRadius:12,border:"1px solid "+(filterCat===c.id?"var(--ac)":"var(--bd)"),background:filterCat===c.id?"var(--ac)":"transparent",color:filterCat===c.id?"var(--bg)":"var(--mu)",cursor:"pointer",transition:"all .15s"}}>
-            {c.icon} {c.label} {filterCat===c.id&&<span style={{opacity:.7}}>({allAIs.filter(a=>c.id==="all"||a.cat===c.id).length})</span>}
+
+      {/* Filtres catégories */}
+      <div style={{display:"flex",gap:5,padding:"7px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,flexWrap:"wrap",alignItems:"center"}}>
+        {cats.map(cat=>(
+          <button key={cat.id} onClick={()=>setFilterCat(cat.id)}
+            style={{padding:"3px 9px",fontSize:9,fontWeight:600,borderRadius:12,border:`1px solid ${filterCat===cat.id?"var(--ac)":"var(--bd)"}`,background:filterCat===cat.id?"var(--ac)":"transparent",color:filterCat===cat.id?"var(--bg)":"var(--mu)",cursor:"pointer",transition:"all .15s"}}>
+            {cat.icon} {cat.label}
+            {filterCat===cat.id&&<span style={{opacity:.7,marginLeft:3}}>({allAIs.filter(a=>cat.id==="all"||a.cat===cat.id).length})</span>}
           </button>
         ))}
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
-          style={{marginLeft:"auto",padding:"3px 9px",fontSize:9,borderRadius:12,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--tx)",outline:"none",width:140}}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Nom, tag, spécialité..."
+          style={{marginLeft:"auto",padding:"3px 9px",fontSize:9,borderRadius:12,border:"1px solid var(--bd)",background:"var(--s1)",color:"var(--tx)",outline:"none",width:160}}/>
       </div>
-      {/* Grille */}
+
+      {/* Grille enrichie */}
       <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
-          {filtered.map(ia=>(
-            <div key={ia.id} style={{position:"relative"}}>
-              <a href={ia.url} target="_blank" rel="noreferrer"
-                style={{display:"flex",flexDirection:"column",gap:6,padding:"10px 12px",background:"var(--s1)",border:`1px solid ${ia.color}33`,borderRadius:7,textDecoration:"none",transition:"all .15s",height:"100%",boxSizing:"border-box"}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=ia.color;e.currentTarget.style.transform="translateY(-2px)"}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor=ia.color+"33";e.currentTarget.style.transform=""}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:16,width:24,textAlign:"center"}}>{ia.icon}</span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ia.name}</div>
-                    <div style={{fontSize:8,color:ia.color}}>{ia.subtitle}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:10}}>
+          {filtered.map(ia=>{
+            const isNew = discovered.find(d=>d.id===ia.id);
+            const isExpanded = expandedId === ia.id;
+            const col = catColors[ia.cat]||"#60A5FA";
+            return (
+              <div key={ia.id} style={{position:"relative",display:"flex",flexDirection:"column"}}>
+                <div
+                  style={{display:"flex",flexDirection:"column",gap:0,background:"var(--s1)",border:`1px solid ${ia.color}33`,borderRadius:8,overflow:"hidden",transition:"all .2s",cursor:"pointer",boxShadow:(ia.trend||0)>=9?`0 0 12px ${ia.color}20`:"none"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=ia.color;e.currentTarget.style.transform="translateY(-1px)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor=ia.color+"33";e.currentTarget.style.transform="";}}>
+
+                  {/* Barre tendance en haut */}
+                  {(ia.trend||0)>=9&&(
+                    <div style={{height:2,background:`linear-gradient(90deg,${ia.color},${ia.color}88)`,flexShrink:0}}/>
+                  )}
+
+                  {/* Header cliquable → ouvre le lien */}
+                  <a href={ia.url} target="_blank" rel="noreferrer" style={{textDecoration:"none",display:"flex",alignItems:"center",gap:8,padding:"10px 12px 6px"}}>
+                    <div style={{width:32,height:32,borderRadius:8,background:ia.color+"18",border:`1.5px solid ${ia.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{ia.icon}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",display:"flex",alignItems:"center",gap:5}}>
+                        {ia.name}
+                        {(ia.trend||0)>=9&&<span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:"rgba(250,204,21,.15)",color:"#FCD34D",fontWeight:700}}>🔥 TENDANCE</span>}
+                      </div>
+                      <div style={{fontSize:8,color:ia.color,marginTop:1}}>{ia.subtitle}</div>
+                    </div>
+                    <span style={{fontSize:11,color:"var(--mu)",flexShrink:0}}>↗</span>
+                  </a>
+
+                  {/* Description */}
+                  <div style={{padding:"0 12px 8px",fontSize:9,color:"var(--mu)",lineHeight:1.55}}>{ia.desc}</div>
+
+                  {/* Tags */}
+                  {ia.tags&&ia.tags.length>0&&(
+                    <div style={{padding:"0 12px 8px",display:"flex",gap:4,flexWrap:"wrap"}}>
+                      {ia.tags.map(tag=>(
+                        <span key={tag} style={{fontSize:7,padding:"1px 5px",borderRadius:3,background:ia.color+"15",color:ia.color,border:`1px solid ${ia.color}30`,fontWeight:600,cursor:"pointer"}}
+                          onClick={()=>setSearch(tag)}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div style={{padding:"6px 12px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:8,background:"var(--bg)"}}>
+                    <TrendBar score={ia.trend||5}/>
+                    <div style={{marginLeft:"auto"}}>
+                      <span style={{fontSize:7,padding:"2px 6px",borderRadius:3,background:col+"15",color:col,fontWeight:700,border:`1px solid ${col}30`}}>
+                        {catLabels[ia.cat]||ia.cat.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
-                  <span style={{fontSize:9,color:"var(--mu)"}}>↗</span>
                 </div>
-                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4}}>{ia.desc}</div>
-                <div style={{marginTop:"auto"}}>
-                  <span style={{fontSize:7,padding:"1px 5px",borderRadius:3,background:ia.color+"18",color:ia.color,fontWeight:700}}>
-                    {ia.cat==="gratuit"?"GRATUIT":ia.cat==="recherche"?"RECHERCHE":ia.cat==="multimodele"?"MULTI-MODÈLES":ia.cat==="image"?"IMAGE":ia.cat==="code"?"CODE":ia.cat==="audio"?"AUDIO":"PREMIUM"}
-                  </span>
-                </div>
-              </a>
-              {discovered.find(d=>d.id===ia.id) && (
-                <button onClick={()=>removeDiscovered(ia.id)}
-                  title="Retirer cette IA"
-                  style={{position:"absolute",top:4,right:4,fontSize:8,background:"rgba(0,0,0,.5)",border:"none",color:"var(--mu)",cursor:"pointer",borderRadius:3,padding:"1px 4px",zIndex:2}}>✕</button>
-              )}
-            </div>
-          ))}
+
+                {/* Bouton supprimer (découvertes) */}
+                {isNew&&(
+                  <button onClick={()=>removeDiscovered(ia.id)} title="Retirer"
+                    style={{position:"absolute",top:6,right:6,fontSize:8,background:"rgba(0,0,0,.6)",border:"none",color:"var(--mu)",cursor:"pointer",borderRadius:3,padding:"1px 5px",zIndex:2}}>✕</button>
+                )}
+              </div>
+            );
+          })}
         </div>
-        {filtered.length===0 && <div style={{textAlign:"center",color:"var(--mu)",fontSize:11,padding:40}}>Aucune IA trouvée pour "{search}"</div>}
+        {filtered.length===0&&<div style={{textAlign:"center",color:"var(--mu)",fontSize:11,padding:40}}>Aucune IA pour "{search}"</div>}
+
         {/* Sources discovery */}
         <div style={{marginTop:20,padding:"10px 14px",background:"var(--s1)",borderRadius:8,border:"1px solid var(--bd)"}}>
-          <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>🔭 Sources pour découvrir de nouvelles IAs</div>
+          <div style={{fontSize:9,color:"var(--mu)",marginBottom:8,fontWeight:700}}>📡 Sources de veille IA</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {DISCOVERY_SOURCES.map(s=>(
-              <a key={s.name} href={s.url} target="_blank" rel="noreferrer"
-                style={{fontSize:9,color:"var(--ac)",textDecoration:"none",padding:"3px 8px",border:"1px solid var(--bd)",borderRadius:4}}>
+              <a key={s.url} href={s.url} target="_blank" rel="noreferrer"
+                style={{fontSize:8,color:"var(--blue)",textDecoration:"none",padding:"2px 8px",border:"1px solid rgba(96,165,250,.2)",borderRadius:4,background:"rgba(96,165,250,.05)"}}>
                 ↗ {s.name}
               </a>
             ))}
@@ -3583,11 +6920,1481 @@ function WebIAsTab() {
   );
 }
 
+
+
+// ── VeilleTab ────────────────────────────────────────────────────
+function VeilleTab({ enabled, apiKeys, navigateTab, setChatInput }) {
+  const [feeds, setFeeds] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_veille_feeds")||"[]"); } catch { return []; }
+  });
+  const [articles, setArticles] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [newFeed, setNewFeed] = React.useState("");
+  const [summary, setSummary] = React.useState("");
+  const DEFAULT_TOPICS = ["IA générative 2026","LLM nouveaux modèles","OpenAI Anthropic Google","IA outils productivité","Machine learning recherche"];
+
+  const saveFeed = (f) => { localStorage.setItem("multiia_veille_feeds", JSON.stringify(f)); };
+
+  const fetchVeille = async () => {
+    setLoading(true); setArticles([]); setSummary("");
+    const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+    if (!activeIds.length) { setLoading(false); return; }
+    const id = activeIds.find(i=>i==="groq")||activeIds[0];
+    const topics = feeds.length ? feeds : DEFAULT_TOPICS;
+    const prompt = "Tu es un agr\u00e9gateur de veille technologique IA. G\u00e9n\u00e8re 10 articles r\u00e9cents fictifs mais r\u00e9alistes sur ces sujets : "+topics.slice(0,5).join(", ")+". Format JSON uniquement : [{titre:...,source:Blog,date:Mars 2026,resume:2 phrases,cat:Mod\u00e8les|Outils|Recherche|Business,hot:true}]. Vari\u00e9t\u00e9 de sources et cat\u00e9gories.";
+    try {
+      const r = await callModel(id, [{role:"user",content:prompt}], apiKeys, "Expert veille IA. JSON uniquement.");
+      const d = JSON.parse(r.replace(/```json|```/g,"").trim());
+      setArticles(Array.isArray(d)?d.slice(0,10):[]);
+    } catch { setArticles([]); }
+    setLoading(false);
+  };
+
+  const generateSummary = async () => {
+    if (!articles.length) return;
+    const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+    const id = activeIds.find(i=>i==="mistral")||activeIds[0];
+    if (!id) return;
+    const digest = articles.map(a=>a.titre+": "+a.resume).join("\n");
+    try {
+      const r = await callModel(id, [{role:"user",content:"Génère un résumé exécutif de veille IA en 5 points clés basé sur ces articles :\n"+digest}], apiKeys, "Expert synth\u00e8se. 5 bullet points maximum.");
+      setSummary(r);
+    } catch {}
+  };
+
+  return (
+    <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+      <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)",marginBottom:14}}>📰 Veille Intelligente</div>
+      {/* Thèmes rapides */}
+      <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+        <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>THÈMES PRÉDÉFINIS — CLIQUE POUR CHARGER</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {VEILLE_THEMES.map(t=>(
+            <button key={t.id} onClick={()=>{
+              setFeeds(t.topics);
+              saveFeed(t.topics);
+              setTimeout(fetchVeille, 100);
+            }}
+            style={{padding:"5px 11px",borderRadius:14,border:"1px solid "+t.color+"44",background:t.color+"11",color:t.color,fontSize:8,cursor:"pointer",fontWeight:600,transition:"all .15s"}}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Topics */}
+      <div style={{marginBottom:12,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px"}}>
+        <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>SUJETS DE VEILLE</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+          {(feeds.length?feeds:DEFAULT_TOPICS).map((f,i)=>(
+            <span key={i} style={{fontSize:8,padding:"2px 8px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.2)",borderRadius:10,color:"var(--blue)",display:"flex",alignItems:"center",gap:4}}>
+              {f}
+              {feeds.includes(f)&&<button onClick={()=>{const nf=feeds.filter(x=>x!==f);setFeeds(nf);saveFeed(nf);}} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:10,padding:0}}>✕</button>}
+            </span>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:7}}>
+          <input value={newFeed} onChange={e=>setNewFeed(e.target.value)} placeholder="Ajouter un sujet de veille…"
+            onKeyDown={e=>{if(e.key==="Enter"&&newFeed.trim()){const nf=[...feeds,newFeed.trim()];setFeeds(nf);saveFeed(nf);setNewFeed("");}}}
+            style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,padding:"5px 9px",outline:"none"}}/>
+          <button onClick={fetchVeille} disabled={loading}
+            style={{padding:"5px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,cursor:"pointer",fontWeight:700,whiteSpace:"nowrap"}}>
+            {loading?"⟳ Chargement…":"🔄 Actualiser"}
+          </button>
+        </div>
+      </div>
+      {/* Articles */}
+      {articles.length>0&&(
+        <>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <span style={{fontSize:9,color:"var(--mu)"}}>{articles.length} articles</span>
+            <button onClick={generateSummary} style={{fontSize:8,padding:"3px 10px",background:"rgba(167,139,250,.1)",border:"1px solid rgba(167,139,250,.3)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>✦ Résumé exécutif</button>
+          </div>
+          {summary&&(
+            <div style={{marginBottom:12,padding:"10px 12px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:8,fontSize:9,lineHeight:1.6}}>
+              <div style={{fontSize:8,color:"var(--ac)",fontWeight:700,marginBottom:6}}>✦ RÉSUMÉ EXÉCUTIF</div>
+              <MarkdownRenderer text={summary}/>
+            </div>
+          )}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+            {articles.map((a,i)=>(
+              <div key={i} style={{background:"var(--s1)",border:"1px solid "+(a.hot?"rgba(212,168,83,.35)":"var(--bd)"),borderRadius:8,padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                  <span style={{fontSize:7,padding:"1px 5px",background:"rgba(96,165,250,.1)",color:"var(--blue)",borderRadius:3,fontWeight:700}}>{a.cat}</span>
+                  <span style={{fontSize:7,color:"var(--mu)",marginLeft:"auto"}}>{a.source} · {a.date}</span>
+                  {a.hot&&<span style={{fontSize:10}}>🔥</span>}
+                </div>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:5,lineHeight:1.4}}>{a.titre}</div>
+                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.5}}>{a.resume}</div>
+                <button onClick={()=>{setChatInput("Parle-moi de : "+a.titre);navigateTab("chat");}} style={{marginTop:8,fontSize:7,padding:"2px 7px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>💬 En savoir plus</button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {!articles.length&&!loading&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Clique sur "Actualiser" pour charger les actualités IA du jour.</div>}
+    </div>
+  );
+}
+
+// ── VoiceTab ─────────────────────────────────────────────────────
+function VoiceTab({ enabled, apiKeys, conversations, setChatInput, navigateTab }) {
+  const [listening, setListening] = React.useState(false);
+  const [transcript, setTranscript] = React.useState("");
+  const [voiceReply, setVoiceReply] = React.useState("");
+  const [speaking, setSpeaking] = React.useState(false);
+  const [voiceIA, setVoiceIA] = React.useState("");
+  const [history, setHistory] = React.useState([]); // [{role,text}]
+  const recognRef = React.useRef(null);
+
+  const activeIds = Object.keys(MODEL_DEFS).filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+  const currentIA = voiceIA || activeIds[0] || "";
+
+  const speak = (text) => {
+    if (!text || !window.speechSynthesis) return;
+    setSpeaking(true);
+    const utt = new SpeechSynthesisUtterance(text.replace(/\*\*/g,"").replace(/#{1,6} /g,"").slice(0,1000));
+    utt.lang = "fr-FR"; utt.rate = 1.1;
+    utt.onend = () => setSpeaking(false);
+    window.speechSynthesis.speak(utt);
+  };
+
+  const stopSpeak = () => { window.speechSynthesis?.cancel(); setSpeaking(false); };
+
+  const startListen = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Dictée vocale non supportée sur ce navigateur."); return; }
+    const r = new SR(); r.lang="fr-FR"; r.continuous=false; r.interimResults=true;
+    recognRef.current = r;
+    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(""); setTranscript(t); };
+    r.onend = async () => {
+      setListening(false);
+      const q = transcript; if (!q.trim()) return;
+      setHistory(h=>[...h,{role:"user",text:q}]);
+      setTranscript("");
+      if (!currentIA) return;
+      try {
+        const hist = [...history,{role:"user",text:q}].map(m=>({role:m.role==="user"?"user":"assistant",content:m.text}));
+        const reply = await callModel(currentIA, hist, apiKeys, "Tu es un assistant vocal. Réponds de façon concise, 2-3 phrases max, sans markdown.");
+        setVoiceReply(reply);
+        setHistory(h=>[...h,{role:"assistant",text:reply}]);
+        speak(reply);
+      } catch(e) { setVoiceReply("❌ "+e.message); }
+    };
+    r.start();
+    setListening(true);
+  };
+
+  const stopListen = () => { recognRef.current?.stop(); setListening(false); };
+
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",padding:"clamp(16px,3vw,32px)",overflow:"auto"}}>
+      <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(16px,3vw,22px)",color:"var(--ac)",marginBottom:6}}>🎙 Mode Vocal</div>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:24}}>Parle directement à l'IA, en mains libres</div>
+      {/* IA selector */}
+      <div style={{marginBottom:24,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+        {activeIds.slice(0,6).map(id=>{
+          const m=MODEL_DEFS[id];
+          return (<button key={id} onClick={()=>setVoiceIA(id)}
+            style={{padding:"6px 14px",borderRadius:20,border:"1px solid "+(currentIA===id?m.color:"var(--bd)"),background:currentIA===id?m.color+"18":"transparent",color:currentIA===id?m.color:"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:currentIA===id?700:400}}>
+            {m.icon} {m.short}
+          </button>);
+        })}
+      </div>
+      {/* Quick themes */}
+      <div style={{width:"100%",maxWidth:600,marginBottom:20}}>
+        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8,textAlign:"center"}}>QUESTIONS RAPIDES — CLIQUE POUR PARLER</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+          {VOICE_THEMES.map(t=>(
+            <button key={t.id} onClick={async()=>{
+              setTranscript(t.question);
+              setHistory(h=>[...h,{role:"user",text:t.question}]);
+              if(!currentIA) return;
+              try {
+                const hist = [...history,{role:"user",text:t.question}].map(m=>({role:m.role==="user"?"user":"assistant",content:m.text}));
+                const reply = await callModel(currentIA,hist,apiKeys,"Tu es un assistant vocal. Réponds de façon concise, 2-3 phrases max, sans markdown.");
+                setVoiceReply(reply);
+                setHistory(h=>[...h,{role:"assistant",text:reply}]);
+                speak(reply);
+              } catch(e){setVoiceReply("❌ "+e.message);}
+            }}
+            style={{padding:"5px 10px",borderRadius:14,border:"1px solid "+t.color+"44",background:t.color+"11",color:t.color,fontSize:8,cursor:"pointer",fontWeight:600,transition:"all .15s"}}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Big mic button */}
+      <button onClick={listening?stopListen:startListen}
+        style={{width:100,height:100,borderRadius:"50%",border:"3px solid "+(listening?"var(--red)":"var(--ac)"),background:listening?"rgba(248,113,113,.15)":"rgba(212,168,83,.1)",color:listening?"var(--red)":"var(--ac)",fontSize:36,cursor:"pointer",marginBottom:20,transition:"all .2s",animation:listening?"pulse 1s infinite":speaking?"none":"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        {listening?"⏹":"🎙"}
+      </button>
+      <div style={{fontSize:9,color:"var(--mu)",marginBottom:16}}>{listening?"Écoute en cours…":speaking?"IA parle…":"Clique pour parler"}</div>
+      {/* Transcript */}
+      {(transcript||voiceReply)&&(
+        <div style={{width:"100%",maxWidth:600,display:"flex",flexDirection:"column",gap:8}}>
+          {transcript&&<div style={{padding:"10px 14px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,fontSize:10,color:"var(--tx)",fontStyle:"italic"}}>"{transcript}"</div>}
+          {voiceReply&&(
+            <div style={{padding:"10px 14px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:8,fontSize:10,lineHeight:1.6}}>
+              <div style={{fontSize:8,color:"var(--ac)",fontWeight:700,marginBottom:5}}>{MODEL_DEFS[currentIA]?.icon} {MODEL_DEFS[currentIA]?.short}</div>
+              {voiceReply}
+              <div style={{display:"flex",gap:6,marginTop:8}}>
+                <button onClick={()=>speak(voiceReply)} disabled={speaking} style={{fontSize:8,padding:"2px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>🔊 Réécouter</button>
+                <button onClick={stopSpeak} disabled={!speaking} style={{fontSize:8,padding:"2px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>⏹ Stop</button>
+                <button onClick={()=>{setChatInput(voiceReply.slice(0,2000));navigateTab("chat");}} style={{fontSize:8,padding:"2px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>→ Chat</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {/* Conversation history */}
+      {history.length>0&&(
+        <div style={{width:"100%",maxWidth:600,marginTop:16}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:8}}>HISTORIQUE SESSION</div>
+          {history.slice(-6).map((h,i)=>(
+            <div key={i} style={{padding:"6px 10px",marginBottom:4,borderRadius:6,background:h.role==="user"?"var(--s2)":"var(--s1)",fontSize:9,color:h.role==="user"?"var(--tx)":"var(--ac)",textAlign:h.role==="user"?"right":"left"}}>
+              {h.text.slice(0,200)}
+            </div>
+          ))}
+          <button onClick={()=>setHistory([])} style={{fontSize:8,padding:"3px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",marginTop:6}}>↺ Effacer historique</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ProjectsTab ──────────────────────────────────────────────────
+function ProjectsTab({ conversations, setChatInput, navigateTab, apiKeys, enabled }) {
+  const PROJ_KEY = "multiia_projects";
+  const [projects, setProjects] = React.useState(() => { try { return JSON.parse(localStorage.getItem(PROJ_KEY)||"[]"); } catch { return []; } });
+  const [activeProj, setActiveProj] = React.useState(null);
+  const [newName, setNewName] = React.useState("");
+  const [editingId, setEditingId] = React.useState(null);
+
+  const saveProjects = (p) => { setProjects(p); localStorage.setItem(PROJ_KEY, JSON.stringify(p)); };
+  const createProject = () => {
+    if (!newName.trim()) return;
+    const p = {id:Date.now().toString(),name:newName.trim(),desc:"",context:"",notes:"",createdAt:new Date().toISOString(),color:"#"+(Math.random()*0xFFFFFF|0).toString(16).padStart(6,"0")};
+    saveProjects([...projects,p]);
+    setNewName("");
+    setActiveProj(p.id);
+  };
+  const updateProject = (id, patch) => { saveProjects(projects.map(p=>p.id===id?{...p,...patch}:p)); };
+  const deleteProject = (id) => { if(window.confirm("Supprimer ce projet ?")) { saveProjects(projects.filter(p=>p.id!==id)); if(activeProj===id) setActiveProj(null); }};
+
+  const active = projects.find(p=>p.id===activeProj);
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Sidebar */}
+      <div style={{width:200,flexShrink:0,borderRight:"1px solid var(--bd)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"10px 12px",borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:"var(--ac)",marginBottom:8}}>📁 Projets</div>
+          <div style={{display:"flex",gap:5}}>
+            <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nouveau projet…"
+              onKeyDown={e=>{if(e.key==="Enter")createProject();}}
+              style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:8,padding:"4px 7px",outline:"none"}}/>
+            <button onClick={createProject} style={{background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:4,color:"var(--ac)",fontSize:11,cursor:"pointer",padding:"2px 7px"}}>＋</button>
+          </div>
+        </div>
+        {/* Templates */}
+        <div style={{padding:"8px 10px",borderBottom:"1px solid var(--bd)",background:"var(--s2)",flexShrink:0}}>
+          <div style={{fontSize:7,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:6}}>TEMPLATES</div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            {PROJECT_TEMPLATES.map(tpl=>(
+              <button key={tpl.id} onClick={()=>{
+                const p={id:Date.now().toString(),name:tpl.name,desc:tpl.desc,context:tpl.context,notes:tpl.notes,createdAt:new Date().toISOString(),color:tpl.color};
+                saveProjects([...projects,p]);
+                setActiveProj(p.id);
+              }}
+              style={{padding:"5px 8px",borderRadius:5,border:"1px solid "+tpl.color+"33",background:tpl.color+"0D",color:tpl.color,fontSize:8,cursor:"pointer",textAlign:"left",fontWeight:600,transition:"all .15s"}}>
+                {tpl.icon} {tpl.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{flex:1,overflow:"auto"}}>
+          {projects.length===0&&<div style={{padding:16,fontSize:9,color:"var(--mu)",textAlign:"center"}}>Aucun projet</div>}
+          {projects.map(p=>(
+            <div key={p.id} onClick={()=>setActiveProj(p.id)}
+              style={{padding:"9px 12px",cursor:"pointer",borderBottom:"1px solid var(--bd)",background:activeProj===p.id?"rgba(212,168,83,.08)":"transparent",borderLeft:"3px solid "+(activeProj===p.id?p.color:"transparent"),transition:"all .15s"}}>
+              <div style={{fontSize:10,fontWeight:600,color:activeProj===p.id?"var(--ac)":"var(--tx)",marginBottom:2}}>{p.name}</div>
+              <div style={{fontSize:7,color:"var(--mu)"}}>{new Date(p.createdAt).toLocaleDateString("fr-FR")}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Main */}
+      <div style={{flex:1,overflow:"auto",padding:"14px 16px"}}>
+        {!active&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Sélectionne ou crée un projet</div>}
+        {active&&(
+          <>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+              <div style={{width:12,height:12,borderRadius:"50%",background:active.color,flexShrink:0}}/>
+              <input value={active.name} onChange={e=>updateProject(active.id,{name:e.target.value})}
+                style={{fontSize:16,fontWeight:700,background:"transparent",border:"none",color:"var(--tx)",fontFamily:"var(--font-display)",outline:"none",flex:1}}/>
+              <button onClick={()=>deleteProject(active.id)} style={{fontSize:9,padding:"3px 8px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",cursor:"pointer"}}>🗑 Supprimer</button>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>DESCRIPTION</div>
+              <textarea value={active.desc||""} onChange={e=>updateProject(active.id,{desc:e.target.value})} placeholder="Description courte du projet…" rows={2}
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>CONTEXTE IA (injecté dans chaque message)</div>
+              <textarea value={active.context||""} onChange={e=>updateProject(active.id,{context:e.target.value})} placeholder="Contexte persistant : technologies utilisées, objectifs, contraintes… L'IA aura ce contexte en mémoire pour tout le projet." rows={4}
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>NOTES PROJET</div>
+              <textarea value={active.notes||""} onChange={e=>updateProject(active.id,{notes:e.target.value})} placeholder="Notes, idées, liens utiles…" rows={5}
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <button onClick={()=>{
+              const ctx = active.context ? "[Projet: "+active.name+"]\n"+active.context+"\n\n" : "";
+              setChatInput(ctx);
+              navigateTab("chat");
+            }} style={{padding:"7px 16px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
+              ◈ Ouvrir dans le Chat avec ce contexte
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ── PromptBuilderModal ──────────────────────────────────────────
+function PromptBuilderModal({ onInsert, onClose, enabled, apiKeys }) {
+  const BLOCKS = [
+    { key:"role",    label:"🎭 Rôle",      placeholder:"Tu es un expert en...",      examples:["développeur senior React","copywriter professionnel","analyste financier","coach de vie"] },
+    { key:"context", label:"📋 Contexte",  placeholder:"Voici le contexte...",       examples:["Je travaille sur une app web","Mon audience est débutante","C'est pour un usage professionnel"] },
+    { key:"task",    label:"✅ Tâche",     placeholder:"Ta mission est de...",       examples:["Rédige un article","Analyse ce code","Génère 5 idées","Explique simplement"] },
+    { key:"format",  label:"📐 Format",    placeholder:"Réponds avec...",            examples:["bullet points","tableau markdown","JSON","3 paragraphes max","étapes numérotées"] },
+    { key:"rules",   label:"⚠️ Contraintes", placeholder:"Contraintes : ...",       examples:["sans jargon technique","en français uniquement","max 200 mots","avec des exemples concrets"] },
+  ];
+  const [blocks, setBlocks] = React.useState({role:"",context:"",task:"",format:"",rules:""});
+  const [optimizing, setOptimizing] = React.useState(false);
+
+  const assembled = BLOCKS.filter(b=>blocks[b.key]?.trim()).map(b=>blocks[b.key].trim()).join("\n\n");
+
+  const optimizePrompt = async () => {
+    if (!assembled.trim()) return;
+    setOptimizing(true);
+    const activeIds = Object.keys(MODEL_DEFS).filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial);
+    const id = activeIds.find(i=>["groq","mistral"].includes(i))||activeIds[0];
+    if (!id) { setOptimizing(false); return; }
+    try {
+      const r = await callModel(id,[{role:"user",content:"Améliore et optimise ce prompt pour obtenir les meilleures réponses IA. Garde la même structure mais rends-le plus précis et efficace. Réponds uniquement avec le prompt amélioré:\n\n"+assembled}],apiKeys,"Expert prompt engineering.");
+      onInsert(r.trim());
+      onClose();
+    } catch(e) { onInsert(assembled); onClose(); }
+    setOptimizing(false);
+  };
+
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:9200,background:"rgba(0,0,0,.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(8px)"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"min(680px,96vw)",maxHeight:"90vh",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:12,overflow:"auto",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,position:"sticky",top:0,zIndex:2}}>
+          <span style={{fontSize:14}}>🧱</span>
+          <div style={{flex:1,fontFamily:"var(--font-display)",fontWeight:800,fontSize:13,color:"var(--tx)"}}>Prompt Builder</div>
+          <button onClick={onClose} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:14,width:28,height:28,cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{padding:"12px 16px",display:"flex",flexDirection:"column",gap:10}}>
+          {BLOCKS.map(block=>(
+            <div key={block.key}>
+              <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:4}}>{block.label}</div>
+              <textarea value={blocks[block.key]} onChange={e=>setBlocks(p=>({...p,[block.key]:e.target.value}))}
+                placeholder={block.placeholder} rows={2}
+                style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+              <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                {block.examples.map(ex=>(
+                  <button key={ex} onClick={()=>setBlocks(p=>({...p,[block.key]:p[block.key]?(p[block.key]+", "+ex):ex}))}
+                    style={{fontSize:7,padding:"1px 7px",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,color:"var(--blue)",cursor:"pointer"}}>
+                    + {ex}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        {assembled&&(
+          <div style={{padding:"10px 16px",borderTop:"1px solid var(--bd)",background:"var(--s2)"}}>
+            <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:5}}>APERÇU</div>
+            <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.6,maxHeight:100,overflow:"auto",fontStyle:"italic"}}>{assembled.slice(0,300)}{assembled.length>300?"…":""}</div>
+          </div>
+        )}
+        <div style={{padding:"12px 16px",borderTop:"1px solid var(--bd)",display:"flex",gap:8}}>
+          <button onClick={()=>{onInsert(assembled);onClose();}} disabled={!assembled.trim()}
+            style={{flex:1,padding:"8px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:7,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,opacity:assembled.trim()?.4:1}}>
+            ↗ Insérer dans le Chat
+          </button>
+          <button onClick={optimizePrompt} disabled={optimizing||!assembled.trim()}
+            style={{flex:1,padding:"8px",background:"rgba(167,139,250,.1)",border:"1px solid rgba(167,139,250,.3)",borderRadius:7,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>
+            {optimizing?"⟳ Optimisation…":"✦ Optimiser avec l'IA"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AideTab ──────────────────────────────────────────────────────
+const TUTORIALS = [
+  { id:"t01", num:"01", icon:"🤖", title:"Bienvenue sur Multi-IA Hub",   sub:"Présentation générale · 6 slides",        color:"#D4A853", level:"Débutant",       file:"tuto_01_bienvenue.html" },
+  { id:"t02", num:"02", icon:"💬", title:"Premier Chat & Clés API",       sub:"Configurer les IAs gratuites · 6 slides", color:"#60A5FA", level:"Débutant",       file:"tuto_02_premier_chat.html" },
+  { id:"t03", num:"03", icon:"🧭", title:"Le Smart Router",               sub:"Analyse de fichiers auto · 5 slides",     color:"#A78BFA", level:"Débutant",       file:"tuto_03_smart_router.html" },
+  { id:"t04", num:"04", icon:"⚡", title:"Le Débat Multi-IAs",            sub:"Analyser sous tous les angles · 5 slides",color:"#F97316", level:"Intermédiaire",  file:"tuto_04_debat.html" },
+  { id:"t05", num:"05", icon:"⬡", title:"ComfyUI — Images locales",       sub:"Générer avec ta GPU · 5 slides",          color:"#A78BFA", level:"Intermédiaire",  file:"tuto_05_comfyui.html" },
+  { id:"t06", num:"06", icon:"🔀", title:"Les Workflows",                 sub:"Automatiser des tâches · 5 slides",       color:"#F97316", level:"Intermédiaire",  file:"tuto_06_workflows.html" },
+  { id:"t07", num:"07", icon:"🧱", title:"Prompt Builder",                sub:"Écrire de meilleurs prompts · 5 slides",  color:"#D4A853", level:"Intermédiaire",  file:"tuto_07_prompt_builder.html" },
+];
+
+const CLI_TOOLS_DATA = [
+  { icon:"🔌", name:"Relay CLI-Anything", color:"#D4A853", required:true,
+    desc:"Pont entre Multi-IA Hub et les logiciels locaux. À lancer une seule fois.",
+    steps:["Télécharge cli_relay.py depuis ce projet","python cli_relay.py","Tourne sur http://localhost:5678"] },
+  { icon:"📄", name:"LibreOffice", color:"#60A5FA", required:false,
+    desc:"Génère des PDF, présentations et documents depuis les Workflows.",
+    steps:["winget install TheDocumentFoundation.LibreOffice","cd CLI-Anything\\libreoffice\\agent-harness && pip install -e .","Tester : cli-anything-libreoffice --help"] },
+  { icon:"🎨", name:"GIMP", color:"#4ADE80", required:false,
+    desc:"Traitement d'images, batch resize, création de visuels réseaux sociaux.",
+    steps:["winget install GIMP.GIMP","cd CLI-Anything\\gimp\\agent-harness && pip install -e .","Tester : cli-anything-gimp --help"] },
+  { icon:"🎬", name:"Blender", color:"#F97316", required:false,
+    desc:"Rendu 3D, animations, scènes générées par IA depuis les Workflows.",
+    steps:["winget install BlenderFoundation.Blender","cd CLI-Anything\\blender\\agent-harness && pip install -e .","Tester : cli-anything-blender --help"] },
+  { icon:"🗺", name:"Draw.io", color:"#A78BFA", required:false,
+    desc:"Génère des diagrammes, flowcharts, mind maps automatiquement.",
+    steps:["winget install JGraph.Draw","cd CLI-Anything\\drawio\\agent-harness && pip install -e .","Tester : cli-anything-drawio --help"] },
+  { icon:"🔴", name:"OBS Studio", color:"#F87171", required:false,
+    desc:"Enregistre l'écran pour les tutos vidéo automatiques (Studio Auto).",
+    steps:["winget install OBSProject.OBSStudio","cd CLI-Anything\\obs-studio\\agent-harness && pip install -e .","Tester : cli-anything-obs-studio --help"] },
+  { icon:"🎞", name:"Kdenlive", color:"#F97316", required:false,
+    desc:"Monte les vidéos automatiquement après enregistrement OBS.",
+    steps:["winget install KDE.Kdenlive","cd CLI-Anything\\kdenlive\\agent-harness && pip install -e .","Tester : cli-anything-kdenlive --help"] },
+  { icon:"🌐", name:"Browser-Use", color:"#4ADE80", required:false,
+    desc:"Navigue dans les apps automatiquement pour les tutos vidéo.",
+    steps:["pip install browser-use playwright","playwright install chromium","python -m browser_use.server --port 5679"] },
+];
+
+// Groupes thématiques pour l'accueil
+const TAB_GROUPS = [
+  {
+    id:"chat", label:"💬 Conversation", color:"#60A5FA",
+    tabs:[
+      { id:"chat",      icon:"◈",  label:"Chat",        desc:"Multi-IAs en parallèle"      },
+      { id:"debate",    icon:"⚡", label:"Débat",        desc:"Confronter les IAs"           },
+      { id:"flash",     icon:"⚡", label:"Flash",        desc:"Réponses ultra-rapides"       },
+      { id:"voice",     icon:"🎙", label:"Voice",        desc:"Interface vocale"             },
+      { id:"expert",    icon:"🧠", label:"Experts",      desc:"Panel de spécialistes"        },
+      { id:"livedebate",icon:"⏱", label:"Débat Live",   desc:"Débat avec minuterie"         },
+    ]
+  },
+  {
+    id:"write", label:"✍️ Création", color:"#4ADE80",
+    tabs:[
+      { id:"redaction",  icon:"✍️", label:"Rédaction",   desc:"Améliorer tes textes"         },
+      { id:"journaliste",icon:"📰", label:"Journaliste",  desc:"Rédiger des articles"         },
+      { id:"dna",        icon:"🧬", label:"Prompt DNA",   desc:"Générer des prompts"          },
+      { id:"prompts",    icon:"📋", label:"Prompts",      desc:"Bibliothèque de prompts"      },
+      { id:"mentor",     icon:"🎓", label:"Mentor",       desc:"Apprentissage personnalisé"   },
+      { id:"skills",     icon:"🛠", label:"Skills",       desc:"Créer des compétences"        },
+    ]
+  },
+  {
+    id:"auto", label:"🔀 Automatisation", color:"#D4A853",
+    tabs:[
+      { id:"workflows",  icon:"🔀", label:"Workflows",    desc:"Pipelines multi-étapes"       },
+      { id:"router",     icon:"🧭", label:"Router",       desc:"Routing auto + fichiers"      },
+      { id:"agent",      icon:"🤖", label:"Agent",        desc:"IA autonome"                  },
+      { id:"taskia",     icon:"📋", label:"Task→IAs",     desc:"Décomposer les tâches"        },
+      { id:"studio",     icon:"🎬", label:"Studio Auto",  desc:"Tutos vidéo auto"             },
+      { id:"brief",      icon:"☀️", label:"Brief",        desc:"Briefing quotidien"           },
+    ]
+  },
+  {
+    id:"analyse", label:"🔍 Analyse", color:"#A78BFA",
+    tabs:[
+      { id:"recherche",  icon:"🔎", label:"Recherche",    desc:"Web multi-IAs"                },
+      { id:"autopsy",    icon:"🔬", label:"Autopsy",      desc:"Analyser les prompts"         },
+      { id:"compare",    icon:"⚖",  label:"Comparer",     desc:"Comparer les réponses"        },
+      { id:"contradict", icon:"⚡", label:"Contradict",   desc:"Détecter contradictions"      },
+      { id:"consensus",  icon:"🔎", label:"Consensus",    desc:"Synthèse de désaccords"       },
+      { id:"arena",      icon:"⚔",  label:"Arène",        desc:"Benchmark des modèles"        },
+    ]
+  },
+  {
+    id:"media", label:"🖼 Médias & Images", color:"#F87171",
+    tabs:[
+      { id:"medias",     icon:"🖼",  label:"Médias",       desc:"YouTube + images"             },
+      { id:"comfyui",    icon:"⬡",  label:"ComfyUI",      desc:"Images locales (GPU)"         },
+      { id:"traducteur", icon:"🌍", label:"Traducteur",   desc:"Traduction contextuelle"      },
+      { id:"contexttrans",icon:"🔄",label:"Contexte",     desc:"Traduction avancée"           },
+    ]
+  },
+  {
+    id:"data", label:"📊 Données & Mémoire", color:"#34D399",
+    tabs:[
+      { id:"secondbrain",icon:"🧠", label:"2nd Brain",    desc:"Mémoire centrale"             },
+      { id:"projects",   icon:"📁", label:"Projets",      desc:"Gestion de projets"           },
+      { id:"notes",      icon:"📝", label:"Notes",        desc:"Prise de notes"               },
+      { id:"stats",      icon:"📊", label:"Stats",        desc:"Statistiques d'usage"         },
+      { id:"analytics",  icon:"📈", label:"Analytics",    desc:"Analytics avancés"            },
+      { id:"apioptim",   icon:"💡", label:"API Optim",    desc:"Optimiser les coûts"          },
+    ]
+  },
+  {
+    id:"explore", label:"🌐 Explorer", color:"#FB923C",
+    tabs:[
+      { id:"webia",      icon:"🌐", label:"IAs Web",      desc:"Découvrir les IAs"            },
+      { id:"veille",     icon:"📰", label:"Veille",       desc:"Actu technologique"           },
+      { id:"glossaire",  icon:"📖", label:"Glossaire",    desc:"Dictionnaire IA"              },
+      { id:"benchmark",  icon:"⚡", label:"Benchmark",    desc:"Tests de performance"         },
+      { id:"civilisations",icon:"🌍",label:"Civ.",        desc:"Jeu de rôle historique"       },
+      { id:"conference", icon:"🎙", label:"Conférence",   desc:"Simulation conférence"        },
+    ]
+  },
+];
+
+// Flat list conservée pour les tiles d'accès rapide (top 6 raccourcis)
+const QUICK_TABS = [
+  { id:"chat",      icon:"◈",  label:"Chat",       desc:"Multi-IAs en parallèle",        color:"#60A5FA", bg:"rgba(96,165,250,.08)"   },
+  { id:"router",    icon:"🧭", label:"Router",      desc:"Routing auto + fichiers",       color:"#A78BFA", bg:"rgba(167,139,250,.08)"  },
+  { id:"debate",    icon:"⚡", label:"Débat",       desc:"Confronte les IAs",             color:"#F97316", bg:"rgba(249,115,22,.08)"   },
+  { id:"workflows", icon:"🔀", label:"Workflows",   desc:"Pipelines multi-étapes",        color:"#D4A853", bg:"rgba(212,168,83,.08)"   },
+  { id:"redaction", icon:"✍️", label:"Rédaction",   desc:"Améliorer tes textes",          color:"#4ADE80", bg:"rgba(74,222,128,.08)"   },
+  { id:"recherche", icon:"🔎", label:"Recherche",   desc:"Web multi-IAs",                 color:"#60A5FA", bg:"rgba(96,165,250,.08)"   },
+];
+
+function AideTab({ navigateTab, apiKeys = {}, enabled = {} }) {
+  const [activeTuto, setActiveTuto]       = React.useState(null);
+  const [filterLevel, setFilterLevel]     = React.useState("all");
+  const [search, setSearch]               = React.useState("");
+  const [iframeLoaded, setIframeLoaded]   = React.useState(false);
+  const [activeSection, setActiveSection] = React.useState("home");
+  const [tooltip, setTooltip]             = React.useState(null); // {label,desc,icon,color,x,y}
+
+  const filtered = TUTORIALS.filter(t => {
+    if (filterLevel !== "all" && t.level !== filterLevel) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return t.title.toLowerCase().includes(q) || t.sub.toLowerCase().includes(q) || t.level.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const openTuto = (tuto) => { setIframeLoaded(false); setActiveTuto(tuto); };
+
+  const API_STATUS = [
+    { id:"groq",       label:"Groq",       key:"groq_inf",   free:true  },
+    { id:"mistral",    label:"Mistral",    key:"mistral",    free:true  },
+    { id:"cohere",     label:"Cohere",     key:"cohere",     free:true  },
+    { id:"cerebras",   label:"Cerebras",   key:"cerebras",   free:true  },
+    { id:"sambanova",  label:"SambaNova",  key:"sambanova",  free:true  },
+    { id:"poll_claude",label:"Claude✦",    key:"pollen",     free:true  },
+    { id:"poll_gpt",   label:"GPT-4o",     key:null,         free:true  },
+    { id:"poll_gemini",label:"Gemini",     key:null,         free:true  },
+  ];
+  const configuredCount = API_STATUS.filter(a => a.key === null ? true : !!(apiKeys && apiKeys[a.key])).length;
+
+  // ── VIEWER iframe ──────────────────────────────────────────────
+  if (activeTuto) {
+    return (
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"7px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <button onClick={()=>setActiveTuto(null)}
+            style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,padding:"3px 10px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+            ← Retour
+          </button>
+          <span style={{fontSize:10,fontWeight:700,color:"var(--tx)",fontFamily:"var(--font-display)"}}>{activeTuto.icon} {activeTuto.title}</span>
+          <span style={{marginLeft:"auto",fontSize:8,padding:"2px 8px",borderRadius:4,background:"rgba(255,255,255,.05)",color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{activeTuto.level}</span>
+          <button onClick={()=>window.open("tutos/"+activeTuto.file,"_blank")}
+            style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",fontSize:9,padding:"3px 10px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+            ⛶ Plein écran
+          </button>
+        </div>
+        <div style={{flex:1,position:"relative",background:"var(--bg)"}}>
+          {!iframeLoaded && (
+            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:"var(--mu)"}}>
+              <div style={{fontSize:32,animation:"spin 1s linear infinite"}}>⟳</div>
+              <span style={{fontFamily:"var(--font-mono)",fontSize:10}}>Chargement du tuto…</span>
+              <span style={{fontSize:9,opacity:.6,maxWidth:300,textAlign:"center"}}>
+                Place les fichiers HTML dans <code style={{color:"var(--ac)"}}>public/tutos/</code>
+              </span>
+            </div>
+          )}
+          <iframe key={activeTuto.file} src={"tutos/"+activeTuto.file}
+            style={{width:"100%",height:"100%",border:"none",opacity:iframeLoaded?1:0,transition:"opacity .3s"}}
+            onLoad={()=>setIframeLoaded(true)} title={activeTuto.title} allow="fullscreen"/>
+        </div>
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
+
+  // ── MAIN LAYOUT ───────────────────────────────────────────────
+  return (
+    <div style={{flex:1,overflow:"auto",scrollbarWidth:"thin",scrollbarColor:"var(--bd) transparent",position:"relative"}}>
+
+      {/* ── Tooltip flottant ── */}
+      {tooltip && (
+        <div style={{position:"fixed",zIndex:9999,pointerEvents:"none",
+          left:Math.min(tooltip.x+14, window.innerWidth-230),
+          top:Math.max(tooltip.y-8, 8),
+          width:215,background:"#111116",
+          border:"1px solid "+tooltip.color+"60",
+          borderRadius:12,padding:"12px 14px",
+          boxShadow:"0 12px 40px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.05)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+            <div style={{width:30,height:30,borderRadius:8,background:tooltip.color+"18",
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+              {tooltip.icon}
+            </div>
+            <div>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:tooltip.color,lineHeight:1.2}}>{tooltip.label}</div>
+              <div style={{fontSize:8,color:"var(--mu)",marginTop:1}}>outil Multi-IA Hub</div>
+            </div>
+          </div>
+          <div style={{fontSize:9,color:"var(--tx)",lineHeight:1.65,marginBottom:8}}>{tooltip.desc}</div>
+          <div style={{display:"flex",alignItems:"center",gap:5,fontSize:8,
+            color:tooltip.color,padding:"4px 8px",borderRadius:5,
+            background:tooltip.color+"12",border:"1px solid "+tooltip.color+"30"}}>
+            <span>→</span><span>Cliquer pour ouvrir</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── SOUS-NAV ── */}
+      <div style={{position:"sticky",top:0,zIndex:20,background:"var(--s1)",
+        borderBottom:"1px solid var(--bd)",display:"flex",gap:3,
+        padding:"5px 14px",alignItems:"center"}}>
+        {[["home","🏠 Accueil"],["tutos","📖 Tutos"],["cli","🔌 CLI"]].map(([id,label]) => (
+          <button key={id} onClick={() => setActiveSection(id)}
+            style={{padding:"4px 12px",borderRadius:5,
+              border:"1px solid "+(activeSection===id?"var(--ac)":"var(--bd)"),
+              background:activeSection===id?"rgba(212,168,83,.12)":"transparent",
+              color:activeSection===id?"var(--ac)":"var(--mu)",
+              fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",
+              fontWeight:activeSection===id?700:400,transition:"all .15s"}}>
+            {label}
+          </button>
+        ))}
+        {activeSection === "tutos" && <>
+          <div style={{width:1,background:"var(--bd)",margin:"0 4px",height:16}}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Filtrer…"
+            style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",
+              fontSize:9,padding:"3px 9px",fontFamily:"var(--font-ui)",outline:"none",width:130}}/>
+          {["all","Débutant","Intermédiaire"].map(lvl => (
+            <button key={lvl} onClick={()=>setFilterLevel(lvl)}
+              style={{fontSize:8,padding:"3px 8px",borderRadius:4,
+                border:"1px solid "+(filterLevel===lvl?"var(--ac)":"var(--bd)"),
+                background:filterLevel===lvl?"rgba(212,168,83,.12)":"transparent",
+                color:filterLevel===lvl?"var(--ac)":"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+              {lvl==="all"?"Tous":lvl}
+            </button>
+          ))}
+        </>}
+      </div>
+
+      {/* ═══════════ ACCUEIL ═══════════ */}
+      {activeSection === "home" && <div>
+
+        {/* ── HERO pleine largeur ── */}
+        <div style={{padding:"clamp(18px,3vw,30px) clamp(14px,2.5vw,28px)",
+          background:"linear-gradient(160deg,#0D0A02 0%,#110E03 40%,#0B0B10 100%)",
+          borderBottom:"1px solid rgba(212,168,83,.2)",position:"relative",overflow:"hidden"}}>
+
+          {/* Lueur décorative */}
+          <div style={{position:"absolute",top:-80,right:-80,width:320,height:320,
+            background:"radial-gradient(circle,rgba(212,168,83,.07),transparent 65%)",pointerEvents:"none"}}/>
+          <div style={{position:"absolute",bottom:-60,left:-60,width:240,height:240,
+            background:"radial-gradient(circle,rgba(96,165,250,.04),transparent 65%)",pointerEvents:"none"}}/>
+
+          {/* Titre + sous-titre + CTA */}
+          <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:20,flexWrap:"wrap",position:"relative"}}>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,
+                fontSize:"clamp(26px,4vw,38px)",color:"var(--ac)",
+                letterSpacing:"-1px",lineHeight:1,marginBottom:6}}>
+                multi<span style={{color:"rgba(255,255,255,.25)",fontWeight:300}}>IA</span>
+                <span style={{fontSize:"clamp(9px,1.2vw,11px)",color:"var(--ac)",fontWeight:500,
+                  background:"rgba(212,168,83,.12)",padding:"2px 8px",borderRadius:4,
+                  border:"1px solid rgba(212,168,83,.3)",marginLeft:10,verticalAlign:"middle",
+                  fontFamily:"var(--font-mono)"}}>
+                  v{typeof APP_VERSION!=="undefined"?APP_VERSION:"21.0"}
+                </span>
+              </div>
+              <div style={{fontSize:"clamp(9px,1.5vw,11px)",color:"var(--mu)",lineHeight:1.7}}>
+                <strong style={{color:"var(--tx)"}}>44 outils · 8 IAs · 100% gratuit</strong> avec Groq, Mistral, Cohere…
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap"}}>
+              <button onClick={() => navigateTab && navigateTab("chat")}
+                style={{padding:"10px 22px",background:"var(--ac)",border:"none",borderRadius:8,
+                  color:"#09090B",fontSize:11,fontWeight:800,cursor:"pointer",
+                  fontFamily:"var(--font-mono)",letterSpacing:.3,
+                  boxShadow:"0 4px 20px rgba(212,168,83,.3)"}}>
+                ◈ Ouvrir le Chat
+              </button>
+              <button onClick={() => navigateTab && navigateTab("debate")}
+                style={{padding:"10px 16px",background:"rgba(249,115,22,.1)",
+                  border:"1px solid rgba(249,115,22,.35)",borderRadius:8,
+                  color:"#F97316",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                ⚡ Débat
+              </button>
+              <button onClick={() => navigateTab && navigateTab("workflows")}
+                style={{padding:"10px 16px",background:"rgba(255,255,255,.04)",
+                  border:"1px solid var(--bd)",borderRadius:8,
+                  color:"var(--mu)",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                🔀 Workflows
+              </button>
+            </div>
+          </div>
+
+          {/* ── 7 TUTOS en cards horizontales dans le hero ── */}
+          <div style={{position:"relative"}}>
+            <div style={{fontSize:8,color:"rgba(212,168,83,.6)",fontWeight:700,letterSpacing:1.2,
+              fontFamily:"var(--font-mono)",marginBottom:10,textTransform:"uppercase"}}>
+              📖 7 tutoriels interactifs — survole pour prévisualiser, clique pour ouvrir
+            </div>
+            <div style={{display:"grid",
+              gridTemplateColumns:"repeat(auto-fill,minmax(clamp(130px,16vw,175px),1fr))",
+              gap:8}}>
+              {TUTORIALS.map((tuto,idx) => (
+                <div key={tuto.id}
+                  onClick={() => openTuto(tuto)}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor=tuto.color+"88";
+                    e.currentTarget.style.transform="translateY(-3px)";
+                    e.currentTarget.style.boxShadow="0 8px 28px "+tuto.color+"25";
+                    e.currentTarget.style.background="rgba(255,255,255,.04)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor=tuto.color+"30";
+                    e.currentTarget.style.transform="none";
+                    e.currentTarget.style.boxShadow="none";
+                    e.currentTarget.style.background="rgba(255,255,255,.02)";
+                  }}
+                  style={{background:"rgba(255,255,255,.02)",
+                    border:"1px solid "+tuto.color+"30",
+                    borderRadius:10,padding:"10px 12px",cursor:"pointer",
+                    transition:"all .2s",position:"relative",overflow:"hidden"}}>
+                  {/* Trait couleur haut */}
+                  <div style={{position:"absolute",top:0,left:0,right:0,height:2,
+                    background:"linear-gradient(90deg,"+tuto.color+","+tuto.color+"44)"}}/>
+                  <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:5}}>
+                    <span style={{fontSize:18}}>{tuto.icon}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:7,color:"var(--mu)",fontFamily:"var(--font-mono)",marginBottom:1}}>
+                        TUTO {tuto.num} · {tuto.level}
+                      </div>
+                      <div style={{fontSize:9,fontWeight:700,color:"var(--tx)",lineHeight:1.2,
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {tuto.title}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.4}}>{tuto.sub}</div>
+                  <div style={{marginTop:6,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontSize:7,padding:"1px 6px",borderRadius:8,fontWeight:700,
+                      background:tuto.level==="Débutant"?"rgba(74,222,128,.1)":"rgba(212,168,83,.1)",
+                      border:"1px solid "+(tuto.level==="Débutant"?"rgba(74,222,128,.3)":"rgba(212,168,83,.3)"),
+                      color:tuto.level==="Débutant"?"var(--green)":"var(--ac)"}}>
+                      {tuto.level}
+                    </span>
+                    <span style={{fontSize:9,color:tuto.color,opacity:.8}}>▶</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── OUTILS PAR THÈME ── */}
+        <div style={{padding:"clamp(10px,2vw,18px)"}}>
+          <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,letterSpacing:1.2,
+            fontFamily:"var(--font-mono)",marginBottom:12,textTransform:"uppercase"}}>
+            🗂 Tous les outils — survole pour voir la description
+          </div>
+          {TAB_GROUPS.map(group => (
+            <div key={group.id} style={{marginBottom:3}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0 3px"}}>
+                <div style={{width:3,height:13,background:group.color,borderRadius:2,flexShrink:0,opacity:.8}}/>
+                <span style={{fontSize:8,fontWeight:700,color:group.color,
+                  fontFamily:"var(--font-mono)",letterSpacing:.8,opacity:.9}}>
+                  {group.label}
+                </span>
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:3,paddingLeft:11,paddingBottom:8,
+                borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+                {group.tabs.map(t => (
+                  <button key={t.id}
+                    onClick={() => navigateTab && navigateTab(t.id)}
+                    onMouseEnter={e => {
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setTooltip({label:t.label,desc:t.desc,icon:t.icon,color:group.color,x:r.right,y:r.top});
+                      e.currentTarget.style.background=group.color+"20";
+                      e.currentTarget.style.borderColor=group.color+"60";
+                      e.currentTarget.style.color="var(--tx)";
+                      e.currentTarget.style.transform="translateY(-1px)";
+                    }}
+                    onMouseLeave={e => {
+                      setTooltip(null);
+                      e.currentTarget.style.background="rgba(255,255,255,.03)";
+                      e.currentTarget.style.borderColor="rgba(255,255,255,.06)";
+                      e.currentTarget.style.color="var(--mu)";
+                      e.currentTarget.style.transform="none";
+                    }}
+                    style={{display:"flex",alignItems:"center",gap:5,
+                      padding:"4px 10px",borderRadius:20,
+                      border:"1px solid rgba(255,255,255,.06)",
+                      background:"rgba(255,255,255,.03)",
+                      color:"var(--mu)",fontSize:9,cursor:"pointer",
+                      fontFamily:"var(--font-ui)",transition:"all .12s",
+                      whiteSpace:"nowrap"}}>
+                    <span style={{fontSize:11}}>{t.icon}</span>
+                    <span>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+        {/* ═══════════════ TUTOS ═══════════════ */}
+        {activeSection === "tutos" && <>
+          {/* Quick start banner */}
+          <div style={{marginBottom:14,padding:"10px 16px",
+            background:"rgba(212,168,83,.06)",border:"1px solid rgba(212,168,83,.2)",
+            borderRadius:10,display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:22,flexShrink:0}}>🚀</span>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:"var(--ac)",marginBottom:1}}>
+                Nouveau sur Multi-IA Hub ?
+              </div>
+              <div style={{fontSize:9,color:"var(--mu)"}}>
+                Commence par le Tuto 01 — présentation complète de l'app en quelques slides.
+              </div>
+            </div>
+            <button onClick={()=>openTuto(TUTORIALS[0])}
+              style={{padding:"5px 13px",background:"rgba(212,168,83,.15)",
+                border:"1px solid rgba(212,168,83,.4)",borderRadius:6,
+                color:"var(--ac)",fontSize:9,cursor:"pointer",
+                fontFamily:"var(--font-mono)",fontWeight:700,flexShrink:0}}>
+              ▶ Commencer
+            </button>
+          </div>
+
+          {/* Tutorial grid */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:10,marginBottom:16}}>
+            {filtered.map(tuto=>(
+              <div key={tuto.id} onClick={()=>openTuto(tuto)}
+                style={{background:"var(--s1)",border:"1px solid var(--bd)",
+                  borderRadius:10,overflow:"hidden",cursor:"pointer",transition:"all .2s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=tuto.color+"66";
+                  e.currentTarget.style.transform="translateY(-2px)";
+                  e.currentTarget.style.boxShadow="0 8px 24px "+tuto.color+"15";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--bd)";
+                  e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}}>
+                <div style={{height:3,background:"linear-gradient(90deg,"+tuto.color+","+tuto.color+"88)"}}/>
+                <div style={{padding:"12px 14px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                    <span style={{fontSize:22}}>{tuto.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)",marginBottom:1}}>
+                        TUTO {tuto.num}
+                      </div>
+                      <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,
+                        color:"var(--tx)",lineHeight:1.2}}>{tuto.title}</div>
+                    </div>
+                    <span style={{fontSize:7,padding:"2px 6px",borderRadius:3,
+                      background:"rgba(255,255,255,.05)",color:"var(--mu)",
+                      fontFamily:"var(--font-mono)",flexShrink:0}}>{tuto.level}</span>
+                  </div>
+                  <div style={{fontSize:9,color:"var(--mu)",marginBottom:8}}>{tuto.sub}</div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    {tuto.level==="Débutant"
+                      ? <span style={{fontSize:7,padding:"1px 6px",background:"rgba(74,222,128,.08)",
+                          border:"1px solid rgba(74,222,128,.2)",borderRadius:8,color:"var(--green)"}}>Débutant</span>
+                      : <span style={{fontSize:7,padding:"1px 6px",background:"rgba(212,168,83,.08)",
+                          border:"1px solid rgba(212,168,83,.2)",borderRadius:8,color:"var(--ac)"}}>Intermédiaire</span>
+                    }
+                    <span style={{fontSize:9,color:tuto.color,opacity:.7}}>▶ Voir</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <div style={{gridColumn:"1/-1",textAlign:"center",padding:"40px 20px",
+                color:"var(--mu)",fontSize:12}}>
+                Aucun tuto trouvé pour "{search}"
+              </div>
+            )}
+          </div>
+
+          {/* Statut API */}
+          <div style={{marginBottom:18,padding:"14px 16px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10}}>
+            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,fontFamily:"var(--font-mono)",marginBottom:10}}>
+              STATUT DES CLÉS API — {configuredCount}/8 configurées
+              <span style={{marginLeft:8,fontSize:8,padding:"1px 7px",borderRadius:3,
+                background:configuredCount===0?"rgba(248,113,113,.12)":configuredCount>=4?"rgba(74,222,128,.12)":"rgba(212,168,83,.12)",
+                color:configuredCount===0?"var(--red)":configuredCount>=4?"var(--green)":"var(--ac)",
+                border:"1px solid "+(configuredCount===0?"rgba(248,113,113,.3)":configuredCount>=4?"rgba(74,222,128,.3)":"rgba(212,168,83,.3)")}}>
+                {configuredCount===0?"⚠ Aucune clé":configuredCount>=6?"✓ Bien configuré":"◑ Partiel"}
+              </span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:6}}>
+              {API_STATUS.map(api => {
+                const ok = api.key === null ? true : !!(apiKeys && apiKeys[api.key]);
+                return (
+                  <div key={api.id} onClick={() => api.key !== null && navigateTab && navigateTab("config")}
+                    style={{display:"flex",alignItems:"center",gap:7,padding:"6px 10px",borderRadius:7,
+                      border:"1px solid "+(ok?"rgba(74,222,128,.25)":"var(--bd)"),
+                      background:ok?"rgba(74,222,128,.05)":"var(--s2)",
+                      cursor:api.key !== null?"pointer":"default",transition:"all .15s"}}
+                    onMouseEnter={e=>{if(api.key!==null)e.currentTarget.style.borderColor=ok?"rgba(74,222,128,.5)":"rgba(212,168,83,.4)";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor=ok?"rgba(74,222,128,.25)":"var(--bd)";}}>
+                    <div style={{width:6,height:6,borderRadius:"50%",flexShrink:0,
+                      background:ok?"var(--green)":"var(--mu)",
+                      boxShadow:ok?"0 0 6px var(--green)":""}}/>
+                    <span style={{fontSize:9,fontWeight:600,color:ok?"var(--tx)":"var(--mu)",flex:1}}>{api.label}</span>
+                    {api.free && <span style={{fontSize:7,padding:"1px 4px",borderRadius:2,
+                      background:"rgba(74,222,128,.1)",color:"var(--green)",fontWeight:700}}>FREE</span>}
+                    {!ok && api.key && (
+                      <button onClick={e=>{e.stopPropagation();navigateTab&&navigateTab("config");}}
+                        style={{fontSize:7,padding:"1px 5px",borderRadius:3,border:"1px solid var(--bd)",
+                          background:"transparent",color:"var(--mu)",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                        + Clé
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {configuredCount === 0 && (
+              <div style={{marginTop:10,padding:"8px 12px",background:"rgba(212,168,83,.06)",
+                border:"1px solid rgba(212,168,83,.2)",borderRadius:7,fontSize:9,color:"var(--mu)",lineHeight:1.7}}>
+                💡 <strong style={{color:"var(--ac)"}}>Démarrage rapide :</strong> Groq, Gemini, Mistral, Cohere sont <strong>100% gratuits</strong>. 
+                Clique sur une IA ci-dessus pour aller dans ⚙ Config et coller ta clé API.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ */}
+          <div style={{padding:"12px 16px",background:"var(--s1)",
+            border:"1px solid var(--bd)",borderRadius:10}}>
+            <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:10,
+              letterSpacing:1,fontFamily:"var(--font-mono)"}}>QUESTIONS FRÉQUENTES</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:6}}>
+              {[
+                ["C'est quoi une clé API ?","t02"],
+                ["Comment obtenir Groq gratuit ?","t02"],
+                ["Quelle IA choisir pour débuter ?","t01"],
+                ["ComfyUI — comment installer ?","t05"],
+                ["Comment automatiser ?","t06"],
+                ["Comment améliorer mes prompts ?","t07"],
+              ].map(([q,tid])=>(
+                <div key={q} onClick={()=>openTuto(TUTORIALS.find(t=>t.id===tid))}
+                  style={{padding:"6px 10px",borderRadius:6,background:"var(--s2)",
+                    border:"1px solid var(--bd)",fontSize:9,color:"var(--mu)",
+                    cursor:"pointer",transition:"all .15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.color="var(--tx)";
+                    e.currentTarget.style.borderColor="var(--ac)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.color="var(--mu)";
+                    e.currentTarget.style.borderColor="var(--bd)";}}>
+                  ❓ {q}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Install note */}
+          <div style={{marginTop:12,padding:"10px 14px",
+            background:"rgba(96,165,250,.05)",border:"1px solid rgba(96,165,250,.15)",
+            borderRadius:8,fontSize:9,color:"var(--mu)",lineHeight:1.6}}>
+            📂 <strong style={{color:"var(--tx)"}}>Pour afficher les tutos dans l'app :</strong> place les
+            fichiers HTML dans le dossier{" "}
+            <code style={{color:"var(--ac)",background:"rgba(212,168,83,.08)",
+              padding:"1px 5px",borderRadius:3}}>public/tutos/</code> de ton projet Vite.
+          </div>
+        </>}
+
+        {/* ═══════════════ OUTILS CLI ═══════════════ */}
+        {activeSection === "cli" && <>
+          <div style={{marginBottom:14,fontSize:9,color:"var(--mu)",lineHeight:1.7,
+            padding:"8px 12px",background:"rgba(212,168,83,.05)",
+            border:"1px solid rgba(212,168,83,.15)",borderRadius:7}}>
+            Les tunnels CLI-Anything permettent à Multi-IA Hub de contrôler des logiciels locaux
+            (GIMP, LibreOffice, Blender…). Ils sont{" "}
+            <strong style={{color:"var(--tx)"}}>100% optionnels</strong> — si un logiciel n'est pas
+            installé, l'étape est ignorée et l'app continue normalement.
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+            {CLI_TOOLS_DATA.map((tool,i) => (
+              <div key={i} style={{padding:"12px 14px",background:"var(--s1)",
+                border:"1px solid "+(tool.required?"rgba(212,168,83,.25)":"var(--bd)"),
+                borderRadius:9}}>
+                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:7}}>
+                  <span style={{fontSize:18}}>{tool.icon}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:11,color:tool.color}}>{tool.name}</div>
+                    <div style={{fontSize:8,color:"var(--mu)"}}>{tool.desc}</div>
+                  </div>
+                  {tool.required && (
+                    <span style={{fontSize:7,padding:"1px 5px",
+                      border:"1px solid rgba(212,168,83,.4)",borderRadius:3,color:"var(--ac)"}}>
+                      requis
+                    </span>
+                  )}
+                </div>
+                <div style={{background:"var(--bg)",borderRadius:5,padding:"6px 9px"}}>
+                  {tool.steps.map((s,si) => (
+                    <div key={si} style={{fontSize:8,color:"var(--green)",
+                      fontFamily:"var(--font-mono)",lineHeight:1.9,display:"flex",gap:5}}>
+                      <span style={{color:"var(--mu)",flexShrink:0}}>{si+1}.</span>{s}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:10,padding:"8px 12px",
+            background:"rgba(74,222,128,.05)",border:"1px solid rgba(74,222,128,.15)",
+            borderRadius:7,fontSize:9,color:"var(--mu)"}}>
+            💡 <strong style={{color:"var(--tx)"}}>100% gratuit via PowerShell</strong> —
+            un seul <code style={{color:"var(--ac)"}}>git clone https://github.com/HKUDS/CLI-Anything.git</code> suffit.
+          </div>
+        </>}
+
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// 🎬 STUDIO AUTO — Générateur de tutos vidéo automatique
+// Surcouche optionnelle : Browser-Use + OBS + IA + Kdenlive
+// Si un outil est absent → l'étape est ignorée, le reste continue
+// ══════════════════════════════════════════════════════════════════
+
+const STUDIO_QUESTIONS = [
+  { id:"subject",   label:"Sur quoi porte le tuto ?",        placeholder:"Ex : L'onglet Smart Router de Multi-IA Hub", type:"text" },
+  { id:"url",       label:"URL ou application à filmer ?",    placeholder:"Ex : https://multiia-hub.vercel.app ou GIMP local", type:"text" },
+  { id:"duration",  label:"Durée cible ?",                    placeholder:"Ex : 2 minutes, 5 minutes", type:"text" },
+  { id:"audience",  label:"Pour qui ? (niveau public)",       placeholder:"Ex : Débutants, développeurs, utilisateurs avancés", type:"text" },
+  { id:"style",     label:"Style de narration ?",             placeholder:"Ex : Détendu, professionnel, enthousiaste", type:"text" },
+  { id:"lang",      label:"Langue du tuto ?",                 placeholder:"Ex : Français, Anglais", type:"text" },
+];
+
+const STUDIO_PIPELINE_STEPS = [
+  { id:"script",    icon:"✍️", label:"Génération du script",       tool:"IA",          color:"#D4A853" },
+  { id:"questions", icon:"💬", label:"Questions de clarification",  tool:"IA",          color:"#60A5FA" },
+  { id:"navigate",  icon:"🌐", label:"Navigation Browser-Use",      tool:"Browser-Use", color:"#4ADE80", optional:true },
+  { id:"record",    icon:"🔴", label:"Enregistrement OBS",          tool:"OBS",         color:"#F87171", optional:true },
+  { id:"narration", icon:"🎙", label:"Script narration IA",         tool:"IA",          color:"#A78BFA" },
+  { id:"assemble",  icon:"🎬", label:"Montage Kdenlive",            tool:"Kdenlive",    color:"#F97316", optional:true },
+  { id:"export",    icon:"📹", label:"Export vidéo finale",         tool:"Kdenlive",    color:"#F97316", optional:true },
+];
+
+function StudioTab({ apiKeys, enabled, MODEL_DEFS, callModel, buildSystem, showToast }) {
+  // ── État persistant via localStorage ──────────────────────────
+  const _load = (key, def) => { try { const v = localStorage.getItem('studio_'+key); return v !== null ? JSON.parse(v) : def; } catch { return def; } };
+  const _save = (key, val) => { try { localStorage.setItem('studio_'+key, JSON.stringify(val)); } catch {} };
+
+  const [phase, setPhase]             = React.useState(() => _load('phase', 'intro'));
+  const [subject, setSubject]         = React.useState(() => _load('subject', ''));
+  const [answers, setAnswers]         = React.useState(() => _load('answers', {}));
+  const [aiQuestions, setAiQuestions] = React.useState(() => _load('aiQuestions', []));
+  const [aiAnswers, setAiAnswers]     = React.useState(() => _load('aiAnswers', {}));
+  const [script, setScript]           = React.useState(() => _load('script', ''));
+  const [narration, setNarration]     = React.useState(() => _load('narration', ''));
+  const [pipelineLog, setPipelineLog] = React.useState(() => _load('pipelineLog', []));
+  const [running, setRunning]         = React.useState(false);
+  const [toolStatus, setToolStatus]   = React.useState({ browseruse: null, obs: null, kdenlive: null });
+
+  // Sauvegarde automatique à chaque changement
+  React.useEffect(() => { _save('phase', phase); }, [phase]);
+  React.useEffect(() => { _save('subject', subject); }, [subject]);
+  React.useEffect(() => { _save('answers', answers); }, [answers]);
+  React.useEffect(() => { _save('aiQuestions', aiQuestions); }, [aiQuestions]);
+  React.useEffect(() => { _save('aiAnswers', aiAnswers); }, [aiAnswers]);
+  React.useEffect(() => { _save('script', script); }, [script]);
+  React.useEffect(() => { _save('narration', narration); }, [narration]);
+  React.useEffect(() => { _save('pipelineLog', pipelineLog); }, [pipelineLog]);
+
+  const firstIA = (Object.keys(enabled || {}).find(id => enabled[id] && MODEL_DEFS?.[id])) || Object.keys(MODEL_DEFS || {})[0] || "";
+
+  // ── Vérification optionnelle des outils ──────────────────────
+  const checkTools = async () => {
+    const status = { browseruse: false, obs: false, kdenlive: false };
+    // Relay CLI-Anything (port 5678) — vérifie OBS, Kdenlive et Browser-Use
+    try {
+      const r = await fetch("http://localhost:5678/ping", { signal: AbortSignal.timeout(2000) });
+      if(r.ok) {
+        const d = await r.json();
+        status.obs      = d.obs        || false;
+        status.kdenlive = d.kdenlive   || false;
+        status.browseruse = d.browseruse || false;
+      }
+    } catch {}
+    setToolStatus(status);
+    return status;
+  };
+
+  const log = (step, status, msg) => {
+    setPipelineLog(prev => {
+      const existing = prev.findIndex(l => l.step === step);
+      const entry = { step, status, msg, ts: Date.now() };
+      if(existing >= 0) { const n=[...prev]; n[existing]=entry; return n; }
+      return [...prev, entry];
+    });
+  };
+
+  // ── Phase 1 : l'IA pose des questions de clarification ───────
+  const startQuestionsPhase = async () => {
+    if(!subject.trim()) { showToast("Décris d'abord le sujet du tuto"); return; }
+    setPhase("questions");
+    try {
+      const prompt = `Tu es un expert en création de tutoriels vidéo. Un utilisateur veut créer un tuto sur : "${subject}".
+Pose exactement 5 questions courtes et précises pour t'assurer de créer le meilleur tuto possible.
+Format de réponse : JSON array uniquement, sans texte avant ou après.
+Exemple : ["Quel est le niveau de l'audience ?","Quelle durée idéale ?","URL ou logiciel à filmer ?","Style de narration ?","Points clés à montrer ?"]`;
+      const reply = await callModel(firstIA, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
+      const clean = reply.replace(/```json|```/g,"").trim();
+      const questions = JSON.parse(clean);
+      const finalQuestions = Array.isArray(questions) ? questions : STUDIO_QUESTIONS.map(q=>q.label);
+      setAiQuestions(finalQuestions);
+      // Init les réponses vides
+      const initAnswers = {};
+      finalQuestions.forEach(q => { initAnswers[q] = ""; });
+      setAiAnswers(initAnswers);
+    } catch(e) {
+      const fallback = STUDIO_QUESTIONS.map(q => q.label);
+      setAiQuestions(fallback);
+      const initAnswers = {};
+      fallback.forEach(q => { initAnswers[q] = ""; });
+      setAiAnswers(initAnswers);
+    }
+  };
+
+  // ── Phase 2 : Confirmation avant lancement ────────────────────
+  const confirmAndStart = () => {
+    setPhase("confirm");
+    checkTools();
+  };
+
+  // ── Phase 3 : Pipeline complet ────────────────────────────────
+  const runPipeline = async () => {
+    setPhase("running");
+    setRunning(true);
+    setPipelineLog([]);
+    const tools = await checkTools();
+
+    // ÉTAPE 1 — Génération du script
+    log("script","running","Génération du script de tuto…");
+    let scriptContent = "";
+    try {
+      const answersStr = Object.entries(aiAnswers).map(([q,a])=>`${q}: ${a}`).join("\n");
+      const prompt = `Crée un script complet de tutoriel vidéo sur : "${subject}".
+Informations complémentaires :
+${answersStr}
+
+Format du script :
+- INTRO (15s) : accroche, présentation du sujet
+- PARTIE 1 (30s-1min) : première démonstration
+- PARTIE 2 (30s-1min) : fonctionnalité principale  
+- ASTUCE (20s) : conseil pratique
+- CONCLUSION (15s) : résumé, call-to-action
+Pour chaque partie : [TIMECODE] | ACTION À L'ÉCRAN | NARRATION
+
+Sois précis sur ce que l'IA doit cliquer/montrer à l'écran.`;
+      scriptContent = await callModel(firstIA, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
+      setScript(scriptContent);
+      log("script","done","✅ Script généré");
+    } catch(e) { log("script","error","❌ "+e.message); scriptContent = subject; }
+
+    // ÉTAPE 2 — Navigation manuelle (toi tu navigues pendant qu'OBS filme)
+    log("navigate","done","🎬 OBS va démarrer — navigue dans l'app pendant l'enregistrement pour démontrer les fonctionnalités. Tu as 30 secondes.");
+
+    // ÉTAPE 3 — Enregistrement OBS (optionnel)
+    if(tools.obs) {
+      log("record","running","OBS démarre l'enregistrement…");
+      try {
+        const r = await fetch("http://localhost:5678/obs/record/start", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({}),
+          signal: AbortSignal.timeout(10000)
+        });
+        if(r.ok) {
+            log("record","done","✅ OBS enregistre — Ouvre multiia-hub.vercel.app dans ton navigateur maintenant pour que l'écran ne soit pas noir ! Enregistrement pendant 30s…");
+            await new Promise(res=>setTimeout(res, 30000)); // 30 secondes d'enregistrement
+          }
+        else log("record","skip","⚠️ OBS WebSocket non dispo — active-le dans OBS : Outils → WebSocket Server → port 4455");
+      } catch { log("record","skip","ℹ️ OBS non disponible — ignoré"); }
+    } else {
+      log("record","skip","ℹ️ OBS non installé — étape ignorée");
+    }
+
+    // ÉTAPE 4 — Génération narration IA
+    log("narration","running","Génération du script de narration voix off…");
+    let narrationContent = "";
+    try {
+      const prompt = `À partir de ce script de tuto :\n${scriptContent}\n\nGénère uniquement le texte de narration voix off, sans les indications techniques. Ton naturel, fluide, en ${aiAnswers[aiQuestions[0]] ? "s'adaptant au niveau "+aiAnswers[aiQuestions[0]] : "français"}.`;
+      narrationContent = await callModel(firstIA, [{role:"user",content:prompt}], apiKeys, buildSystem(), null);
+      setNarration(narrationContent);
+      log("narration","done","✅ Narration générée");
+    } catch(e) { log("narration","error","❌ "+e.message); }
+
+    // ÉTAPE 5 — Montage Kdenlive (optionnel)
+    if(tools.kdenlive) {
+      log("assemble","running","Kdenlive assemble la vidéo…");
+      try {
+        const r = await fetch("http://localhost:5678/execute", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ command:"cli-anything-kdenlive project new --name tuto_output --width 1920 --height 1080 --fps-num 25 --fps-den 1 --output ./tuto_output.kdenlive", software:"kdenlive" }),
+          signal: AbortSignal.timeout(30000)
+        });
+        if(r.ok) log("assemble","done","✅ Projet Kdenlive créé");
+        else log("assemble","skip","⚠️ Kdenlive erreur — ignoré");
+      } catch { log("assemble","skip","ℹ️ Kdenlive non disponible — ignoré"); }
+    } else {
+      log("assemble","skip","ℹ️ Kdenlive non installé — étape ignorée");
+    }
+
+    // ÉTAPE 6 — Arrêt OBS
+    if(tools.obs) {
+      try {
+        await fetch("http://localhost:5678/obs/record/stop", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({}),
+          signal: AbortSignal.timeout(10000)
+        });
+        log("export","done","✅ OBS a arrêté l'enregistrement");
+      } catch { log("export","skip","ℹ️ OBS stop ignoré"); }
+    } else {
+      log("export","skip","ℹ️ Export manuel requis — voir script ci-dessous");
+    }
+
+    setRunning(false);
+    setPhase("done");
+  };
+
+  const reset = () => {
+    ['phase','subject','answers','aiQuestions','aiAnswers','script','narration','pipelineLog']
+      .forEach(k => { try { localStorage.removeItem('studio_'+k); } catch {} });
+    setPhase("intro"); setSubject(""); setAnswers({}); setAiQuestions([]); setAiAnswers({});
+    setScript(""); setNarration(""); setPipelineLog([]);
+  };
+
+  const statusColor = s => s==="done"?"#4ADE80":s==="running"?"#D4A853":s==="error"?"#F87171":"#666674";
+  const statusIcon  = s => s==="done"?"✅":s==="running"?"⏳":s==="error"?"❌":"⏸";
+
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+
+      {/* ── HEADER FIXE ── */}
+      <div style={{flexShrink:0,padding:"10px clamp(10px,2vw,20px) 0",borderBottom:"1px solid var(--bd)",background:"var(--bg)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8,flexWrap:"wrap"}}>
+          <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--tx)"}}>🎬 Studio Auto</div>
+          <div style={{fontSize:9,color:"var(--mu)",flex:1}}>Génère des tutos vidéo automatiquement · Surcouche optionnelle : Browser-Use + OBS + IA + Kdenlive</div>
+          {phase !== "intro" && <button onClick={reset} style={{fontSize:9,padding:"4px 10px",border:"1px solid var(--bd)",borderRadius:5,background:"transparent",color:"var(--mu)",cursor:"pointer"}}>↺ Recommencer</button>}
+        </div>
+
+        {/* Barre outils compacte */}
+        <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
+          {[
+            {key:"browseruse",label:"Browser-Use",icon:"🌐"},
+            {key:"obs",       label:"OBS Studio", icon:"🔴"},
+            {key:"kdenlive",  label:"Kdenlive",   icon:"🎬"},
+          ].map(t => (
+            <div key={t.key} style={{padding:"3px 9px",borderRadius:5,border:"1px solid "+(toolStatus[t.key]?"rgba(74,222,128,.3)":"var(--bd)"),background:toolStatus[t.key]?"rgba(74,222,128,.06)":"var(--s1)",display:"flex",alignItems:"center",gap:5,fontSize:8,color:toolStatus[t.key]?"var(--green)":"var(--mu)"}}>
+              {t.icon} {t.label} <span style={{opacity:.6}}>{toolStatus[t.key]?"● actif":"○ opt."}</span>
+            </div>
+          ))}
+          <button onClick={checkTools} style={{fontSize:8,padding:"3px 8px",border:"1px solid var(--bd)",borderRadius:4,background:"transparent",color:"var(--mu)",cursor:"pointer"}}>🔄</button>
+        </div>
+      </div>
+
+      {/* ── CONTENU SCROLLABLE ── */}
+      <div style={{flex:"1 1 0",overflow:"auto",minHeight:0,padding:"clamp(10px,2vw,20px)"}}>
+
+
+        {/* ══ GUIDE D'INSTALLATION ══ */}
+        <div style={{marginBottom:10,padding:"6px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,fontSize:9,color:"var(--mu)",display:"flex",alignItems:"center",gap:8}}>
+          💡 Outils non installés ? Consulte l'onglet <strong style={{color:"var(--ac)"}}>❓ Aide</strong> → section "Tunnels CLI-Anything" pour les commandes PowerShell.
+        </div>
+
+        {/* ══ PHASE : INTRO ══ */}
+        {phase === "intro" && (
+          <div style={{display:"flex",flexDirection:"column",height:"100%"}}>
+            {/* Explication */}
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <div style={{maxWidth:500,textAlign:"center",padding:"0 20px"}}>
+                <div style={{fontSize:32,marginBottom:12}}>🎬</div>
+                <div style={{fontWeight:800,fontSize:16,color:"var(--tx)",marginBottom:8}}>Crée un tuto vidéo automatiquement</div>
+                <div style={{fontSize:10,color:"var(--mu)",lineHeight:1.8}}>
+                  L'IA pose des questions · tu confirmes · le pipeline génère le script, la narration, et filme avec OBS
+                </div>
+                {!firstIA && <div style={{marginTop:10,fontSize:9,color:"var(--red)"}}>⚠️ Active au moins une IA dans l'onglet Config</div>}
+              </div>
+            </div>
+            {/* Barre de saisie style Chat */}
+            <div style={{flexShrink:0,borderTop:"1px solid var(--bd)",padding:"10px 14px",background:"var(--s1)"}}>
+              <div style={{fontSize:9,color:"var(--mu)",marginBottom:6,fontFamily:"var(--font-mono)"}}>SUJET DU TUTO</div>
+              <div className="ir">
+                <div className="ta-wrap">
+                  <textarea rows={2} value={subject} onChange={e=>setSubject(e.target.value)}
+                    placeholder="Ex : Comment utiliser le Smart Router de Multi-IA Hub…"
+                    onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();startQuestionsPhase();}}}
+                    style={{fontSize:12,resize:"none"}}
+                  />
+                </div>
+                <button className="sbtn" onClick={startQuestionsPhase}
+                  disabled={!subject.trim()||!firstIA}
+                  title="L'IA pose ses questions">↑</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PHASE : QUESTIONS IA ══ */}
+        {phase === "questions" && (
+          <div style={{maxWidth:620}}>
+            <div style={{marginBottom:16,padding:"10px 14px",background:"rgba(96,165,250,.06)",border:"1px solid rgba(96,165,250,.2)",borderRadius:8,fontSize:10,color:"var(--blue)"}}>
+              💬 L'IA a besoin de quelques précisions pour créer le meilleur tuto possible sur : <strong>"{subject}"</strong>
+            </div>
+            {aiQuestions.length === 0 ? (
+              <div style={{fontSize:11,color:"var(--mu)"}}>⏳ L'IA génère ses questions…</div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {aiQuestions.map((q,i) => (
+                  <div key={i}>
+                    <div style={{fontSize:10,color:"var(--tx)",fontWeight:700,marginBottom:5}}>{i+1}. {q}</div>
+                    <input
+                      value={aiAnswers[q]||""}
+                      onChange={e=>setAiAnswers(prev=>({...prev,[q]:e.target.value}))}
+                      placeholder="Ta réponse…"
+                      style={{width:"100%",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",outline:"none"}}
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={confirmAndStart}
+                  disabled={aiQuestions.some(q => !aiAnswers[q]?.trim())}
+                  style={{marginTop:8,padding:"10px 24px",background:"linear-gradient(135deg,#60A5FA,#93C5FD)",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer",alignSelf:"flex-start",opacity:aiQuestions.some(q=>!aiAnswers[q]?.trim())?0.5:1}}>
+                  ✅ Confirmer et lancer le pipeline →
+                </button>
+                <div style={{fontSize:9,color:"var(--mu)",marginTop:4}}>Réponds à toutes les questions pour continuer</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ PHASE : CONFIRMATION ══ */}
+        {phase === "confirm" && (
+          <div style={{maxWidth:620}}>
+            <div style={{marginBottom:16,padding:"14px 16px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:10}}>
+              <div style={{fontWeight:700,fontSize:12,color:"var(--tx)",marginBottom:10}}>📋 Récapitulatif du tuto</div>
+              <div style={{fontSize:10,color:"var(--mu)",marginBottom:5}}><strong style={{color:"var(--tx)"}}>Sujet :</strong> {subject}</div>
+              {aiQuestions.map((q,i) => aiAnswers[q] && (
+                <div key={i} style={{fontSize:10,color:"var(--mu)",marginBottom:3}}>
+                  <strong style={{color:"var(--tx)"}}>{q} :</strong> {aiAnswers[q]}
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:14,fontSize:10,color:"var(--mu)"}}>
+              <strong style={{color:"var(--tx)"}}>Outils disponibles :</strong>
+              {[["Browser-Use","browseruse","🌐"],["OBS","obs","🔴"],["Kdenlive","kdenlive","🎬"]].map(([label,key,icon])=>(
+                <span key={key} style={{marginLeft:8,padding:"2px 7px",borderRadius:4,background:toolStatus[key]?"rgba(74,222,128,.1)":"rgba(255,255,255,.05)",border:"1px solid "+(toolStatus[key]?"rgba(74,222,128,.3)":"var(--bd)"),color:toolStatus[key]?"var(--green)":"var(--mu)"}}>
+                  {icon} {label} {toolStatus[key]?"✓":"(ignoré)"}
+                </span>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={runPipeline} style={{padding:"10px 24px",background:"linear-gradient(135deg,#4ADE80,#22C55E)",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                🚀 Lancer la génération automatique
+              </button>
+              <button onClick={()=>setPhase("questions")} style={{padding:"10px 16px",background:"transparent",border:"1px solid var(--bd)",borderRadius:8,color:"var(--mu)",fontSize:11,cursor:"pointer"}}>
+                ← Modifier
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PHASE : RUNNING + DONE ══ */}
+        {(phase === "running" || phase === "done") && (
+          <div style={{maxWidth:680}}>
+            {/* Pipeline steps */}
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--mu)",fontFamily:"var(--font-mono)",marginBottom:10,letterSpacing:1}}>PIPELINE EN COURS</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {STUDIO_PIPELINE_STEPS.map(step => {
+                  const entry = pipelineLog.find(l=>l.step===step.id);
+                  const status = entry?.status || "pending";
+                  return (
+                    <div key={step.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:8,background:"var(--s1)",border:"1px solid "+(status==="done"?"rgba(74,222,128,.25)":status==="running"?"rgba(212,168,83,.25)":status==="error"?"rgba(248,113,113,.2)":status==="skip"?"rgba(255,255,255,.04)":"var(--bd)")}}>
+                      <span style={{fontSize:18}}>{step.icon}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:11,fontWeight:700,color:"var(--tx)",display:"flex",alignItems:"center",gap:6}}>
+                          {step.label}
+                          {step.optional && <span style={{fontSize:7,padding:"1px 5px",borderRadius:3,background:"rgba(255,255,255,.07)",color:"var(--mu)"}}>optionnel</span>}
+                        </div>
+                        <div style={{fontSize:9,color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{entry?.msg || "En attente…"}</div>
+                      </div>
+                      <span style={{fontSize:16}}>{statusIcon(status)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Script généré */}
+            {script && (
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--ac)",fontFamily:"var(--font-mono)",marginBottom:8,letterSpacing:1}}>📄 SCRIPT GÉNÉRÉ</div>
+                <textarea readOnly value={script}
+                  style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(212,168,83,.2)",borderRadius:8,color:"var(--tx)",fontSize:9,padding:"10px 12px",fontFamily:"var(--font-mono)",resize:"vertical",minHeight:140,outline:"none"}}/>
+              </div>
+            )}
+
+            {/* Narration générée */}
+            {narration && (
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--purple,#A78BFA)",fontFamily:"var(--font-mono)",marginBottom:8,letterSpacing:1}}>🎙 NARRATION VOIX OFF</div>
+                <textarea readOnly value={narration}
+                  style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(167,139,250,.2)",borderRadius:8,color:"var(--tx)",fontSize:9,padding:"10px 12px",fontFamily:"var(--font-ui)",resize:"vertical",minHeight:120,outline:"none",lineHeight:1.7}}/>
+                <div style={{marginTop:8,display:"flex",gap:8}}>
+                  <button onClick={()=>{navigator.clipboard.writeText(narration);showToast("✓ Narration copiée");}} style={{fontSize:9,padding:"5px 12px",border:"1px solid rgba(167,139,250,.3)",borderRadius:5,background:"rgba(167,139,250,.08)",color:"#A78BFA",cursor:"pointer"}}>📋 Copier la narration</button>
+                  <button onClick={()=>{navigator.clipboard.writeText(script);showToast("✓ Script copié");}} style={{fontSize:9,padding:"5px 12px",border:"1px solid rgba(212,168,83,.3)",borderRadius:5,background:"rgba(212,168,83,.08)",color:"var(--ac)",cursor:"pointer"}}>📋 Copier le script</button>
+                </div>
+              </div>
+            )}
+
+            {phase === "done" && (
+              <div style={{padding:"12px 16px",background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.2)",borderRadius:8,display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:24}}>🎉</span>
+                <div>
+                  <div style={{fontWeight:700,fontSize:12,color:"var(--green)",marginBottom:3}}>Pipeline terminé !</div>
+                  <div style={{fontSize:9,color:"var(--mu)"}}>Script et narration prêts. {!toolStatus.obs && "Enregistre manuellement ton écran avec OBS ou Loom."} {!toolStatus.kdenlive && "Monte la vidéo avec Kdenlive ou CapCut."}</div>
+                </div>
+                <button onClick={reset} style={{marginLeft:"auto",fontSize:9,padding:"6px 14px",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,background:"rgba(74,222,128,.1)",color:"var(--green)",cursor:"pointer",fontWeight:700}}>+ Nouveau tuto</button>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
-  const TAB_ORDER = ["chat","prompts","redaction","recherche","workflows","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
+  const TAB_ORDER = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","benchmark","glossaire","autopsy","mentor","dna","conference","consensus","brief","taskia","journaliste","skills","contradict","secondbrain","livedebate","contexttrans","apioptim","civilisations","flash","advanced","config"];
   const navigateTab = (newTab) => {
     const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
     const newIdx = TAB_ORDER.indexOf(newTab);
@@ -3598,10 +8405,13 @@ function App() {
 
   const [tabAnimDir, setTabAnimDir] = React.useState('enter');
   const [tab, setTab] = useState(() => {
-    // Shortcuts PWA — ?tab=chat, ?tab=redaction, etc.
+    const VALID_TABS = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","benchmark","glossaire","autopsy","mentor","dna","conference","consensus","brief","taskia","journaliste","skills","contradict","secondbrain","livedebate","contexttrans","apioptim","civilisations","flash","advanced","config"];
+    // 1. Raccourcis home screen (posé par main.jsx)
+    const fromSession = sessionStorage.getItem("multiia_initial_tab");
+    if (fromSession) { sessionStorage.removeItem("multiia_initial_tab"); if (VALID_TABS.includes(fromSession)) return fromSession; }
+    // 2. Paramètre URL direct ?tab=xxx
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    const VALID_TABS = ["chat","prompts","redaction","recherche","workflows","workflow","web","medias","arena","debate","compare","notes","traducteur","agent","webia","stats","config"];
     return VALID_TABS.includes(t) ? t : "chat";
   });
   const [mobileCol, setMobileCol] = useState("groq");
@@ -3790,13 +8600,123 @@ function App() {
 
   // ── Ollama local ────────────────────────────────────────────────
   const [ollamaUrl, setOllamaUrl] = useState(() => { try { return localStorage.getItem("multiia_ollama")||"http://localhost:11434"; } catch { return "http://localhost:11434"; } });
+
+  // ── Open WebUI (OpenAI-compatible API) ──────────────────────────
+  const OPENWEBUI_DEFAULT = "http://localhost:3000";
+
+// ══ CLI-Anything Bridge ══════════════════════════════════════════
+// Pont local optionnel (cli-bridge.js) — fallback auto sur HTTP direct
+const CLI_BRIDGE = "http://127.0.0.1:9999";
+let _cliBridgeAvailable = null; // null=inconnu, true/false
+
+async function checkCliBridge() {
+  if (_cliBridgeAvailable !== null) return _cliBridgeAvailable;
+  try {
+    const r = await fetch(CLI_BRIDGE + "/status", { signal: AbortSignal.timeout(800) });
+    _cliBridgeAvailable = r.ok;
+  } catch { _cliBridgeAvailable = false; }
+  return _cliBridgeAvailable;
+}
+// ════════════════════════════════════════════════════════════════
+
+
+  const [owuiUrl, setOwuiUrl]               = useState(() => { try { return localStorage.getItem("multiia_owui_url")||OPENWEBUI_DEFAULT; } catch { return OPENWEBUI_DEFAULT; } });
+  const [owuiKey, setOwuiKey]               = useState(() => { try { return localStorage.getItem("multiia_owui_key")||""; } catch { return ""; } });
+  const [owuiModels, setOwuiModels]         = useState([]);
+  const [owuiConnected, setOwuiConnected]   = useState(false);
+  const [owuiModel, setOwuiModel]           = useState("");
+  const [owuiActive, setOwuiActive]         = useState(false);
+  const [showOwuiPanel, setShowOwuiPanel]   = useState(false);
+
+  const checkOwui = async (url, key) => {
+    const base = (url||owuiUrl).replace(/\/$/, "");
+    const apiKey = key !== undefined ? key : owuiKey;
+    try {
+      const headers = {"Content-Type":"application/json"};
+      if (apiKey) headers["Authorization"] = "Bearer "+apiKey;
+      const r = await fetch(base+"/api/models", { headers, signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        const d = await r.json();
+        // OpenAI-compatible format: {data: [{id:...}]}
+        const models = (d.data||d.models||[]).map(m => m.id||m.name).filter(Boolean);
+        setOwuiModels(models);
+        setOwuiConnected(true);
+        if (models.length && !owuiModel) setOwuiModel(models[0]);
+        localStorage.setItem("multiia_owui_url", base);
+        if (apiKey) localStorage.setItem("multiia_owui_key", apiKey);
+        showToast("✓ Open WebUI connecté — "+models.length+" modèle(s)");
+        return true;
+      }
+    } catch {}
+    // Fallback: try Ollama models endpoint
+    try {
+      const r = await fetch((url||owuiUrl).replace(/\/$/, "")+"/api/tags", { signal: AbortSignal.timeout(2000) });
+      if (r.ok) {
+        const d = await r.json();
+        const models = (d.models||[]).map(m=>m.name);
+        setOwuiModels(models);
+        setOwuiConnected(true);
+        if (models.length && !owuiModel) setOwuiModel(models[0]);
+        showToast("✓ Open WebUI (Ollama compat) connecté — "+models.length+" modèle(s)");
+        return true;
+      }
+    } catch {}
+    setOwuiConnected(false);
+    setOwuiModels([]);
+    showToast("✗ Open WebUI non trouvé — vérifie l'URL et lance Open WebUI");
+    return false;
+  };
+
+  const callOwui = async (model, messages, system) => {
+    const base = owuiUrl.replace(/\/$/, "");
+    const msgs = system ? [{role:"system",content:system},...messages] : messages;
+    const headers = {"Content-Type":"application/json"};
+    if (owuiKey) headers["Authorization"] = "Bearer "+owuiKey;
+    const r = await fetch(base+"/api/chat/completions", {
+      method:"POST", headers,
+      body: JSON.stringify({ model: model||owuiModel, messages: msgs, stream:false })
+    });
+    if (!r.ok) throw new Error("Open WebUI "+r.status+" — modèle disponible ?");
+    const d = await r.json();
+    return d.choices?.[0]?.message?.content || "";
+  };
   const [ollamaModels, setOllamaModels] = useState([]);
   const [ollamaConnected, setOllamaConnected] = useState(false);
   const [ollamaActive, setOllamaActive] = useState(false);
   const [ollamaModel, setOllamaModel] = useState("");
   const [showOllamaPanel, setShowOllamaPanel] = useState(false);
+  const checkCliRelay = async () => {
+    // Vérifie si CLI-Anything relay est disponible (optionnel)
+    try {
+      const r = await fetch("http://localhost:5678/ping", { signal: AbortSignal.timeout(2000) });
+      if (r.ok) { setCliRelayStatus("available"); showToast("✓ CLI-Anything disponible"); return true; }
+    } catch {}
+    setCliRelayStatus("unavailable");
+    return false;
+  };
+
   const checkOllama = async (url) => {
     const base = (url||ollamaUrl).replace(/\/$/, "");
+
+    // ── Tente CLI-Anything bridge d'abord ────────────────────────
+    if (await checkCliBridge()) {
+      try {
+        const br = await fetch(CLI_BRIDGE+"/ollama/models?url="+encodeURIComponent(base), { signal: AbortSignal.timeout(5000) });
+        if (br.ok) {
+          const bd = await br.json();
+          if (bd.models?.length) {
+            setOllamaModels(bd.models);
+            setOllamaConnected(true);
+            if (!ollamaModel) setOllamaModel(bd.models[0]);
+            localStorage.setItem("multiia_ollama", base);
+            showToast("✓ Ollama connecté via CLI-Anything — "+bd.models.length+" modèle(s)");
+            return true;
+          }
+        }
+      } catch {}
+    }
+
+    // ── Fallback : HTTP direct (code original) ───────────────────
     try {
       const r = await fetch(base+"/api/tags", { signal: AbortSignal.timeout(3000) });
       if (r.ok) {
@@ -3806,17 +8726,38 @@ function App() {
         setOllamaConnected(true);
         if (models.length && !ollamaModel) setOllamaModel(models[0]);
         localStorage.setItem("multiia_ollama", base);
-        showToast(`✓ Ollama connecté — ${models.length} modèle(s)`);
+        try {
+          const vr = await fetch(base+"/api/version", { signal: AbortSignal.timeout(2000) });
+          if (vr.ok) {
+            const vd = await vr.json(); const ver = vd.version || "";
+            showToast("✓ Ollama "+ver+" connecté — "+models.length+" modèle(s)");
+          } else showToast("✓ Ollama connecté — "+models.length+" modèle(s)");
+        } catch { showToast("✓ Ollama connecté — "+models.length+" modèle(s)"); }
         return true;
       }
     } catch {}
-    setOllamaConnected(false);
-    setOllamaModels([]);
-    showToast("✗ Ollama non trouvé — Lance Ollama sur ton PC");
+    setOllamaConnected(false); setOllamaModels([]);
+    showToast("✗ Ollama non trouvé — Lance 'ollama serve' sur ton PC");
     return false;
   };
   const callOllama = async (model, messages, system) => {
     const base = ollamaUrl.replace(/\/$/, "");
+
+    // ── Tente CLI-Anything bridge d'abord ────────────────────────
+    if (await checkCliBridge()) {
+      try {
+        const br = await fetch(CLI_BRIDGE+"/ollama/generate", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ model: model||ollamaModel, messages, system, url: base })
+        });
+        if (br.ok) {
+          const bd = await br.json();
+          if (bd.content !== undefined) return bd.content;
+        }
+      } catch {}
+    }
+
+    // ── Fallback : HTTP direct (code original) ───────────────────
     const msgs = system ? [{role:"system",content:system},...messages] : messages;
     const r = await fetch(base+"/api/chat", {
       method:"POST", headers:{"Content-Type":"application/json"},
@@ -3825,6 +8766,195 @@ function App() {
     if (!r.ok) throw new Error("Ollama "+r.status+" — modèle disponible ?");
     const d = await r.json();
     return d.message?.content || "";
+  };
+
+
+  // ══════════════════════════════════════════════════════════════
+  // ComfyUI local integration
+  // ══════════════════════════════════════════════════════════════
+  const COMFY_DEFAULT_URL = "http://127.0.0.1:8188";
+  const [comfyUrl, setComfyUrl] = useState(() => {
+    try { return localStorage.getItem("multiia_comfy_url")||COMFY_DEFAULT_URL; } catch { return COMFY_DEFAULT_URL; }
+  });
+  const [comfyConnected, setComfyConnected]     = useState(false);
+  const [comfyNodes, setComfyNodes]             = useState({});   // object_info
+  const [showComfyPanel, setShowComfyPanel]     = useState(false);
+  const [comfyPrompt, setComfyPrompt]           = useState("");
+  const [comfyNegPrompt, setComfyNegPrompt]     = useState("blurry, ugly, low quality, watermark");
+  const [comfySteps, setComfySteps]             = useState(20);
+  const [comfyCfg, setComfyCfg]                 = useState(7);
+  const [comfyWidth, setComfyWidth]             = useState(512);
+  const [comfyHeight, setComfyHeight]           = useState(512);
+  const [comfyModel, setComfyModel]             = useState("");
+  const [comfyModels, setComfyModels]           = useState([]);
+  const [comfyGenerating, setComfyGenerating]   = useState(false);
+  const [comfyProgress, setComfyProgress]       = useState(0);   // 0-100
+  const [comfyResult, setComfyResult]           = useState(null); // {url, filename}
+  const [comfyError, setComfyError]             = useState("");
+  const [comfyWorkflows, setComfyWorkflows]     = useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_comfy_workflows")||"[]"); } catch { return []; }
+  });
+  const [comfyActiveWf, setComfyActiveWf]       = useState(null); // loaded workflow JSON
+  const [comfyWfName, setComfyWfName]           = useState("");
+  const [comfyHistory, setComfyHistory]         = useState([]);  // [{url,prompt,ts}]
+  const [comfySubTab, setComfySubTab]           = useState("generate"); // generate|workflows|history|settings
+  const [comfyLoras, setComfyLoras]             = useState([]);
+  const [comfyActiveLoras, setComfyActiveLoras] = useState([]); // [{name,strength}]
+  const [comfySampler, setComfySampler]         = useState("euler");
+  const [comfySeed, setComfySeed]               = useState(-1); // -1 = random
+
+  const checkComfy = async (url) => {
+    const base = (url||comfyUrl).replace(/\/$/, "");
+
+    // ── Tente CLI-Anything bridge d'abord ────────────────────────
+    if (await checkCliBridge()) {
+      try {
+        const br = await fetch(CLI_BRIDGE+"/comfy/info?url="+encodeURIComponent(base), { signal: AbortSignal.timeout(5000) });
+        if (br.ok) {
+          const bd = await br.json();
+          if (bd.connected !== false) {
+            setComfyConnected(true);
+            localStorage.setItem("multiia_comfy_url", base);
+            if (bd.checkpoints?.length) {
+              setComfyModels(bd.checkpoints);
+              if (!comfyModel) setComfyModel(bd.checkpoints[0]);
+            }
+            if (bd.loras?.length) setComfyLoras(bd.loras);
+            showToast("✓ ComfyUI connecté via CLI-Anything !");
+            return true;
+          }
+        }
+      } catch {}
+    }
+
+    // ── Fallback : HTTP direct (code original) ───────────────────
+    try {
+      const r = await fetch(base+"/system_stats", { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        setComfyConnected(true);
+        localStorage.setItem("multiia_comfy_url", base);
+        try {
+          const ni = await fetch(base+"/object_info/CheckpointLoaderSimple").then(r=>r.json());
+          const models = ni?.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
+          setComfyModels(models);
+          if (models.length && !comfyModel) setComfyModel(models[0]);
+          setComfyNodes(prev=>({...prev, checkpoints:models}));
+        } catch {}
+        try {
+          const li = await fetch(base+"/object_info/LoraLoader").then(r=>r.json());
+          const loras = li?.LoraLoader?.input?.required?.lora_name?.[0] || [];
+          setComfyLoras(loras);
+        } catch {}
+        showToast("✓ ComfyUI connecté !");
+        return true;
+      }
+    } catch {}
+    setComfyConnected(false); setComfyModels([]);
+    showToast("✗ ComfyUI non trouvé — Lance ComfyUI sur ton PC");
+    return false;
+  };
+
+  // Build a standard txt2img workflow JSON
+  const buildComfyWorkflow = (prompt, negPrompt, opts={}) => {
+    const { steps=20, cfg=7, width=512, height=512, model="", sampler="euler", seed=-1, loras=[] } = opts;
+    const realSeed = seed < 0 ? Math.floor(Math.random()*2**32) : seed;
+    let workflow = {
+      "1": { class_type:"CheckpointLoaderSimple", inputs:{ ckpt_name: model||comfyModel||"v1-5-pruned-emaonly.ckpt" }},
+      "2": { class_type:"CLIPTextEncode", inputs:{ text: prompt, clip:["1",1] }},
+      "3": { class_type:"CLIPTextEncode", inputs:{ text: negPrompt||"blurry, ugly, low quality", clip:["1",1] }},
+      "4": { class_type:"EmptyLatentImage", inputs:{ width, height, batch_size:1 }},
+      "5": { class_type:"KSampler", inputs:{ model:["1",0], positive:["2",0], negative:["3",0], latent_image:["4",0], seed:realSeed, steps, cfg, sampler_name:sampler, scheduler:"karras", denoise:1.0 }},
+      "6": { class_type:"VAEDecode", inputs:{ samples:["5",0], vae:["1",2] }},
+      "7": { class_type:"SaveImage", inputs:{ images:["6",0], filename_prefix:"multiia" }}
+    };
+    // Inject LoRAs as a chain
+    if (loras.length > 0) {
+      loras.forEach((lora, i) => {
+        const nodeId = String(10+i);
+        const prevModel = i===0 ? ["1",0] : [String(9+i),0];
+        const prevClip  = i===0 ? ["1",1] : [String(9+i),1];
+        workflow[nodeId] = { class_type:"LoraLoader", inputs:{ model:prevModel, clip:prevClip, lora_name:lora.name, strength_model:lora.strength||1, strength_clip:lora.strength||1 }};
+        // Redirect KSampler and CLIPs to use LoRA chain output
+        workflow["5"].inputs.model = [nodeId,0];
+        workflow["2"].inputs.clip  = [nodeId,1];
+        workflow["3"].inputs.clip  = [nodeId,1];
+      });
+    }
+    return workflow;
+  };
+
+  // Submit workflow and poll for result
+  const generateComfy = async (customWorkflow=null, customPrompt=null) => {
+    const base = comfyUrl.replace(/\/$/, "");
+    const promptText = customPrompt || comfyPrompt;
+    if (!promptText.trim() && !customWorkflow) { showToast("Écris un prompt d'abord"); return; }
+    if (!comfyConnected) { await checkComfy(); return; }
+    setComfyGenerating(true); setComfyProgress(0); setComfyResult(null); setComfyError("");
+    try {
+      const wf = customWorkflow || buildComfyWorkflow(promptText, comfyNegPrompt, {
+        steps:comfySteps, cfg:comfyCfg, width:comfyWidth, height:comfyHeight,
+        model:comfyModel, sampler:comfySampler, seed:comfySeed, loras:comfyActiveLoras
+      });
+      const body = { prompt: wf, client_id: "multiia-"+Date.now() };
+      const qr = await fetch(base+"/prompt", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+      if (!qr.ok) throw new Error("Erreur soumission : "+qr.status);
+      const { prompt_id } = await qr.json();
+
+      // Poll history for completion
+      let attempts = 0;
+      while (attempts < 120) {
+        await new Promise(r=>setTimeout(r,1000));
+        attempts++;
+        const hr = await fetch(base+"/history/"+prompt_id);
+        if (!hr.ok) continue;
+        const hist = await hr.json();
+        if (hist[prompt_id]) {
+          const outputs = hist[prompt_id].outputs;
+          // Find SaveImage output
+          for (const nodeId of Object.keys(outputs)) {
+            const images = outputs[nodeId]?.images;
+            if (images?.length) {
+              const img = images[0];
+              const imgUrl = base+"/view?filename="+encodeURIComponent(img.filename)+"&subfolder="+encodeURIComponent(img.subfolder||"")+"&type="+encodeURIComponent(img.type||"output");
+              setComfyResult({ url:imgUrl, filename:img.filename, prompt:promptText });
+              setComfyHistory(prev=>[{url:imgUrl,prompt:promptText,ts:new Date().toISOString(),filename:img.filename},...prev].slice(0,50));
+              setComfyGenerating(false);
+              setComfyProgress(100);
+              showToast("✓ Image générée !");
+              return;
+            }
+          }
+        }
+        setComfyProgress(Math.min(95, attempts*2));
+      }
+      throw new Error("Timeout — génération trop longue");
+    } catch(e) {
+      setComfyError(e.message);
+      setComfyGenerating(false);
+    }
+  };
+
+  // Send generated image to chat
+  const sendComfyToChat = (result) => {
+    const r = result || comfyResult;
+    if (!r) return;
+    setChatInput(prev=>(prev?"\n":"")+`![Image ComfyUI](${r.url})\n> Prompt : ${r.prompt}`);
+    navigateTab("chat");
+    showToast("✓ Image envoyée dans le Chat");
+  };
+
+  // Save/load workflow
+  const saveComfyWorkflow = (name, wfJson) => {
+    const entry = { id:Date.now().toString(), name:name||"Workflow "+comfyWorkflows.length, json:wfJson, ts:new Date().toISOString() };
+    const updated = [...comfyWorkflows, entry];
+    setComfyWorkflows(updated);
+    localStorage.setItem("multiia_comfy_workflows", JSON.stringify(updated));
+    showToast("✓ Workflow sauvegardé");
+  };
+  const deleteComfyWorkflow = (id) => {
+    const updated = comfyWorkflows.filter(w=>w.id!==id);
+    setComfyWorkflows(updated);
+    localStorage.setItem("multiia_comfy_workflows", JSON.stringify(updated));
   };
 
   // ── Vote automatique "Meilleure réponse" ────────────────────────
@@ -3884,7 +9014,7 @@ function App() {
     const node = {
       id: Date.now().toString(),
       label: `Étape ${workflowNodes.length+1}`,
-      type,                          // "prompt" | "parallel" | "transform"
+      type,                          // "prompt" | "parallel" | "transform" | "cli"
       ia: firstActive,
       parallel_ias: [firstActive],   // for parallel type
       prompt: "",
@@ -3959,6 +9089,56 @@ function App() {
             const fn = new Function("input","prev","named", node.prompt || "return prev;");
             output = String(fn(inp, prevOutput, namedOutputs));
           } catch(e) { output = "❌ Erreur transform : " + e.message; }
+        } else if (node.type === "cli") {
+          // CLI-Anything — OPTIONNEL : si absent, le workflow continue normalement
+          // L'app reste 100% indépendante de CLI-Anything
+          const cmd = resolvePrompt(node.cliCommand || "", prevOutput, namedOutputs);
+          let cliAvailable = false;
+          try {
+            // Test rapide si le relay est disponible (timeout 2s)
+            const ping = await fetch("http://localhost:5678/ping", {
+              signal: AbortSignal.timeout(2000)
+            });
+            cliAvailable = ping.ok;
+          } catch { cliAvailable = false; }
+
+          if (!cliAvailable) {
+            // CLI-Anything absent ou arrêté → on continue le workflow sans bloquer
+            output = prevOutput; // passe le contenu précédent tel quel
+            results.push({ nodeId:node.id, label:node.label, ia:"cli", type:"cli",
+              output:"ℹ️ Logiciel local "+( node.cliSoftware||"CLI")+" non disponible — étape ignorée.\nContenu transmis à l'étape suivante.",
+              ok:true, duration:0, skipped:true });
+            prevOutput = output;
+            namedOutputs[node.name || node.id] = output;
+            setWorkflowResults([...results]);
+            continue;
+          }
+
+          // CLI-Anything disponible → on l'utilise
+          try {
+            const r = await fetch("http://localhost:5678/execute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ command: cmd, software: node.cliSoftware }),
+              signal: AbortSignal.timeout(60000)
+            });
+            if (r.ok) {
+              const d = await r.json();
+              output = d.output || d.result || "✅ " + (node.cliSoftware||"Logiciel") + " : commande exécutée";
+            } else {
+              const err = await r.text().catch(()=>"");
+              output = prevOutput; // fallback : transmet le contenu précédent
+              results.push({ nodeId:node.id, label:node.label, ia:"cli", type:"cli",
+                output:"⚠️ Logiciel local erreur ("+r.status+") — contenu transmis à l'étape suivante.",
+                ok:true, duration:0, skipped:true });
+              prevOutput = output;
+              namedOutputs[node.name || node.id] = output;
+              setWorkflowResults([...results]);
+              continue;
+            }
+          } catch(e) {
+            output = prevOutput; // fallback silencieux
+          }
         } else {
           // Default: prompt type
           const prompt = resolvePrompt(node.prompt, prevOutput, namedOutputs);
@@ -4023,36 +9203,74 @@ function App() {
     const a = document.createElement("a"); a.href=url; a.download=`conversation-${Date.now()}.md`; a.click();
     URL.revokeObjectURL(url); showToast("✓ Export Markdown téléchargé");
   };
-  const exportPDF = (id) => {
+  const exportPDF = async (id) => {
     const ids = id ? [id] : IDS.filter(i => enabled[i]);
     const allMsgs = ids.flatMap(cid =>
       (conversations[cid]||[]).filter(m=>m.role==="user"||m.role==="assistant")
-        .map(m=>({...m, ia:MODEL_DEFS[cid]?.short||cid, color:MODEL_DEFS[cid]?.color||"#888"}))
+        .map(m=>({...m, ia:MODEL_DEFS[cid]?.short||cid, color:MODEL_DEFS[cid]?.color||"#888", icon:MODEL_DEFS[cid]?.icon||"🤖"}))
     );
     if (!allMsgs.length) { showToast("Aucun message à exporter"); return; }
+
+    // Try jsPDF first (available via plugins), fallback to print window
+    try {
+      if (window.jsPDF || window.jspdf) {
+        const { jsPDF } = window.jspdf || { jsPDF: window.jsPDF };
+        const doc = new jsPDF({ unit:"mm", format:"a4" });
+        const pageW = doc.internal.pageSize.getWidth();
+        const margin = 14; const usableW = pageW - margin*2;
+        let y = 20;
+
+        // Header
+        doc.setFillColor(26,26,28); doc.rect(0,0,pageW,16,'F');
+        doc.setTextColor(212,168,83); doc.setFontSize(11); doc.setFont("helvetica","bold");
+        doc.text("Multi-IA Hub — Conversation", margin, 10);
+        doc.setTextColor(150,150,150); doc.setFontSize(8); doc.setFont("helvetica","normal");
+        doc.text(new Date().toLocaleString("fr-FR"), pageW-margin, 10, {align:"right"});
+        y = 24;
+
+        allMsgs.forEach(msg => {
+          if (y > 270) { doc.addPage(); y = 14; }
+          const isUser = msg.role === "user";
+          // Label
+          doc.setFontSize(7); doc.setFont("helvetica","bold");
+          doc.setTextColor(isUser ? 100 : 180, isUser ? 100 : 130, isUser ? 100 : 60);
+          doc.text((isUser ? "👤 Vous" : msg.icon+" "+msg.ia).replace(/[^-~]/g,""), margin, y);
+          y += 4;
+          // Content
+          doc.setFontSize(9); doc.setFont("helvetica","normal");
+          doc.setTextColor(isUser ? 60 : 30, isUser ? 60 : 30, isUser ? 60 : 30);
+          const clean = msg.content.replace(/[#*`>_~]/g,"").replace(/\n{3,}/g,"\n\n");
+          const lines = doc.splitTextToSize(clean, usableW);
+          const blockH = lines.length * 4 + 8;
+          if (y + blockH > 275) { doc.addPage(); y = 14; }
+          doc.setFillColor(isUser ? 245 : 255, isUser ? 245 : 249, isUser ? 245 : 240);
+          doc.roundedRect(margin, y-2, usableW, blockH, 2, 2, "F");
+          doc.setDrawColor(isUser ? 200 : 212, isUser ? 200 : 168, isUser ? 200 : 83);
+          doc.line(margin, y-2, margin, y-2+blockH);
+          doc.text(lines, margin+3, y+3);
+          y += blockH + 4;
+        });
+
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for(let i=1;i<=pageCount;i++){
+          doc.setPage(i);
+          doc.setFontSize(7); doc.setTextColor(150,150,150);
+          doc.text("Multi-IA Hub v"+APP_VERSION+" — p."+i+"/"+pageCount, pageW/2, 290, {align:"center"});
+        }
+        doc.save("conversation-multiia-"+Date.now()+".pdf");
+        showToast("✓ PDF téléchargé !");
+        return;
+      }
+    } catch(e) { console.warn("jsPDF unavailable, fallback:", e); }
+
+    // Fallback: print window
     const win = window.open("","_blank");
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Conversation Multi-IA Hub</title><style>
-body{font-family:Georgia,serif;max-width:800px;margin:40px auto;color:#222;line-height:1.7}
-h1{font-size:22px;border-bottom:2px solid #D4A853;padding-bottom:8px}
-.msg{margin:16px 0;padding:14px 18px;border-radius:8px}
-.user{background:#F3F4F6;border-left:4px solid #6B7280}
-.assistant{background:#FFF9F0;border-left:4px solid #D4A853}
-.ia-label{font-size:11px;font-weight:bold;color:#888;margin-bottom:6px;text-transform:uppercase}
-.content{font-size:14px;white-space:pre-wrap}
-.footer{margin-top:40px;font-size:11px;color:#AAA;text-align:center}
-</style></head><body>
-<h1>🤖 Conversation Multi-IA Hub</h1>
-<p style="color:#888;font-size:12px">Exporté le ${new Date().toLocaleString("fr-FR")}</p>
-${allMsgs.map(m=>`
-<div class="msg ${m.role}">
-  <div class="ia-label">${m.role==="user"?"👤 Vous":("🤖 "+m.ia)}</div>
-  <div class="content">${m.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
-</div>`).join("")}
-<div class="footer">Généré par Multi-IA Hub v${APP_VERSION}</div>
-</body></html>`;
-    win.document.write(html); win.document.close();
-    setTimeout(()=>win.print(), 500);
-    showToast("✓ Fenêtre impression ouverte → Enregistrer en PDF");
+    const escHtml = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    win.document.write("<!DOCTYPE html><html><head><meta charset=utf-8><title>Conversation</title><style>body{font-family:system-ui;max-width:800px;margin:32px auto;color:#222}.msg{margin:14px 0;padding:12px 16px;border-radius:6px;border-left:4px solid #ccc}.user{background:#f5f5f5;border-color:#888}.assistant{background:#fffbf0;border-color:#D4A853}.lbl{font-size:10px;font-weight:700;color:#888;margin-bottom:5px}.body{font-size:13px;white-space:pre-wrap;line-height:1.6}</style></head><body><h2>Multi-IA Hub v"+APP_VERSION+"</h2><p style='color:#888;font-size:11px'>"+new Date().toLocaleString("fr-FR")+"</p>"+allMsgs.map(m=>"<div class='msg "+m.role+"'><div class='lbl'>"+(m.role==="user"?"👤 Vous":"🤖 "+m.ia)+"</div><div class='body'>"+escHtml(m.content)+"</div></div>").join("")+"</body></html>");
+    win.document.close();
+    setTimeout(()=>win.print(),400);
+    showToast("✓ Fenêtre impression → Enregistrer en PDF");
   };
 
   // ── Persona actif ──
@@ -4086,14 +9304,14 @@ ${allMsgs.map(m=>`
     setMemFacts(updated);
     try { localStorage.setItem(MEM_KEY, JSON.stringify(updated)); } catch {}
   };
-  const buildSystem = () => {
+  const buildSystem = React.useCallback(() => {
     let sys = currentSystem || "";
     if (memFacts.length > 0) {
       const facts = memFacts.map(f => "- " + f.text).join("\n");
       sys = `${sys}\n\n📌 Mémoire utilisateur (rappels persistants) :\n${facts}`.trim();
     }
     return sys;
-  };
+  }, [memFacts, currentSystem]);
 
   // ── Raccourcis clavier globaux ─────────────────────────────────
   useEffect(() => {
@@ -4297,8 +9515,49 @@ ${allMsgs.map(m=>`
   // ── Zoom / Échelle UI ──
   const [zenMode, setZenMode] = React.useState(false);
   const [canvasContent, setCanvasContent] = React.useState(null); // {code, lang, title}
+  const [canvasError, setCanvasError] = React.useState(null);
+  const [canvasEditInput, setCanvasEditInput] = React.useState("");
+  const [canvasEditing, setCanvasEditing] = React.useState(false);
+  const [canvasHealCount, setCanvasHealCount] = React.useState(0);
+
+  const editCanvas = async (prompt) => {
+    const query = prompt || canvasEditInput;
+    if (!query?.trim() || !canvasContent) return;
+    setCanvasEditing(true);
+    const activeIds = IDS.filter(id => enabled[id] && !MODEL_DEFS[id]?.serial);
+    const id = activeIds.find(i => ["groq","mistral","cohere"].includes(i)) || activeIds[0];
+    if (!id) { setCanvasEditing(false); return; }
+    try {
+      const sys = "Tu es un expert développeur. Réponds UNIQUEMENT avec le code modifié complet, sans explication ni balises markdown.";
+      const msg = query + "\n\nCode actuel :\n" + canvasContent.code;
+      const reply = await callModel(id, [{role:"user",content:msg}], apiKeys, sys);
+      const cleaned = reply.replace(/^```[\w\s]*\n?/,"").replace(/\n?```[\w]*$/,"").trim();
+      setCanvasContent(prev => ({...prev, code:cleaned}));
+      setCanvasEditInput("");
+      setCanvasError(null);
+    } catch(e) { showToast("❌ " + e.message); }
+    setCanvasEditing(false);
+  };
+
+  const healCanvas = React.useCallback(() => {
+    if (!canvasError || !canvasContent) return;
+    const healPrompt = "Ce code HTML/JS a g\u00e9n\u00e9r\u00e9 l'erreur suivante : \"" + canvasError + "\"\n\nCorrige le bug. R\u00e9ponds uniquement avec le code corrig\u00e9 complet.";
+    setCanvasHealCount(n => n + 1);
+    setCanvasError(null);
+    editCanvas(healPrompt);
+  }, [canvasError, canvasContent]);
+
   // Expose to window so CodeBlock (non-child) can trigger canvas
-  React.useEffect(() => { window.__openCanvas = (code, lang, title) => setCanvasContent({code, lang, title}); return () => { delete window.__openCanvas; }; }, []);
+  React.useEffect(() => {
+    window.__openCanvas = (code, lang, title) => { setCanvasContent({code, lang, title}); setCanvasError(null); setCanvasHealCount(0); };
+    return () => {
+      delete window.__openCanvas;
+      // cleanup any stray canvas message listeners
+      document.querySelectorAll('iframe.__canvas').forEach(el => {
+        if(el.__msgHandler) window.removeEventListener('message',el.__msgHandler);
+      });
+    };
+  }, []);
   const [sessionTokens, setSessionTokens] = React.useState({}); // {id: {in:N, out:N}}
   const estimateCost = (id, inTok, outTok) => {
     const p = TOKEN_PRICE[id];
@@ -4310,6 +9569,17 @@ ${allMsgs.map(m=>`
       const cur = prev[id] || {in:0, out:0};
       return {...prev, [id]: {in: cur.in + inTok, out: cur.out + outTok}};
     });
+    // ── Enrichit usageStats avec msgs/tokens/heure ─────────────
+    const hour = new Date().getHours();
+    const dateKey = new Date().toISOString().slice(0,10); // "2026-03-18"
+    setUsageStats(prev => ({
+      ...prev,
+      msgs:    { ...(prev.msgs||{}),    [id]: ((prev.msgs||{})[id]||0) + 1 },
+      tokens:  { ...(prev.tokens||{}),  [id]: ((prev.tokens||{})[id]||0) + inTok + outTok },
+      byHour:  { ...(prev.byHour||{}),  [hour]: ((prev.byHour||{})[hour]||0) + 1 },
+      byDate:  { ...(prev.byDate||{}),  [dateKey]: ((prev.byDate||{})[dateKey]||0) + 1 },
+      convs:   (prev.convs||0),
+    }));
   };
 
   const [uiZoom, setUiZoom] = React.useState(() => {
@@ -4340,7 +9610,393 @@ ${allMsgs.map(m=>`
   };
   const dismissPwaBanner = () => { setShowPwaBanner(false); localStorage.setItem("multiia_pwa_dismissed","1"); };
 
-  const MOBILE_TABS = [["chat","◈","Chat"],["recherche","🔎","Cherche"],["notes","📝","Notes"],["agent","🤖","Agent"],["config","⚙","Config"]];
+  const MOBILE_TABS = [["chat","◈","Chat"],["prompts","📋","Prompts"],["medias","🎬","Médias"],["recherche","🔎","Cherche"],["config","⚙","Config"]];
+  const MOBILE_MORE_SECTIONS = [
+    { label:"CRÉER & ÉCRIRE", tabs:[
+      ["redaction","✍️","Rédaction"],["traducteur","🌍","Trad."],["notes","📝","Notes"],["studio","🎬","Studio"],
+    ]},
+    { label:"AUTOMATISER & ANALYSER", tabs:[
+      ["workflows","🔀","Workflows"],["agent","🤖","Agent"],["taskia","🔀","Task→IAs"],["router","🧭","Router"],["autopsy","🔬","Autopsy"],
+    ]},
+    { label:"CRÉER & APPRENDRE", tabs:[
+      ["redaction","✍️","Rédaction"],["notes","📝","Notes"],["mentor","🎓","Mentor"],["dna","🧬","DNA"],["skills","🛠","Skills"],
+    ]},
+    { label:"ANALYSER & COMPARER", tabs:[
+      ["debate","⚡","Débat"],["livedebate","⏱","Débat Live"],["flash","⚡","Flash"],["expert","🧠","Experts"],["compare","⚖","Comparer"],["consensus","🔎","Consensus"],["contradict","⚡","Contradict"],
+    ]},
+    { label:"RECHERCHER & PRODUIRE", tabs:[
+      ["journaliste","📰","Journaliste"],["conference","🎙","Conf."],["veille","📰","Veille"],["brief","☀️","Brief"],["contexttrans","🔄","Contexte"],["civilisations","🌍","Civilis."],
+    ]},
+    { label:"EXPLORER", tabs:[
+      ["webia","🌐","IAs Web"],["arena","⚔","Arène"],["voice","🎙","Voice"],["comfyui","⬡","ComfyUI"],["traducteur","🌍","Trad."],
+    ]},
+    { label:"GÉRER & OPTIMISER", tabs:[
+      ["projects","📁","Projets"],["secondbrain","🧠","2nd Brain"],["apioptim","💡","API Optim"],["benchmark","⚡","Bench"],["glossaire","📖","Glossaire"],["stats","📊","Stats"],["advanced","🔬","Avancé"],["aide","❓","Aide"],
+    ]},];
+  const [showMobileMore, setShowMobileMore] = useState(false);
+
+  // ── Expert Panel (Panel d'Experts) ─────────────────────────────
+  const EXPERT_PANELS = {
+    "dev": [
+      {name:"Expert Sécurité",icon:"🔒",system:"Tu es un expert en cybersécurité. Analyse le problème du point de vue des vulnérabilités, failles potentielles et bonnes pratiques de sécurité."},
+      {name:"Expert Performance",icon:"⚡",system:"Tu es un expert en optimisation des performances. Analyse le problème du point de vue de la vitesse, scalabilité, et utilisation des ressources."},
+      {name:"Expert Architecture",icon:"🏗",system:"Tu es un expert en architecture logicielle. Analyse le problème du point de vue de la maintenabilité, patterns de conception et dette technique."},
+    ],
+    "product": [
+      {name:"Expert UX",icon:"🎨",system:"Tu es un expert UX/Design. Analyse le problème du point de vue de l'expérience utilisateur, accessibilité et ergonomie."},
+      {name:"Expert Business",icon:"💼",system:"Tu es un expert business. Analyse le problème du point de vue de la valeur métier, ROI et impact stratégique."},
+      {name:"Expert Tech",icon:"⚙️",system:"Tu es un expert technique. Analyse les contraintes techniques, la faisabilité et les solutions d'implémentation."},
+    ],
+    "content": [
+      {name:"Expert SEO",icon:"🔍",system:"Tu es un expert SEO. Analyse le contenu du point de vue du référencement, mots-clés et visibilité en ligne."},
+      {name:"Expert Copywriting",icon:"✍️",system:"Tu es un expert copywriter. Analyse le contenu du point de vue de la persuasion, clarté et engagement du lecteur."},
+      {name:"Expert Audience",icon:"👥",system:"Tu es un expert en marketing d'audience. Analyse le contenu du point de vue des personas, besoin du lecteur et impact émotionnel."},
+    ],
+  };
+  const [expertQuery, setExpertQuery] = useState("");
+  const [expertPanel, setExpertPanel] = useState("dev");
+  const [expertResults, setExpertResults] = useState({}); // {expertIdx: {analysis,expert}}
+  const [expertSynthesis, setExpertSynthesis] = useState("");
+  const [expertRunning, setExpertRunning] = useState(false);
+
+  const runExpertPanel = async () => {
+    const q = expertQuery.trim(); if (!q) return;
+    const experts = EXPERT_PANELS[expertPanel] || EXPERT_PANELS.dev;
+    const activeIds = IDS.filter(id => enabled[id] && !isLimited(id) && !MODEL_DEFS[id]?.serial);
+    if (!activeIds.length) { showToast("Active au moins une IA"); return; }
+    setExpertRunning(true); setExpertResults({}); setExpertSynthesis("");
+
+    // Step 1: each expert analyses independently
+    const analyses = {};
+    await Promise.all(experts.map(async (expert, idx) => {
+      const id = activeIds[idx % activeIds.length];
+      try {
+        const r = await callModel(id, [{role:"user",content:q}], apiKeys, expert.system);
+        analyses[idx] = r;
+        setExpertResults(prev => ({...prev, [idx]:{analysis:r, expert, ia:MODEL_DEFS[id]?.short}}));
+      } catch(e) {
+        analyses[idx] = "Erreur: " + e.message;
+        setExpertResults(prev => ({...prev, [idx]:{analysis:"❌ "+e.message, expert, ia:""}}));
+      }
+    }));
+
+    // Step 2: synthesis — a 4th IA reads all analyses
+    const synthId = activeIds.find(id => !["poll_gpt","poll_gemini","poll_claude"].includes(id)) || activeIds[0];
+    const analysisText = experts.map((e,idx2) => e.icon+" "+e.name+":\n"+(analyses[idx2]||"").slice(0,500)).join("\n\n---\n\n");
+    const synthPrompt = "Question initiale : \""+q+"\"\\n\n"+analysisText+"\n\n---\n\nEn tant que coordinateur, synthétise ces analyses en :\n1. CONSENSUS\n2. TENSIONS\n3. RECOMMANDATION FINALE\n\nSois concis et actionnable.";
+    try {
+      const synth = await callModel(synthId, [{role:"user",content:synthPrompt}], apiKeys, "Tu es un coordinateur expert qui synthétise des analyses multiples.");
+      setExpertSynthesis(synth);
+    } catch(e) { setExpertSynthesis("❌ Synthèse impossible : "+e.message); }
+    setExpertRunning(false);
+    showToast("✓ Panel d'experts terminé !");
+  };
+
+  // ── Prompt Builder ───────────────────────────────────────────────
+  const [showPromptBuilder, setShowPromptBuilder] = React.useState(false);
+
+  // ── Auto-Memory (feature 10) ──────────────────────────────────────
+  const [autoMemSuggestions, setAutoMemSuggestions] = React.useState([]);
+  const [showMemSuggest, setShowMemSuggest] = React.useState(false);
+  const extractAutoMemory = async (convHistory) => {
+    if (convHistory.length < 4) return;
+    const activeIds = IDS.filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial);
+    const id = activeIds.find(i=>i==="groq")||activeIds[0];
+    if (!id) return;
+    const snippet = convHistory.slice(-6).filter(m=>m.role==="user"||m.role==="assistant").map(m=>(m.role==="user"?"U:":"A:")+m.content.slice(0,200)).join("\n");
+    try {
+      const r = await callModel(id,[{role:"user",content:"Extrais 2 faits importants sur l'utilisateur de cette conversation. Format JSON: [{fact:string}]. Si rien d'important, retourne []. JSON uniquement:\n"+snippet}],apiKeys,"Expert extraction de faits. JSON uniquement.");
+      const d = JSON.parse(r.replace(/```json|```/g,"").trim());
+      if(Array.isArray(d)&&d.length>0) {
+        setAutoMemSuggestions(d.map(x=>x.fact||x).filter(Boolean));
+        setShowMemSuggest(true);
+      }
+    } catch {}
+  };
+
+  // ── Advanced Settings ──────────────────────────────────────────
+  const [customProviders, setCustomProviders] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_custom_providers")||"[]"); } catch { return []; }
+  });
+  const [modelTemps, setModelTemps] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_temps")||"{}"); } catch { return {}; }
+  });
+  const [globalSysPrompt, setGlobalSysPrompt] = React.useState(() => {
+    try { return localStorage.getItem("multiia_global_sys")||""; } catch { return ""; }
+  });
+  const saveAdvSettings = () => {
+    try {
+      localStorage.setItem("multiia_custom_providers", JSON.stringify(customProviders));
+      localStorage.setItem("multiia_temps", JSON.stringify(modelTemps));
+      localStorage.setItem("multiia_global_sys", globalSysPrompt);
+      showToast("✓ Paramètres avancés sauvegardés");
+    } catch(e) { showToast("❌ "+e.message); }
+  };
+
+  // ── Response Diff ────────────────────────────────────────────────
+  const [diffModal, setDiffModal] = React.useState(false);
+  const [diffIA1, setDiffIA1] = React.useState("");
+  const [diffIA2, setDiffIA2] = React.useState("");
+
+  const computeDiff = (text1, text2) => {
+    const words1 = text1.split(/\s+/);
+    const words2 = text2.split(/\s+/);
+    // Simple LCS-based word diff
+    const m = words1.length, n = words2.length;
+    const dp = Array.from({length:m+1}, ()=>new Array(n+1).fill(0));
+    for(let i=m-1;i>=0;i--) for(let j=n-1;j>=0;j--)
+      dp[i][j] = words1[i]===words2[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j],dp[i][j+1]);
+    const result = []; let i=0, j=0;
+    while(i<m || j<n) {
+      if(i<m && j<n && words1[i]===words2[j]) { result.push({t:"eq",v:words1[i]}); i++;j++; }
+      else if(j<n && (i>=m || dp[i+1]?.[j]<=dp[i]?.[j+1])) { result.push({t:"add",v:words2[j]}); j++; }
+      else { result.push({t:"del",v:words1[i]}); i++; }
+    }
+    return result;
+  };
+
+
+  // ══════════════════════════════════════════════════════════════
+  // 🧭 Smart Router — analyse fichier + propose onglet + lance
+  // ══════════════════════════════════════════════════════════════
+  const ROUTER_ROUTES = [
+    { id:"chat",       icon:"◈", label:"Chat IA",          desc:"Poser des questions, discuter du contenu",      color:"#74C98C" },
+    { id:"debate",     icon:"⚡", label:"Débat / Analyse",  desc:"Analyse multi-IAs sous plusieurs angles",       color:"#F59E0B" },
+    { id:"redaction",  icon:"✍️", label:"Rédaction",         desc:"Réécrire, corriger, améliorer le texte",        color:"#60A5FA" },
+    { id:"recherche",  icon:"🔎", label:"Recherche",         desc:"Questions de recherche sur ce contenu",         color:"#34D399" },
+    { id:"workflows",  icon:"🔀", label:"Workflow",          desc:"Chaîner des traitements automatiques",          color:"#F97316" },
+    { id:"comfyui",    icon:"⬡", label:"ComfyUI",           desc:"Générer/modifier des images avec ComfyUI",      color:"#A78BFA" },
+    { id:"rag",        icon:"📄", label:"RAG Contextuel",   desc:"Indexer le document pour Q&A intelligent",      color:"#D4A853" },
+    { id:"canvas",     icon:"🎨", label:"Canvas Exécution", desc:"Exécuter/visualiser le code HTML/SVG/JS",       color:"#F472B6" },
+  ];
+
+  const [routerFile, setRouterFile]           = useState(null);  // {name,type,content,base64,mimeType,icon,size}
+  const [routerAnalysis, setRouterAnalysis]   = useState(null);  // {summary, suggestions:[{route,reason,confidence,params}], raw}
+  const [routerAnalyzing, setRouterAnalyzing] = useState(false);
+  const [routerSelected, setRouterSelected]   = useState(null);  // chosen route id
+  const [routerLaunching, setRouterLaunching] = useState(false);
+  const [routerDone, setRouterDone]           = useState(false);
+  const [routerQuestion, setRouterQuestion]   = useState("");    // optional user question
+  const routerFileRef = useRef(null);
+
+  const ROUTER_MAX_SIZE = 15 * 1024 * 1024; // 15MB
+
+  const loadRouterFile = async (file) => {
+    if (!file) return;
+    if (file.size > ROUTER_MAX_SIZE) { showToast("Fichier trop volumineux (max 15 MB)"); return; }
+    const ext = file.name.split(".").pop()?.toLowerCase()||"";
+    const ALLOWED = new Set(["pdf","txt","md","csv","json","js","jsx","ts","tsx","py","html","css","sql","xml","jpg","jpeg","png","gif","webp","svg","docx","doc","zip"]);
+    if (!ALLOWED.has(ext)) { showToast("Format non supporté : ."+ext); return; }
+
+    setRouterFile(null); setRouterAnalysis(null); setRouterSelected(null); setRouterDone(false);
+    showToast("⏳ Chargement…");
+
+    const isImage = file.type.startsWith("image/");
+    const sizeKB = Math.round(file.size/1024);
+    let content = "";
+    let base64 = "";
+    let icon = "📄";
+
+    if (isImage) {
+      icon = "🖼";
+      base64 = await new Promise((res,rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(",")[1]);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+    } else if (ext === "pdf") {
+      icon = "📕";
+      const raw = await new Promise((res,rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsBinaryString(file);
+      });
+      try {
+        const matches = raw.match(/[ -~À-ÿ]{4,}/g)||[];
+        content = matches.filter(s=>/[a-zA-ZÀ-ÿ]{3,}/.test(s)).join(" ").slice(0,10000);
+      } catch { content = "[PDF — extraction basique]"; }
+    } else {
+      try {
+        content = (await file.text()).slice(0,12000);
+        if (ext==="js"||ext==="jsx"||ext==="ts"||ext==="tsx"||ext==="py"||ext==="html"||ext==="css"||ext==="sql") icon="💻";
+        if (ext==="json"||ext==="csv") icon="📊";
+        if (ext==="md") icon="📝";
+      } catch { content = "[Fichier binaire]"; }
+    }
+
+    setRouterFile({ name:file.name, type:isImage?"image":"text", ext, content, base64, mimeType:file.type, icon, sizeKB });
+    showToast("✓ Fichier chargé — clique Analyser");
+  };
+
+  const analyzeRouterFile = async () => {
+    if (!routerFile) return;
+    setRouterAnalyzing(true); setRouterAnalysis(null); setRouterSelected(null);
+
+    // Pick best available AI (prefer Groq for speed)
+    const activeIds = IDS.filter(id=>enabled[id]&&!MODEL_DEFS[id]?.serial&&!isLimited(id));
+    const id = activeIds.find(i=>["groq","mistral","cohere"].includes(i))||activeIds[0];
+
+    if (!id) {
+      // Fallback: static heuristic routing without AI
+      const fallback = heuristicRoute(routerFile);
+      setRouterAnalysis(fallback);
+      setRouterAnalyzing(false);
+      return;
+    }
+
+    const preview = routerFile.type==="image"
+      ? "[Image: "+routerFile.name+" ("+routerFile.sizeKB+"KB)]"
+      : routerFile.content.slice(0,2000);
+
+    const userQ = routerQuestion.trim() ? "Question de l'utilisateur : \""+routerQuestion.trim()+"\". " : "";
+    const prompt = userQ+"Analyse ce fichier et propose les 3 meilleurs onglets pour le traiter. "+
+      "Fichier : "+routerFile.name+" ("+routerFile.ext.toUpperCase()+", "+routerFile.sizeKB+"KB).\n"+
+      "Aperçu : "+preview+"\n\n"+
+      "Onglets disponibles : chat (questions générales), debate (analyse multi-angles), redaction (réécriture/correction), "+
+      "recherche (Q&A recherche), workflows (automatisation), comfyui (images locales GPU), rag (Q&A sur long document), canvas (exécution code HTML/JS).\n\n"+
+      "Réponds UNIQUEMENT en JSON valide :\n"+
+      "{\"summary\":\"1-2 phrases sur le contenu\",\"suggestions\":[{\"route\":\"id_onglet\",\"reason\":\"1 phrase\",\"confidence\":0.95,\"params\":{\"prompt\":\"suggestion de prompt adapté au fichier\",\"action\":\"description courte action\"}}]}\n"+
+      "3 suggestions max, triées par pertinence décroissante. JSON uniquement.";
+
+    try {
+      const r = await callModel(id, [{role:"user",content:prompt}], apiKeys, "Tu es un assistant qui analyse des fichiers et propose des actions. Réponds uniquement en JSON valide.");
+      const d = JSON.parse(r.replace(/```json|```/g,"").trim());
+      // Validate routes exist
+      d.suggestions = (d.suggestions||[]).filter(s=>ROUTER_ROUTES.find(r=>r.id===s.route)).slice(0,3);
+      if (!d.suggestions.length) d.suggestions = heuristicRoute(routerFile).suggestions;
+      setRouterAnalysis(d);
+      if (d.suggestions.length) setRouterSelected(d.suggestions[0].route);
+    } catch(e) {
+      const fallback = heuristicRoute(routerFile);
+      setRouterAnalysis(fallback);
+      if (fallback.suggestions.length) setRouterSelected(fallback.suggestions[0].route);
+    }
+    setRouterAnalyzing(false);
+  };
+
+  // Heuristic routing without AI
+  const heuristicRoute = (file) => {
+    const ext = file.ext||"";
+    const name = file.name.toLowerCase();
+    let suggestions = [];
+    if (["jpg","jpeg","png","gif","webp"].includes(ext)) {
+      suggestions = [
+        {route:"comfyui",reason:"Image détectée — ComfyUI peut la traiter ou générer des variantes",confidence:.9,params:{prompt:"analyze and describe this image",action:"Ouvrir dans ComfyUI"}},
+        {route:"chat",reason:"Poser des questions sur l'image",confidence:.7,params:{prompt:"Décris en détail cette image",action:"Analyser dans le Chat"}},
+        {route:"canvas",reason:"Afficher l'image dans le Canvas",confidence:.5,params:{prompt:"",action:"Visualiser"}},
+      ];
+    } else if (ext==="pdf"||ext==="docx") {
+      suggestions = [
+        {route:"rag",reason:"Long document — RAG pour Q&A intelligent sans saturer le contexte",confidence:.95,params:{prompt:"",action:"Indexer pour Q&A"}},
+        {route:"debate",reason:"Analyse multi-IAs sous plusieurs angles",confidence:.8,params:{prompt:"Analyse ce document",action:"Analyser"}},
+        {route:"redaction",reason:"Réécrire ou améliorer le contenu",confidence:.6,params:{prompt:"Résume ce document",action:"Synthétiser"}},
+      ];
+    } else if (["js","jsx","ts","tsx","py","html","css"].includes(ext)) {
+      suggestions = [
+        {route:"canvas",reason:"Code exécutable — aperçu live dans le Canvas",confidence:.9,params:{prompt:"",action:"Exécuter dans le Canvas"}},
+        {route:"chat",reason:"Poser des questions sur le code",confidence:.8,params:{prompt:"Explique ce code",action:"Analyser le code"}},
+        {route:"redaction",reason:"Refactorer ou optimiser le code",confidence:.7,params:{prompt:"Améliore et optimise ce code",action:"Refactorer"}},
+      ];
+    } else if (["csv","json"].includes(ext)) {
+      suggestions = [
+        {route:"recherche",reason:"Données structurées — questions analytiques",confidence:.85,params:{prompt:"Analyse ces données et donne les insights principaux",action:"Analyser les données"}},
+        {route:"workflows",reason:"Traitement automatisé des données",confidence:.7,params:{prompt:"",action:"Lancer un workflow"}},
+        {route:"chat",reason:"Explorer les données en discussion",confidence:.6,params:{prompt:"Décris la structure de ces données",action:"Explorer"}},
+      ];
+    } else {
+      suggestions = [
+        {route:"debate",reason:"Analyse multi-IAs du contenu",confidence:.8,params:{prompt:"Analyse ce document",action:"Analyser"}},
+        {route:"rag",reason:"Document textuel — Q&A intelligent",confidence:.75,params:{prompt:"",action:"Indexer"}},
+        {route:"redaction",reason:"Améliorer ou adapter le texte",confidence:.6,params:{prompt:"Améliore ce texte",action:"Rédiger"}},
+      ];
+    }
+    return { summary:"Fichier "+file.ext.toUpperCase()+" détecté ("+file.sizeKB+"KB) — routage automatique.", suggestions };
+  };
+
+  const launchRouterAction = async () => {
+    if (!routerSelected || !routerFile || !routerAnalysis) return;
+    setRouterLaunching(true);
+    const suggestion = routerAnalysis.suggestions.find(s=>s.route===routerSelected);
+    const params = suggestion?.params||{};
+    const fileContent = routerFile.type==="image" ? null : routerFile.content;
+    const userQ = routerQuestion.trim();
+    const basePrompt = userQ || params.prompt || "";
+
+    try {
+      switch(routerSelected) {
+        case "chat": {
+          const msg = basePrompt + (fileContent ? "\n\n📎 Fichier : "+routerFile.name+"\n```\n"+fileContent.slice(0,8000)+"\n```" : "");
+          setChatInput(msg);
+          navigateTab("chat");
+          break;
+        }
+        case "debate": {
+          setDebInput(basePrompt + (fileContent?"\n\n"+fileContent.slice(0,6000):""));
+          if (routerFile.type==="image") {
+            setDebFile({name:routerFile.name,type:"image",base64:routerFile.base64,mimeType:routerFile.mimeType,icon:"🖼"});
+          } else if (fileContent) {
+            setDebFile({name:routerFile.name,type:"text",content:fileContent.slice(0,10000),icon:routerFile.icon});
+          }
+          navigateTab("debate");
+          break;
+        }
+        case "redaction": {
+          setRedInput&&setRedInput(fileContent?.slice(0,8000)||basePrompt);
+          navigateTab("redaction");
+          break;
+        }
+        case "recherche": {
+          setRechercheInput&&setRechercheInput(basePrompt||(fileContent?"Analyse ce contenu : "+fileContent.slice(0,4000):""));
+          navigateTab("recherche");
+          break;
+        }
+        case "workflows": {
+          navigateTab("workflows");
+          break;
+        }
+        case "comfyui": {
+          if (routerFile.type==="image") {
+            setComfyPrompt("style transfer from: "+routerFile.name+", "+basePrompt);
+          } else {
+            setComfyPrompt(basePrompt||"illustration of: "+routerFile.name);
+          }
+          setComfySubTab("generate");
+          navigateTab("comfyui");
+          if (comfyConnected) setTimeout(()=>generateComfy(), 500);
+          break;
+        }
+        case "rag": {
+          if (fileContent) {
+            processRagText(fileContent);
+            showToast("✓ Document indexé dans le RAG — "+ragChunks.length+" morceaux");
+          }
+          setChatInput(basePrompt||"Que dit ce document ?");
+          navigateTab("chat");
+          setShowRagPanel(true);
+          break;
+        }
+        case "canvas": {
+          const code = fileContent||"";
+          const isHtml = routerFile.ext==="html"||code.includes("<!DOCTYPE")||code.includes("<html");
+          const isSvg = routerFile.ext==="svg"||code.includes("<svg");
+          if ((isHtml||isSvg)&&window.__openCanvas) {
+            window.__openCanvas(code, isHtml?"html":"svg", routerFile.name);
+          } else if (routerFile.type==="image"&&window.__openCanvas) {
+            window.__openCanvas('<img src="data:'+routerFile.mimeType+';base64,'+routerFile.base64+'" style="max-width:100%;max-height:100vh;"/>', "html", routerFile.name);
+          } else {
+            window.__openCanvas&&window.__openCanvas("<pre style='padding:20px;font-size:12px;overflow:auto;'>"+code.replace(/</g,"&lt;")+"</pre>","html",routerFile.name);
+          }
+          navigateTab("chat");
+          break;
+        }
+      }
+      setRouterDone(true);
+      showToast("✓ Lancé dans l'onglet "+ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label);
+    } catch(e) { showToast("❌ "+e.message); }
+    setRouterLaunching(false);
+  };
 
   const [debInput, setDebInput] = useState("");
   const [debPhase, setDebPhase] = useState(0);
@@ -4393,8 +10049,19 @@ ${allMsgs.map(m=>`
   };
 
   useEffect(() => { IDS.forEach(id => { const el = msgRefs.current[id]; if(el) el.scrollTop = el.scrollHeight; }); }, [conversations, loading]);
+  // Import shared prompt/URL params on mount
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pp = params.get("prompt");
+      if (pp) {
+        const d = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(pp)))));
+        if (d?.text) setChatInput(d.text);
+      }
+    } catch {}
+  }, []);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2800); };
+  const showToast = (msg, duration=2800) => { setToast(msg); setTimeout(() => setToast(null), duration); };
 
   const toggleModel = (id) => {
     const m = MODEL_DEFS[id];
@@ -4524,8 +10191,41 @@ ${allMsgs.map(m=>`
     };
     setSavedConvs(prev => {
       const exists = prev.find(c => c.id === entry.id);
-      const newList = exists ? prev.map(c => c.id === entry.id ? entry : c) : [entry, ...prev].slice(0, 50);
-      try { localStorage.setItem("multiia_history", JSON.stringify(newList)); } catch {}
+      let newList = exists ? prev.map(c => c.id === entry.id ? entry : c) : [entry, ...prev];
+      // ── Compression automatique : garde 50 convs, tronque les messages des anciennes ──
+      if (newList.length > 50) {
+        newList = newList.slice(0, 50).map((conv, i) => {
+          // Compresse les convs > 30 (garde seulement titre + 2 premiers messages par IA)
+          if (i > 30 && conv.conversations) {
+            const compressedConvs = {};
+            Object.entries(conv.conversations).forEach(([id, msgs]) => {
+              if (Array.isArray(msgs) && msgs.length > 4) {
+                compressedConvs[id] = msgs.slice(0, 2); // garde les 2 premiers msg
+              } else {
+                compressedConvs[id] = msgs;
+              }
+            });
+            return { ...conv, conversations: compressedConvs, compressed: true };
+          }
+          return conv;
+        });
+      }
+      try {
+        localStorage.setItem("multiia_history", JSON.stringify(newList));
+      } catch(e) {
+        // Si storage plein, vider les plus anciennes conversations
+        if (e.name === "QuotaExceededError") {
+          const trimmed = newList.slice(0, 20).map(conv => ({
+            ...conv,
+            conversations: Object.fromEntries(
+              Object.entries(conv.conversations || {}).map(([id, msgs]) => [id, (msgs||[]).slice(0,2)])
+            ),
+            compressed: true
+          }));
+          try { localStorage.setItem("multiia_history", JSON.stringify(trimmed)); } catch {}
+          return trimmed;
+        }
+      }
       return newList;
     });
     if (!activeHistId) setActiveHistId(entry.id);
@@ -4543,15 +10243,42 @@ ${allMsgs.map(m=>`
     finally { setGrammarLoading(false); }
   };
 
-  const enabledIds = IDS.filter(id => enabled[id]);
-  const availableIds = enabledIds.filter(id => !isLimited(id));
-  const isLoadingAny = Object.values(loading).some(Boolean);
+  const enabledIds   = React.useMemo(() => IDS.filter(id => enabled[id]),            [enabled]);
+  const availableIds = React.useMemo(() => enabledIds.filter(id => !isLimited(id)), [enabledIds, limited]);
+  const isLoadingAny = React.useMemo(() => Object.values(loading).some(Boolean),    [loading]);
 
   const sendChat = async () => {
     const text = applyPromptVars(chatInput.trim()); if (!text) return;
     setShowGrammarPopup(false); setGrammarResult(null); setChatInput(""); setBestVote(null);
     const file = attachedFile; setAttachedFile(null);
     requestNotifPerm();
+
+    // ── Détection de langue automatique ───────────────────────────
+    const detectLang = (t) => {
+      const arabicRe = /[\u0600-\u06FF]/; const chineseRe = /[\u4E00-\u9FFF]/;
+      const japaneseRe = /[\u3040-\u30FF]/; const koreanRe = /[\uAC00-\uD7AF]/;
+      const cyrillicRe = /[\u0400-\u04FF]/;
+      const words = t.trim().split(/\s+/);
+      const frWords = ["le","la","les","un","une","des","je","tu","il","elle","nous","vous","ils","elles","et","ou","mais","donc","car","que","qui","quoi","comment","pourquoi","quand","où","est","sont","avoir","être","faire","je suis","c'est","bonjour","merci"];
+      const enWords = ["the","is","are","was","were","i","you","he","she","we","they","and","or","but","so","because","that","what","how","why","when","where","hello","thanks","please"];
+      if (arabicRe.test(t)) return "ar";
+      if (chineseRe.test(t)) return "zh";
+      if (japaneseRe.test(t)) return "ja";
+      if (koreanRe.test(t)) return "ko";
+      if (cyrillicRe.test(t)) return "ru";
+      const lower = t.toLowerCase();
+      const frScore = frWords.filter(w => lower.includes(" "+w+" ") || lower.startsWith(w+" ") || lower === w).length;
+      const enScore = enWords.filter(w => lower.includes(" "+w+" ") || lower.startsWith(w+" ") || lower === w).length;
+      if (words.length < 3) return "fr"; // trop court pour détecter
+      if (enScore > frScore + 1) return "en";
+      return "fr";
+    };
+    // Propose traducteur si langue non-française détectée sur texte long
+    const detectedLang = detectLang(text);
+    const nonFrLangs = {"en":"anglais","es":"espagnol","de":"allemand","it":"italien","pt":"portugais","ar":"arabe","zh":"chinois","ja":"japonais","ko":"coréen","ru":"russe"};
+    if (nonFrLangs[detectedLang] && text.length > 30) {
+      showToast(`🌍 Langue détectée : ${nonFrLangs[detectedLang]} — Onglet Traducteur disponible`, 4000);
+    }
     // ── RAG : enrichir le message avec contexte document ──────────
     const ragCtx = ragChunks.length > 0 ? getRagContext(text) : null;
     const effectiveText = ragCtx || text;
@@ -4575,7 +10302,11 @@ ${allMsgs.map(m=>`
       try {
         const hist = [...conversations[id], userMsg];
         let reply;
-        if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
+        if (owuiActive && owuiConnected && owuiModel && id === "__owui__") {
+          reply = await callOwui(owuiModel, hist, buildSystem());
+        } else if (owuiActive && owuiConnected && owuiModel) {
+          reply = await callOwui(owuiModel, hist, buildSystem());
+        } else if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
           reply = await callOllama(ollamaModel, hist, buildSystem());
         } else {
           const safeHist = truncateForModel(hist, id, buildSystem());
@@ -4610,6 +10341,10 @@ ${allMsgs.map(m=>`
       // Vote automatique si 2+ IAs actives
       const activeCount = IDS.filter(id => enabled[id]).length;
       if (activeCount >= 2) setTimeout(()=>runAutoVote(prev), 500);
+      // Auto-memory: extract facts every 6 messages
+      const firstId = IDS.find(id=>enabled[id]);
+      const hist = firstId ? (prev[firstId]||[]) : [];
+      if (hist.length > 0 && hist.length % 6 === 0) setTimeout(()=>extractAutoMemory(hist), 2000);
       return prev;
     });
   };
@@ -4893,7 +10628,7 @@ ${allMsgs.map(m=>`
     showToast("✓ Pipeline exporté dans Workflows");
   };
 
-  const sortedArena = [...ARENA_MODELS].sort((a,b) => {
+  const sortedArena = React.useMemo(() => [...ARENA_MODELS].sort((a,b) => {
     if (arenaSort === "score") return b.score - a.score;
     if (arenaSort === "free") return (b.free?1:0) - (a.free?1:0);
     return a.name.localeCompare(b.name);
@@ -4903,15 +10638,15 @@ ${allMsgs.map(m=>`
     if (arenaFilter === "top") return m.score >= 9;
     if (arenaFilter === "oss") return m.tag === "OSS" || m.tag === "OSS KING" || m.tag === "FREE";
     return true;
-  });
+  }), [arenaSort, arenaFilter]);
 
-  const filteredImages = IMAGE_GENERATORS.filter(g => {
+  const filteredImages = React.useMemo(() => IMAGE_GENERATORS.filter(g => {
     if (imgFilter === "all") return true;
     if (imgFilter === "free") return g.free;
     if (imgFilter === "oss") return g.license && (g.license.includes("Apache")||g.license.includes("GPL")||g.license.includes("OSS")||g.license.includes("Community"));
     if (imgFilter === "paid") return !g.free;
     return true;
-  });
+  }), [imgFilter]);
 
   return (
     <>
@@ -4926,10 +10661,14 @@ ${allMsgs.map(m=>`
         )}
 
         {/* ── MOBILE HEADER (remplace la nav top sur mobile) ── */}
+
         <div className="mobile-header" style={isMobile?{display:"flex"}:{display:"none"}}>
+
           <span className="mobile-header-title">
             multi<span style={{color:"var(--mu)",fontWeight:400}}>IA</span>
           </span>
+
+
           {tab === "chat" && (
             <button className="mh-btn" title="Historique" onClick={()=>setShowHist(h=>!h)}>📋</button>
           )}
@@ -4988,20 +10727,10 @@ ${allMsgs.map(m=>`
 </div>
           <div className="nav-tabs">
             {[
+              ["aide","🏠 Accueil"],
               ["chat","◈ Chat"],
-              ["prompts","📋 Prompts"],
-              ["redaction","✍️ Rédaction"],
-              ["recherche","🔎 Recherche"],
+              ["router","🧭 Router"],
               ["workflows","🔀 Workflows"],
-              ["medias","🎬 Médias"],
-              ["arena","⚔ Arène"],
-              ["debate","⚡ Débat"],
-              ["notes","📝 Notes"],
-              ["traducteur","🌍 Trad."],
-              ["agent","🤖 Agent"],
-              ["webia","🌐 IAs Web"],
-              ["compare","⚖ Comparer"],
-              ["stats","📊 Stats"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
               <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>navigateTab(t)}>{l}</button>
@@ -5459,6 +11188,14 @@ ${allMsgs.map(m=>`
                 style={{background:showRagPanel?"rgba(96,165,250,.2)":"transparent",border:"1px solid "+(showRagPanel?"rgba(96,165,250,.6)":"var(--bd)"),borderRadius:4,color:showRagPanel?"var(--blue)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 📄 RAG{ragChunks.length>0&&<span style={{color:"var(--green)",marginLeft:3}}>●</span>}
               </button>
+              <button onClick={()=>setShowComfyPanel(r=>!r)} title="ComfyUI local — génération d'images"
+                style={{background:comfyConnected?"rgba(124,58,237,.15)":"transparent",border:"1px solid "+(comfyConnected?"rgba(124,58,237,.5)":"var(--bd)"),borderRadius:4,color:comfyConnected?"#A78BFA":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                ⬡ ComfyUI{comfyConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
+              </button>
+              <button onClick={()=>setShowOwuiPanel(r=>!r)} title="Open WebUI — tous vos modèles Ollama via interface OpenAI-compatible"
+                style={{background:owuiConnected?"rgba(14,165,233,.15)":"transparent",border:"1px solid "+(owuiConnected?"rgba(14,165,233,.5)":"var(--bd)"),borderRadius:4,color:owuiConnected?"#0EA5E9":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                🖥 WebUI{owuiConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
+              </button>
               <button onClick={()=>setShowOllamaPanel(r=>!r)} title="Ollama local"
                 style={{background:ollamaConnected?"rgba(74,222,128,.12)":"transparent",border:"1px solid "+(ollamaConnected?"rgba(74,222,128,.4)":"var(--bd)"),borderRadius:4,color:ollamaConnected?"var(--green)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🖥 Ollama{ollamaConnected&&<span style={{fontSize:7,marginLeft:3}}>●</span>}
@@ -5474,6 +11211,14 @@ ${allMsgs.map(m=>`
               <button onClick={()=>exportPDF(null)} title="Exporter en PDF / Imprimer"
                 style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 🖨 PDF
+              </button>
+              <button onClick={()=>setShowPromptBuilder(true)} title="Prompt Builder — construire un prompt en blocs"
+                style={{background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.25)",borderRadius:4,color:"var(--ac)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                🧱 Builder
+              </button>
+              <button onClick={()=>{const ids=IDS.filter(id=>enabled[id]);if(ids.length>=2){setDiffIA1(ids[0]);setDiffIA2(ids[1]);setDiffModal(true);}else showToast("Active 2 IAs pour comparer");}} title="Diff — comparer mot à mot les dernières réponses"
+                style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
+                ⚡ Diff
               </button>
               {focusId && <span style={{fontSize:9,color:"var(--ac)",marginLeft:"auto"}}>⛶ Plein écran : {MODEL_DEFS[focusId]?.short} — <button onClick={()=>setFocusId(null)} style={{background:"none",border:"none",color:"var(--ac)",cursor:"pointer",fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>Esc pour quitter</button></span>}
             </div>
@@ -5500,8 +11245,98 @@ ${allMsgs.map(m=>`
                       Activer pour le chat
                     </label>
                   )}
-                  {!ollamaConnected && <span style={{fontSize:9,color:"var(--mu)"}}>Installe Ollama + lance <code style={{color:"var(--ac)"}}>ollama serve</code></span>}
+                  {!ollamaConnected && (
+                    <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
+                      Lance <code style={{color:"var(--ac)"}}>ollama serve</code> puis connecte.
+                      <div style={{marginTop:4,display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {["llama3.3","mistral","qwen3.5:4b","gemma3","deepseek-r1:7b","phi4"].map(m=>(
+                          <span key={m} onClick={()=>{navigator.clipboard.writeText("ollama pull "+m);showToast("✓ Copié : ollama pull "+m);}}
+                            style={{fontSize:7,padding:"1px 6px",background:"rgba(74,222,128,.08)",border:"1px solid rgba(74,222,128,.2)",borderRadius:3,color:"var(--green)",cursor:"pointer"}} title="Cliquer pour copier la commande">
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+            )}
+            {/* Open WebUI mini-panel */}
+            {showOwuiPanel && (
+              <div style={{padding:"8px 14px",background:"rgba(14,165,233,.06)",borderBottom:"1px solid rgba(14,165,233,.2)",flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:owuiConnected?5:0}}>
+                  <span style={{fontSize:10,color:"#0EA5E9",fontWeight:700}}>🖥 Open WebUI</span>
+                  <input value={owuiUrl} onChange={e=>setOwuiUrl(e.target.value)}
+                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 8px",fontFamily:"var(--font-mono)",flex:1,minWidth:160,outline:"none"}} placeholder="http://localhost:3000"/>
+                  <input value={owuiKey} onChange={e=>setOwuiKey(e.target.value)}
+                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 8px",fontFamily:"var(--font-mono)",width:90,outline:"none"}} placeholder="API Key (opt.)"/>
+                  <button onClick={()=>checkOwui(owuiUrl,owuiKey)}
+                    style={{background:"rgba(14,165,233,.15)",border:"1px solid rgba(14,165,233,.4)",borderRadius:4,color:"#0EA5E9",fontSize:9,padding:"3px 8px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    {owuiConnected?"↺ Refresh":"🔌 Connecter"}
+                  </button>
+                </div>
+                {owuiConnected&&(
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                    <span style={{fontSize:8,color:"var(--mu)"}}>{owuiModels.length} modèle{owuiModels.length!==1?"s":""} :</span>
+                    <select value={owuiModel} onChange={e=>setOwuiModel(e.target.value)}
+                      style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 6px",fontFamily:"var(--font-mono)",outline:"none",flex:1,maxWidth:200}}>
+                      {owuiModels.map(m=><option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:9,color:"#0EA5E9",cursor:"pointer"}}>
+                      <input type="checkbox" checked={owuiActive} onChange={e=>setOwuiActive(e.target.checked)} style={{accentColor:"#0EA5E9"}}/>
+                      Activer pour le chat
+                    </label>
+                  </div>
+                )}
+                {!owuiConnected&&<span style={{fontSize:8,color:"var(--mu)"}}>Lance Open WebUI sur <code style={{color:"var(--ac)"}}>localhost:3000</code> puis connecte</span>}
+              </div>
+            )}
+            {/* ComfyUI mini-panel */}
+            {showComfyPanel && (
+              <div style={{padding:"8px 14px",background:"rgba(124,58,237,.06)",borderBottom:"1px solid rgba(124,58,237,.2)",flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:comfyConnected?6:0}}>
+                  <span style={{fontSize:10,color:"#A78BFA",fontWeight:700}}>⬡ ComfyUI local</span>
+                  <input value={comfyUrl} onChange={e=>setComfyUrl(e.target.value)}
+                    style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 8px",fontFamily:"var(--font-mono)",flex:1,minWidth:140,outline:"none"}} placeholder="http://127.0.0.1:8188"/>
+                  <button onClick={()=>checkComfy(comfyUrl)}
+                    style={{background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:4,color:"#A78BFA",fontSize:9,padding:"3px 8px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    {comfyConnected?"↺ Refresh":"🔌 Connecter"}
+                  </button>
+                  <button onClick={()=>navigateTab("comfyui")} style={{background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:9,padding:"3px 8px",cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    ↗ Onglet complet
+                  </button>
+                  {!comfyConnected&&<span style={{fontSize:8,color:"var(--mu)"}}>Lance ComfyUI puis clique Connecter</span>}
+                </div>
+                {comfyConnected&&(
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"flex-end"}}>
+                    <div style={{flex:2,minWidth:160}}>
+                      <div style={{fontSize:7,color:"var(--mu)",marginBottom:2}}>PROMPT IMAGE</div>
+                      <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
+                        onKeyDown={e=>{if(e.key==="Enter"&&comfyPrompt.trim())generateComfy();}}
+                        placeholder="Décris l'image à générer (en anglais)…"
+                        style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",fontFamily:"var(--font-ui)",outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                    {comfyModels.length>0&&(
+                      <select value={comfyModel} onChange={e=>setComfyModel(e.target.value)}
+                        style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:8,padding:"3px 6px",fontFamily:"var(--font-mono)",outline:"none",maxWidth:120}}>
+                        {comfyModels.map(m=><option key={m} value={m}>{m.replace(".safetensors","").replace(".ckpt","").slice(0,20)}</option>)}
+                      </select>
+                    )}
+                    <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyPrompt.trim()}
+                      style={{padding:"4px 12px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:9,cursor:"pointer",fontWeight:700,opacity:comfyGenerating||!comfyPrompt.trim()?.5:1,whiteSpace:"nowrap"}}>
+                      {comfyGenerating?"⟳ "+comfyProgress+"%":"⬡ Générer"}
+                    </button>
+                  </div>
+                )}
+                {comfyResult&&(
+                  <div style={{marginTop:6,display:"flex",alignItems:"center",gap:8}}>
+                    <img src={comfyResult.url} alt="ComfyUI result" style={{height:48,width:48,objectFit:"cover",borderRadius:4,border:"1px solid var(--bd)"}}/>
+                    <button onClick={()=>sendComfyToChat()} style={{fontSize:8,padding:"3px 8px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>→ Chat</button>
+                    <button onClick={()=>{window.__openCanvas&&window.__openCanvas('<img src="'+comfyResult.url+'" style="max-width:100%;border-radius:8px;"/>','html','Résultat ComfyUI');}} style={{fontSize:8,padding:"3px 8px",background:"rgba(124,58,237,.1)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>▶ Canvas</button>
+                    <a href={comfyResult.url} download style={{fontSize:8,padding:"3px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",textDecoration:"none"}}>⬇ Sauver</a>
+                  </div>
+                )}
+                {comfyError&&<div style={{marginTop:4,fontSize:8,color:"var(--red)"}}>{comfyError}</div>}
               </div>
             )}
             <div className="ir">
@@ -5549,6 +11384,7 @@ ${allMsgs.map(m=>`
                 <button onClick={()=>addWorkflowNode("prompt")} style={{background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>＋ Prompt</button>
                 <button onClick={()=>addWorkflowNode("parallel")} style={{background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>⚡ Parallèle</button>
                 <button onClick={()=>addWorkflowNode("transform")} style={{background:"rgba(251,146,60,.1)",border:"1px solid rgba(251,146,60,.3)",borderRadius:5,color:"var(--orange)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>⚙ Transform</button>
+                <button onClick={()=>addWorkflowNode("cli")} style={{background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:9,padding:"5px 10px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>🖥 CLI Local</button>
               </div>
             </div>
 
@@ -5565,10 +11401,74 @@ ${allMsgs.map(m=>`
                   {id:"t1",label:"Analyse parallèle",type:"parallel",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Analyse ce sujet en profondeur : {INPUT}",name:"analyses",usePrevOutput:false,parallel_ias:IDS.filter(id=>enabled[id]).slice(0,3)},
                   {id:"t2",label:"Synthèse des analyses",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Synthétise ces analyses en points clés :\n{PREVIOUS}",name:"synthese",usePrevOutput:true,parallel_ias:[]},
                 ]},
+                {name:"📄 Texte → PDF", nodes:[
+                  {id:"t1",label:"Générer le contenu",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Rédige un document structuré sur : {INPUT}",name:"texte",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Exporter en PDF",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"pdf",usePrevOutput:true,parallel_ias:[],cliSoftware:"libreoffice",cliCommand:"cli-anything-libreoffice document create --format pdf --output ./output.pdf",cliDescription:"LibreOffice génère un PDF depuis le texte"},
+                ]},
+                {name:"🖼 Texte → Image GIMP", nodes:[
+                  {id:"t1",label:"Décrire l'image",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris précisément une image illustrant : {INPUT}",name:"desc",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Créer dans GIMP",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"image",usePrevOutput:true,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp project new --width 1920 --height 1080 --output ./output.xcf",cliDescription:"GIMP crée un nouveau projet image"},
+                ]},
                 {name:"💼 Pitch produit", nodes:[
                   {id:"t1",label:"Problème",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris le problème que résout : {INPUT}. Sois factuel et précis.",name:"problem",usePrevOutput:false,parallel_ias:[]},
                   {id:"t2",label:"Solution & USP",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Propose une solution et un USP basés sur :\n{problem}",name:"solution",usePrevOutput:false,parallel_ias:[]},
                   {id:"t3",label:"Pitch 30s",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Rédige un pitch de 30 secondes à partir de :\nProblème: {problem}\nSolution: {solution}",name:"pitch",usePrevOutput:false,parallel_ias:[]},
+                ]},
+                // ── CLI-Anything tunnels — surcouche optionnelle ──────────────────
+                // Si CLI-Anything absent → étapes CLI ignorées, workflow continue
+                {name:"🖥 CLI · Rapport PDF", nodes:[
+                  {id:"t1",label:"Rédiger le rapport",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Rédige un rapport structuré complet sur : {INPUT}. Utilise des titres, sous-titres et bullet points.",name:"rapport",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"📄 LibreOffice → PDF",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"pdf",usePrevOutput:true,parallel_ias:[],cliSoftware:"libreoffice",cliCommand:"cli-anything-libreoffice document create --format pdf --output ./rapport_output.pdf",cliDescription:"LibreOffice génère un PDF professionnel"},
+                ]},
+                {name:"🖥 CLI · Images réseaux", nodes:[
+                  {id:"t1",label:"Texte pour post",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un texte accrocheur pour un post sur : {INPUT}. Court, percutant, avec émojis.",name:"texte",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🎨 GIMP → formats sociaux",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"image",usePrevOutput:true,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp project new --width 1080 --height 1080 --output ./post_square.xcf",cliDescription:"GIMP crée le visuel carré pour Instagram"},
+                  {id:"t3",label:"📐 GIMP → format LinkedIn",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"linkedin",usePrevOutput:false,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp project new --width 1200 --height 628 --output ./post_linkedin.xcf",cliDescription:"GIMP crée le visuel LinkedIn"},
+                ]},
+                {name:"🖥 CLI · Audio propre", nodes:[
+                  {id:"t1",label:"Script narration",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Écris un script de narration clair et professionnel sur : {INPUT}. Adapté pour une voix off.",name:"script",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🔊 Audacity → export MP3",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"audio",usePrevOutput:true,parallel_ias:[],cliSoftware:"audacity",cliCommand:"cli-anything-audacity project new --sample-rate 44100 --output ./narration.aup3",cliDescription:"Audacity prépare le projet audio"},
+                ]},
+                {name:"🖥 CLI · Présentation auto", nodes:[
+                  {id:"t1",label:"Plan de présentation",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Crée un plan de présentation en 8 slides sur : {INPUT}. Format: Slide N | Titre | Contenu bullet points.",name:"plan",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"✍️ Contenu slides",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Développe le contenu détaillé de chaque slide :\\n{plan}",name:"slides",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"📊 LibreOffice → Impress",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"pptx",usePrevOutput:true,parallel_ias:[],cliSoftware:"libreoffice",cliCommand:"cli-anything-libreoffice presentation create --format pptx --output ./presentation.pptx",cliDescription:"LibreOffice Impress crée la présentation .pptx"},
+                ]},
+                {name:"🖥 CLI · Pipeline vidéo", nodes:[
+                  {id:"t1",label:"Script vidéo",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Écris un script vidéo de 2 minutes sur : {INPUT}. Format: [INTRO] [PARTIE 1] [PARTIE 2] [CONCLUSION] avec timecodes.",name:"script",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🎬 Kdenlive → projet vidéo",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"video",usePrevOutput:true,parallel_ias:[],cliSoftware:"kdenlive",cliCommand:"cli-anything-kdenlive project new --fps 25 --resolution 1920x1080 --output ./video_projet.kdenlive",cliDescription:"Kdenlive crée le projet de montage vidéo"},
+                ]},
+                {name:"🖥 CLI · Batch images", nodes:[
+                  {id:"t1",label:"Instructions de traitement",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère des instructions précises de traitement d'images pour : {INPUT}. Ex: resize, watermark, format.",name:"instructions",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🎨 GIMP → traitement batch",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"batch",usePrevOutput:true,parallel_ias:[],cliSoftware:"gimp",cliCommand:"cli-anything-gimp batch resize --width 1920 --height 1080 --input ./images/ --output ./images_resized/",cliDescription:"GIMP redimensionne toutes les images du dossier"},
+                ]},
+                {name:"🖥 CLI · Draw.io Architecture", nodes:[
+                  {id:"t1",label:"Analyser & décrire",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Analyse et décris l'architecture système de : {INPUT}. Liste tous les composants, leurs connexions et flux de données.",name:"analyse",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Générer le XML Draw.io",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un diagramme Draw.io en XML pour cette architecture :\\n{analyse}\\nFormat : XML valide Draw.io avec tous les noeuds et connexions.",name:"xml",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"🗺 Draw.io → .drawio",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"diagram",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio diagram create --input-xml ./diagram.xml --output ./architecture.drawio",cliDescription:"Draw.io génère le diagramme d'architecture"},
+                ]},
+                {name:"🖥 CLI · Draw.io Flowchart", nodes:[
+                  {id:"t1",label:"Décrire le processus",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris étape par étape le processus de : {INPUT}. Identifie les décisions, les boucles et les points de sortie.",name:"process",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"Générer XML flowchart",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un flowchart Draw.io en XML pour ce processus :\\n{process}",name:"xml",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"🔀 Draw.io → flowchart",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"flow",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio diagram create --type flowchart --output ./flowchart.drawio",cliDescription:"Draw.io génère le flowchart exportable"},
+                ]},
+                {name:"🖥 CLI · Draw.io Mind Map", nodes:[
+                  {id:"t1",label:"Structurer les idées",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Crée une structure de mind map complète sur : {INPUT}. Catégories principales, sous-catégories, détails.",name:"structure",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🧠 Draw.io → mind map",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"mindmap",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio diagram create --type mindmap --output ./mindmap.drawio",cliDescription:"Draw.io génère le mind map"},
+                ]},
+                {name:"🖥 CLI · Draw.io Organigramme", nodes:[
+                  {id:"t1",label:"Décrire la structure",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Décris la structure organisationnelle de : {INPUT}. Hiérarchie, rôles, responsabilités.",name:"structure",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"🏢 Draw.io → organigramme",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"org",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio diagram create --type org-chart --output ./organigramme.drawio",cliDescription:"Draw.io génère l'organigramme"},
+                ]},
+                {name:"🖥 CLI · Draw.io → PNG/SVG", nodes:[
+                  {id:"t1",label:"Créer le contenu",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Génère un schéma visuel clair pour : {INPUT}. Décris les éléments et leur disposition.",name:"contenu",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"📊 Draw.io → export PNG",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"export",usePrevOutput:true,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio export --format png --width 1920 --output ./diagram.png",cliDescription:"Draw.io exporte en PNG haute résolution"},
+                  {id:"t3",label:"📐 Draw.io → export SVG",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"svg",usePrevOutput:false,parallel_ias:[],cliSoftware:"drawio",cliCommand:"cli-anything-drawio export --format svg --output ./diagram.svg",cliDescription:"Draw.io exporte en SVG vectoriel"},
+                ]},
+                {name:"🖥 CLI · Doc automatique", nodes:[
+                  {id:"t1",label:"Analyser le code",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Analyse ce code et génère une documentation technique complète avec description, paramètres, exemples :\\n{INPUT}",name:"doc",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t2",label:"📝 Améliorer la doc",type:"prompt",ia:IDS.find(id=>enabled[id])||IDS[0],prompt:"Améliore et structure cette documentation pour la rendre professionnelle et complète :\\n{doc}",name:"doc_final",usePrevOutput:false,parallel_ias:[]},
+                  {id:"t3",label:"📄 LibreOffice → PDF doc",type:"cli",ia:"",prompt:"{PREVIOUS}",name:"pdf_doc",usePrevOutput:true,parallel_ias:[],cliSoftware:"libreoffice",cliCommand:"cli-anything-libreoffice document create --format pdf --output ./documentation.pdf",cliDescription:"LibreOffice exporte la documentation en PDF"},
                 ]},
               ].map((tpl,ti) => (
                 <button key={ti} onClick={()=>{saveWorkflow(tpl.nodes.map(n=>({...n,id:Date.now().toString()+Math.random()})));setWorkflowResults([]);}}
@@ -5961,12 +11861,61 @@ ${allMsgs.map(m=>`
         {tab === "medias" && (
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",paddingBottom:isMobile?"64px":"0"}}>
             <div className="media-subtabs">
-              {[["youtube","▶ YouTube"],["images","🎨 Images IA"],["webia","🌐 IAs Web"]].map(([k,l])=>(
+              {[["youtube","▶ YouTube"],["images","🎨 Images IA"],["comfy","⬡ ComfyUI Local"],["webia","🌐 IAs Web"]].map(([k,l])=>(
                 <button key={k} className={"media-stab "+(mediaSubTab===k?"on":"")} onClick={()=>setMediaSubTab(k)}>{l}</button>
               ))}
             </div>
             <div className="media-content">
               {mediaSubTab==="youtube" && <YouTubeTab apiKeys={apiKeys} />}
+              {mediaSubTab==="comfy" && (
+                <div style={{flex:1,overflow:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"#A78BFA"}}>⬡ ComfyUI Local</div>
+                    <div style={{fontSize:9,color:comfyConnected?"var(--green)":"var(--red)"}}>
+                      {comfyConnected?"● Connecté":"○ Non connecté"}
+                    </div>
+                    {!comfyConnected&&<button onClick={()=>checkComfy()} style={{fontSize:9,padding:"3px 10px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.35)",borderRadius:5,color:"#A78BFA",cursor:"pointer"}}>🔌 Connecter</button>}
+                    <button onClick={()=>navigateTab("comfyui")} style={{marginLeft:"auto",fontSize:9,padding:"3px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>↗ Onglet complet</button>
+                  </div>
+                  {/* Quick generate */}
+                  <div style={{background:"var(--s1)",border:"1px solid rgba(124,58,237,.2)",borderRadius:8,padding:"12px 14px"}}>
+                    <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>GÉNÉRATION RAPIDE</div>
+                    <div style={{display:"flex",gap:7,marginBottom:8}}>
+                      <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
+                        placeholder="Décris l'image à générer (en anglais)…"
+                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 9px",fontFamily:"var(--font-ui)",outline:"none"}}
+                        onKeyDown={e=>{if(e.key==="Enter")generateComfy();}}/>
+                      <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
+                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity:!comfyConnected?.4:1}}>
+                        {comfyGenerating?comfyProgress+"%":"⬡ Go"}
+                      </button>
+                    </div>
+                    {comfyGenerating&&<div style={{height:3,background:"var(--bd)",borderRadius:2}}><div style={{height:"100%",width:comfyProgress+"%",background:"#A78BFA",transition:"width .5s",borderRadius:2}}/></div>}
+                    {comfyResult&&(
+                      <div style={{marginTop:8,display:"flex",gap:8,alignItems:"center"}}>
+                        <img src={comfyResult.url} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid var(--bd)"}}/>
+                        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                          <button onClick={()=>sendComfyToChat()} style={{fontSize:8,padding:"3px 9px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>💬 → Chat</button>
+                          <a href={comfyResult.url} download style={{fontSize:8,padding:"3px 9px",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:4,color:"var(--blue)",textDecoration:"none",textAlign:"center"}}>⬇ Sauver</a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* History grid */}
+                  {comfyHistory.length>0&&(
+                    <div>
+                      <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>HISTORIQUE ({comfyHistory.length})</div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
+                        {comfyHistory.slice(0,12).map((h,i)=>(
+                          <div key={i} style={{borderRadius:6,overflow:"hidden",border:"1px solid var(--bd)",cursor:"pointer"}} onClick={()=>setComfyResult(h)}>
+                            <img src={h.url} alt={h.prompt} style={{width:"100%",height:90,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.opacity=".3";}}/>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {mediaSubTab==="webia" && (
                 <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
                   <div style={{padding:"8px 12px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -6453,6 +12402,840 @@ ${allMsgs.map(m=>`
 
         {/* ── CONFIG TAB ── */}
         {/* ── PWA CONFIG SECTION ── */}
+
+        {/* ══ EXPERT PANEL TAB ══ */}
+        {tab === "expert" && (
+          <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)",marginBottom:14}}>🧠 Panel d'Experts</div>
+            <div style={{marginBottom:12,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+              {Object.entries(EXPERT_PANELS).map(([key,experts])=>(
+                <button key={key} onClick={()=>setExpertPanel(key)}
+                  style={{padding:"4px 12px",borderRadius:12,border:"1px solid "+(expertPanel===key?"var(--ac)":"var(--bd)"),background:expertPanel===key?"var(--ac)":"transparent",color:expertPanel===key?"var(--bg)":"var(--mu)",fontSize:9,cursor:"pointer",fontWeight:600}}>
+                  {key==="dev"?"💻 Dev":key==="product"?"📦 Produit":"✍️ Contenu"}
+                </button>
+              ))}
+            </div>
+            <div style={{marginBottom:10,display:"flex",gap:8,flexWrap:"wrap"}}>
+              {(EXPERT_PANELS[expertPanel]||[]).map((e,i)=>(
+                <div key={i} style={{flex:1,minWidth:160,padding:"8px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,fontSize:9}}>
+                  <div style={{fontWeight:700,marginBottom:3}}>{e.icon} {e.name}</div>
+                  <div style={{color:"var(--mu)",fontSize:8,lineHeight:1.4}}>{e.system.slice(0,80)}…</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              <textarea value={expertQuery} onChange={e=>setExpertQuery(e.target.value)}
+                placeholder="Pose ta question, problème ou sujet à analyser par le panel d'experts…"
+                rows={3} style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 11px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none"}}/>
+              <button onClick={runExpertPanel} disabled={expertRunning||!expertQuery.trim()}
+                style={{padding:"0 18px",background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.4)",borderRadius:7,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:700,opacity:expertRunning||!expertQuery.trim()?.4:1}}>
+                {expertRunning?"⟳":"🧠 Analyser"}
+              </button>
+            </div>
+            {Object.keys(expertResults).length>0&&(
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10,marginBottom:12}}>
+                {Object.entries(expertResults).map(([idx,{analysis,expert,ia}])=>(
+                  <div key={idx} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,overflow:"hidden"}}>
+                    <div style={{padding:"7px 10px",borderBottom:"1px solid var(--bd)",background:"var(--s2)",display:"flex",alignItems:"center",gap:6}}>
+                      <span>{expert.icon}</span>
+                      <span style={{fontSize:10,fontWeight:700,color:"var(--tx)"}}>{expert.name}</span>
+                      {ia&&<span style={{marginLeft:"auto",fontSize:8,color:"var(--mu)"}}>{ia}</span>}
+                    </div>
+                    <div style={{padding:"10px",maxHeight:220,overflow:"auto",fontSize:9,lineHeight:1.6}}>
+                      {analysis?<MarkdownRenderer text={analysis}/>:<span className="dots"><span>·</span><span>·</span><span>·</span></span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {expertSynthesis&&(
+              <div style={{padding:"12px 14px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:9}}>
+                <div style={{fontSize:9,color:"var(--ac)",fontWeight:700,marginBottom:8}}>✦ SYNTHÈSE DU COORDINATEUR</div>
+                <MarkdownRenderer text={expertSynthesis}/>
+                <button onClick={()=>{setChatInput(expertSynthesis.slice(0,3000));navigateTab("chat");}} style={{marginTop:8,fontSize:8,padding:"3px 10px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>💬 → Chat</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ ANALYTICS TAB ══ */}
+        {tab === "analytics" && (
+          <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)",marginBottom:14}}>📈 Analytics</div>
+            {/* Summary cards */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:18}}>
+              {[
+                ["💬",Object.values(usageStats.msgs||{}).reduce((a,b)=>a+b,0),"Messages"],
+                ["🔤",Object.values(usageStats.tokens||{}).reduce((a,b)=>a+b,0).toLocaleString(),"Tokens"],
+                ["📚",usageStats.convs||0,"Conversations"],
+                ["💰","$"+(Object.entries(usageStats.tokens||{}).reduce((a,[id,t])=>{const p=PRICING[id];return a+(p?(t*0.7/1e6*p.in)+(t*0.3/1e6*p.out):0);},0)).toFixed(4),"Coût estimé"],
+              ].map(([ic,val,lbl])=>(
+                <div key={lbl} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+                  <div style={{fontSize:18,marginBottom:4}}>{ic}</div>
+                  <div style={{fontSize:16,fontWeight:700,color:"var(--tx)"}}>{val}</div>
+                  <div style={{fontSize:9,color:"var(--mu)"}}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+            {/* Usage bars by model */}
+            <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"14px",marginBottom:12}}>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10}}>Utilisation par modèle</div>
+              {Object.entries(usageStats.msgs||{}).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a).map(([id,count])=>{
+                const m=MODEL_DEFS[id]; const maxV=Math.max(...Object.values(usageStats.msgs||{}).map(v=>v||0),1);
+                const p=PRICING[id]; const tok=usageStats.tokens?.[id]||0;
+                const cost=p?(tok*0.7/1e6*p.in)+(tok*0.3/1e6*p.out):0;
+                return m&&count>0?(
+                  <div key={id} style={{marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                      <span style={{color:m.color,fontSize:10,width:22}}>{m.icon}</span>
+                      <span style={{fontSize:9,fontWeight:600,color:"var(--tx)",flex:1}}>{m.short}</span>
+                      <span style={{fontSize:8,color:"var(--mu)"}}>{count} msg</span>
+                      <span style={{fontSize:8,color:cost>0?"var(--orange)":"var(--green)",fontFamily:"var(--font-mono)"}}>
+                        {cost>0?"$"+cost.toFixed(4):"FREE"}
+                      </span>
+                    </div>
+                    <div style={{height:6,background:"var(--s2)",borderRadius:3,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:(count/maxV*100)+"%",background:m.color,borderRadius:3,transition:"width .5s"}}/>
+                    </div>
+                  </div>
+                ):null;
+              })}
+            </div>
+            {/* Session live */}
+            {Object.keys(sessionTokens).length>0&&(
+              <div style={{background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:8,padding:"14px"}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--ac)",marginBottom:10}}>⚡ Session en cours</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
+                  {Object.entries(sessionTokens).filter(([,t])=>(t.in||0)+(t.out||0)>0).map(([id,t])=>{
+                    const m=MODEL_DEFS[id]; const p=PRICING[id];
+                    const cost=p?(t.in/1e6*p.in)+(t.out/1e6*p.out):0;
+                    return (
+                      <div key={id} style={{background:"var(--s2)",borderRadius:6,padding:"8px 10px",border:"1px solid "+m.color+"30"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+                          <span style={{color:m.color}}>{m.icon}</span>
+                          <span style={{fontSize:9,fontWeight:700,color:m.color}}>{m.short}</span>
+                          <span style={{marginLeft:"auto",fontSize:7,padding:"1px 4px",background:cost===0?"rgba(74,222,128,.12)":"rgba(251,146,60,.12)",color:cost===0?"var(--green)":"var(--orange)",borderRadius:3,fontWeight:700}}>
+                            {cost===0?"FREE":"$"+cost.toFixed(5)}
+                          </span>
+                        </div>
+                        <div style={{fontSize:8,color:"var(--mu)"}}>
+                          ↓{(t.in/1000).toFixed(1)}k · ↑{(t.out/1000).toFixed(1)}k tokens
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+
+        {/* ══ AIDE TAB ══ */}
+        {tab === "aide" && (
+          <AideTab navigateTab={navigateTab} apiKeys={apiKeys} enabled={enabled}/>
+        )}
+
+
+        {/* ══ STUDIO AUTO TAB ══ */}
+        {tab === "studio" && (
+          <StudioTab
+            apiKeys={apiKeys}
+            enabled={enabled}
+            MODEL_DEFS={MODEL_DEFS}
+            callModel={callModel}
+            buildSystem={buildSystem}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ══ SMART ROUTER TAB ══ */}
+        {tab === "router" && (
+          <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"clamp(14px,3vw,32px)",gap:0}}>
+            {/* Header */}
+            <div style={{width:"100%",maxWidth:700,marginBottom:24}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(18px,3vw,24px)",color:"var(--ac)",marginBottom:4}}>🧭 Smart Router</div>
+              <div style={{fontSize:10,color:"var(--mu)"}}>Dépose un fichier → l'IA l'analyse → propose l'onglet optimal → lance automatiquement la procédure</div>
+            </div>
+
+            {/* DROP ZONE */}
+            {!routerFile && (
+              <div style={{width:"100%",maxWidth:700}}
+                onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="var(--ac)";}}
+                onDragLeave={e=>{e.currentTarget.style.borderColor="rgba(212,168,83,.25)";}}
+                onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="rgba(212,168,83,.25)";const f=e.dataTransfer.files?.[0];if(f)loadRouterFile(f);}}>
+                <input type="file" ref={routerFileRef} style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)loadRouterFile(f);e.target.value="";}}/>
+                <div onClick={()=>routerFileRef.current?.click()}
+                  style={{border:"2px dashed rgba(212,168,83,.25)",borderRadius:16,padding:"60px 24px",textAlign:"center",cursor:"pointer",transition:"all .2s",background:"rgba(212,168,83,.03)"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(212,168,83,.25)"}>
+                  <div style={{fontSize:48,marginBottom:14,opacity:.4}}>🧭</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Dépose ton fichier ici</div>
+                  <div style={{fontSize:10,color:"var(--mu)",marginBottom:16}}>ou clique pour choisir</div>
+                  <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
+                    {["📕 PDF","📊 CSV/JSON","💻 Code","🖼 Image","📝 Texte","📄 Docx"].map(t=>(
+                      <span key={t} style={{fontSize:8,padding:"2px 8px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:10,color:"var(--mu)"}}>{t}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FILE LOADED */}
+            {routerFile && (
+              <div style={{width:"100%",maxWidth:700}}>
+                {/* File card */}
+                <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:10,marginBottom:14}}>
+                  <span style={{fontSize:28}}>{routerFile.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{routerFile.name}</div>
+                    <div style={{fontSize:9,color:"var(--mu)"}}>{routerFile.ext.toUpperCase()} · {routerFile.sizeKB} KB · {routerFile.type==="image"?"Image":"Texte"}</div>
+                  </div>
+                  <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);}}
+                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:5,color:"var(--red)",fontSize:9,padding:"3px 9px",cursor:"pointer"}}>
+                    ✕ Changer
+                  </button>
+                </div>
+
+                {/* Optional question */}
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:5}}>QUESTION OPTIONNELLE <span style={{fontWeight:400}}>(guide le routage et la procédure)</span></div>
+                  <input value={routerQuestion} onChange={e=>setRouterQuestion(e.target.value)}
+                    placeholder='Ex: "Résume ce PDF", "Génère une variante de cette image", "Corrige le code"…'
+                    style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 12px",fontFamily:"var(--font-ui)",outline:"none",boxSizing:"border-box"}}
+                    onFocus={e=>e.target.style.borderColor="var(--ac)"}
+                    onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
+                </div>
+
+                {/* Analyze button */}
+                {!routerAnalysis && (
+                  <button onClick={analyzeRouterFile} disabled={routerAnalyzing}
+                    style={{width:"100%",padding:"12px",background:"rgba(212,168,83,.15)",border:"2px solid rgba(212,168,83,.4)",borderRadius:9,color:"var(--ac)",fontSize:13,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerAnalyzing?.6:1}}>
+                    {routerAnalyzing?"⟳ Analyse en cours…":"🔍 Analyser et proposer un routage"}
+                  </button>
+                )}
+
+                {/* Analysis result */}
+                {routerAnalysis && !routerDone && (
+                  <div>
+                    {/* Summary */}
+                    <div style={{padding:"10px 14px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:16,fontStyle:"italic"}}>
+                      💡 {routerAnalysis.summary}
+                    </div>
+
+                    {/* Route suggestions */}
+                    <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10}}>ONGLETS RECOMMANDÉS — Clique pour sélectionner</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+                      {routerAnalysis.suggestions.map((sug,i)=>{
+                        const route = ROUTER_ROUTES.find(r=>r.id===sug.route);
+                        if(!route) return null;
+                        const isSelected = routerSelected===sug.route;
+                        const conf = Math.round((sug.confidence||0.8)*100);
+                        return (
+                          <div key={sug.route} onClick={()=>setRouterSelected(sug.route)}
+                            style={{padding:"14px 16px",background:isSelected?"rgba(212,168,83,.08)":"var(--s1)",border:`2px solid ${isSelected?"var(--ac)":"var(--bd)"}`,borderRadius:10,cursor:"pointer",transition:"all .15s",position:"relative"}}
+                            onMouseEnter={e=>{if(!isSelected)e.currentTarget.style.borderColor="rgba(212,168,83,.4)";}}
+                            onMouseLeave={e=>{if(!isSelected)e.currentTarget.style.borderColor="var(--bd)";}}>
+                            {i===0&&<div style={{position:"absolute",top:10,right:12,fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.15)",color:"var(--ac)",borderRadius:4,fontWeight:700}}>⭐ RECOMMANDÉ</div>}
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:36,height:36,borderRadius:8,background:route.color+"18",border:"1px solid "+route.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+                                {route.icon}
+                              </div>
+                              <div style={{flex:1,minWidth:0,paddingRight:60}}>
+                                <div style={{fontSize:11,fontWeight:700,color:isSelected?"var(--ac)":"var(--tx)",marginBottom:2}}>{route.label}</div>
+                                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4}}>{sug.reason}</div>
+                                {sug.params?.prompt&&<div style={{fontSize:8,color:"var(--ac)",marginTop:4,fontStyle:"italic"}}>Prompt : «{sug.params.prompt.slice(0,60)}{sug.params.prompt.length>60?"…":""}»</div>}
+                              </div>
+                              <div style={{flexShrink:0,textAlign:"right"}}>
+                                <div style={{fontSize:10,fontWeight:700,color:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)"}}>{conf}%</div>
+                                <div style={{fontSize:7,color:"var(--mu)"}}>confiance</div>
+                                <div style={{width:40,height:3,background:"var(--bd)",borderRadius:2,marginTop:4,overflow:"hidden"}}>
+                                  <div style={{height:"100%",width:conf+"%",background:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)",borderRadius:2}}/>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* All routes quick-pick */}
+                    <div style={{marginBottom:16}}>
+                      <div style={{fontSize:9,color:"var(--mu)",marginBottom:6}}>Ou choisir manuellement :</div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                        {ROUTER_ROUTES.map(route=>(
+                          <button key={route.id} onClick={()=>setRouterSelected(route.id)}
+                            style={{fontSize:9,padding:"4px 10px",borderRadius:6,border:"1px solid "+(routerSelected===route.id?route.color:"var(--bd)"),background:routerSelected===route.id?route.color+"18":"transparent",color:routerSelected===route.id?route.color:"var(--mu)",cursor:"pointer",transition:"all .15s"}}>
+                            {route.icon} {route.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* LAUNCH button */}
+                    {routerSelected && (
+                      <button onClick={launchRouterAction} disabled={routerLaunching}
+                        style={{width:"100%",padding:"14px",background:"rgba(212,168,83,.2)",border:"2px solid var(--ac)",borderRadius:10,color:"var(--ac)",fontSize:14,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerLaunching?.6:1,transition:"all .2s"}}
+                        onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,168,83,.3)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,168,83,.2)";}}>
+                        {routerLaunching?"⟳ Lancement…":"▶ Lancer dans " + (ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label||routerSelected)}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Done state */}
+                {routerDone && (
+                  <div style={{textAlign:"center",padding:"32px 16px"}}>
+                    <div style={{fontSize:40,marginBottom:12}}>✓</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--green)",marginBottom:6}}>Procédure lancée !</div>
+                    <div style={{fontSize:10,color:"var(--mu)",marginBottom:20}}>L'onglet <strong style={{color:"var(--ac)"}}>{ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label}</strong> a été activé avec ton fichier.</div>
+                    <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+                      <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);setRouterQuestion("");}}
+                        style={{padding:"8px 18px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>
+                        🔄 Nouveau fichier
+                      </button>
+                      <button onClick={()=>navigateTab(routerSelected||"chat")}
+                        style={{padding:"8px 18px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                        → Aller à l'onglet
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {/* ══ VEILLE INTELLIGENTE TAB ══ */}
+        {tab === "veille" && (
+          <VeilleTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
+        )}
+
+        {/* ══ VOICE MODE TAB ══ */}
+        {tab === "voice" && (
+          <VoiceTab enabled={enabled} apiKeys={apiKeys} conversations={conversations} setChatInput={setChatInput} navigateTab={navigateTab}/>
+        )}
+
+        {/* ══ PROJECTS TAB ══ */}
+        {tab === "projects" && (
+          <ProjectsTab conversations={conversations} setChatInput={setChatInput} navigateTab={navigateTab} apiKeys={apiKeys} enabled={enabled}/>
+        )}
+
+
+        {tab === "benchmark" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <BenchmarkTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "glossaire" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <GlossaireTab navigateTab={navigateTab} setChatInput={setChatInput}/>
+          </div>
+        )}
+
+        {tab === "autopsy" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <PromptAutopsyTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
+          </div>
+        )}
+
+        {tab === "mentor" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <IaMentorTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "dna" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <PromptDNATab onInject={injectPrompt}/>
+          </div>
+        )}
+
+        {tab === "conference" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ConferenceTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "consensus" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ConsensusTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
+          </div>
+        )}
+
+        {tab === "brief" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <MorningBriefTab
+              enabled={enabled}
+              apiKeys={apiKeys}
+              projects={projects}
+              memFacts={memFacts}
+              usageStats={usageStats}
+              MODEL_DEFS={MODEL_DEFS}
+              callModel={callModel}
+            />
+          </div>
+        )}
+
+        {tab === "taskia" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <TaskToIAsTab
+              enabled={enabled}
+              apiKeys={apiKeys}
+              navigateTab={navigateTab}
+              setChatInput={setChatInput}
+            />
+          </div>
+        )}
+
+        {tab === "journaliste" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <JournalisteTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "skills" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <SkillBuilderTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
+          </div>
+        )}
+
+        {tab === "contradict" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ContradictionTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
+          </div>
+        )}
+
+        {tab === "secondbrain" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <SecondBrainTab savedConvs={savedConvs} projects={projects} memFacts={memFacts} usageStats={usageStats} apiKeys={apiKeys} enabled={enabled} MODEL_DEFS={MODEL_DEFS} callModel={callModel}/>
+          </div>
+        )}
+
+        {tab === "livedebate" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <LiveDebateTimerTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "contexttrans" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ContextTranslatorTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "apioptim" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ApiOptimizerTab usageStats={usageStats} enabled={enabled}/>
+          </div>
+        )}
+
+        {tab === "civilisations" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <CivilisationsTab enabled={enabled} apiKeys={apiKeys}/>
+          </div>
+        )}
+
+        {tab === "flash" && (
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <ModeFlashTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
+          </div>
+        )}
+
+        {/* ══ ADVANCED SETTINGS TAB ══ */}
+        {tab === "advanced" && (
+          <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)"}}>🔬 Paramètres Avancés</div>
+              <button onClick={saveAdvSettings} style={{marginLeft:"auto",padding:"5px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",cursor:"pointer",fontSize:9,fontFamily:"var(--font-mono)",fontWeight:700}}>💾 Sauvegarder</button>
+            </div>
+
+            {/* Global system prompt */}
+            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>SYSTEM PROMPT GLOBAL</div>
+              <div style={{fontSize:8,color:"var(--mu)",marginBottom:6}}>Ajouté à toutes les requêtes, en plus du persona actif.</div>
+              <textarea value={globalSysPrompt} onChange={e=>setGlobalSysPrompt(e.target.value)}
+                placeholder="Ex: Réponds toujours en français. Sois concis. Utilise des bullet points..."
+                rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+
+            {/* Temperature per model */}
+            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>TEMPÉRATURE PAR MODÈLE</div>
+              <div style={{fontSize:8,color:"var(--mu)",marginBottom:10}}>0 = déterministe / 1 = créatif. Défaut : 0.7</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+                {IDS.filter(id=>enabled[id]).map(id=>{
+                  const m=MODEL_DEFS[id];
+                  const val=modelTemps[id]!==undefined?modelTemps[id]:0.7;
+                  return (
+                    <div key={id} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{color:m.color,fontSize:10,width:20}}>{m.icon}</span>
+                      <span style={{fontSize:9,color:"var(--tx)",flex:1}}>{m.short}</span>
+                      <input type="range" min="0" max="1" step="0.05" value={val}
+                        onChange={e=>setModelTemps(prev=>({...prev,[id]:parseFloat(e.target.value)}))}
+                        style={{width:80}}/>
+                      <span style={{fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)",width:26}}>{val.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom providers */}
+            <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>PROVIDERS CUSTOM (OpenAI-compatible)</div>
+              <div style={{fontSize:8,color:"var(--mu)",marginBottom:10}}>LM Studio, Jan, Ollama API, ou tout provider compatible OpenAI.</div>
+              {customProviders.map((prov,i)=>(
+                <div key={i} style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
+                  <input value={prov.name||""} placeholder="Nom" onChange={e=>{const np=[...customProviders];np[i]={...np[i],name:e.target.value};setCustomProviders(np);}}
+                    style={{flex:"0 0 100px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
+                  <input value={prov.baseUrl||""} placeholder="http://localhost:1234/v1" onChange={e=>{const np=[...customProviders];np[i]={...np[i],baseUrl:e.target.value};setCustomProviders(np);}}
+                    style={{flex:1,minWidth:180,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
+                  <input value={prov.model||""} placeholder="model-name" onChange={e=>{const np=[...customProviders];np[i]={...np[i],model:e.target.value};setCustomProviders(np);}}
+                    style={{flex:"0 0 130px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
+                  <button onClick={()=>setCustomProviders(prev=>prev.filter((_,j)=>j!==i))} style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:10,padding:"2px 8px",cursor:"pointer"}}>✕</button>
+                </div>
+              ))}
+              <button onClick={()=>setCustomProviders(prev=>[...prev,{name:"",baseUrl:"",model:"",apiKey:""}])}
+                style={{fontSize:9,padding:"4px 12px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",cursor:"pointer",marginTop:4}}>
+                ＋ Ajouter un provider
+              </button>
+            </div>
+          </div>
+        )}
+
+
+        {/* ══ COMFYUI TAB ══ */}
+        {tab === "comfyui" && (
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            {/* Header */}
+            <div style={{padding:"8px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",flexShrink:0}}>
+              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"#A78BFA"}}>⬡ ComfyUI Studio</div>
+              <div style={{fontSize:9,color:comfyConnected?"var(--green)":"var(--mu)"}}>
+                {comfyConnected?"● Connecté — "+comfyUrl:"○ Non connecté"}
+              </div>
+              {/* Sub-tabs */}
+              <div style={{marginLeft:"auto",display:"flex",gap:3}}>
+                {[["generate","🎨 Générer"],["workflows","🔀 Workflows"],["history","🕐 Historique"],["settings","⚙ Config"]].map(([k,l])=>(
+                  <button key={k} onClick={()=>setComfySubTab(k)}
+                    style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+(comfySubTab===k?"#A78BFA":"var(--bd)"),background:comfySubTab===k?"rgba(124,58,237,.15)":"transparent",color:comfySubTab===k?"#A78BFA":"var(--mu)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── GENERATE SUB-TAB ── */}
+            {comfySubTab==="generate"&&(
+              <div style={{flex:1,overflow:"auto",display:"flex",gap:0,minHeight:0}}>
+                {/* Left: controls */}
+                <div style={{width:"min(300px,45%)",flexShrink:0,borderRight:"1px solid var(--bd)",overflow:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
+                  {!comfyConnected&&(
+                    <div style={{padding:"10px 12px",background:"rgba(124,58,237,.06)",border:"1px solid rgba(124,58,237,.2)",borderRadius:7,fontSize:9,color:"var(--mu)"}}>
+                      <div style={{fontWeight:700,color:"#A78BFA",marginBottom:4}}>⬡ ComfyUI non connecté</div>
+                      Lance ComfyUI sur ton PC (port 8188), puis va dans l'onglet ⚙ Config pour connecter.
+                      <button onClick={()=>setComfySubTab("settings")} style={{marginTop:6,display:"block",fontSize:8,padding:"3px 8px",background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>→ Config</button>
+                    </div>
+                  )}
+
+                  {/* Positive prompt */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>PROMPT POSITIF</div>
+                    <textarea value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
+                      placeholder="masterpiece, best quality, detailed, a beautiful landscape at sunset, photorealistic…"
+                      rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"7px 9px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                    <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                      {["masterpiece","photorealistic","8k","anime style","oil painting","cinematic lighting"].map(tag=>(
+                        <button key={tag} onClick={()=>setComfyPrompt(p=>p?(p+", "+tag):tag)}
+                          style={{fontSize:7,padding:"1px 6px",background:"rgba(124,58,237,.08)",border:"1px solid rgba(124,58,237,.2)",borderRadius:3,color:"#A78BFA",cursor:"pointer"}}>
+                          +{tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Negative prompt */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>PROMPT NÉGATIF</div>
+                    <textarea value={comfyNegPrompt} onChange={e=>setComfyNegPrompt(e.target.value)}
+                      rows={2} style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(248,113,113,.2)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"7px 9px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                  </div>
+
+                  {/* Model selector */}
+                  {comfyModels.length>0&&(
+                    <div>
+                      <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>MODÈLE (CHECKPOINT)</div>
+                      <select value={comfyModel} onChange={e=>setComfyModel(e.target.value)}
+                        style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,padding:"5px 7px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                        {comfyModels.map(m=><option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Size */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>DIMENSIONS</div>
+                    <div style={{display:"flex",gap:6}}>
+                      {[["W",comfyWidth,setComfyWidth],[" H",comfyHeight,setComfyHeight]].map(([lbl,val,setter])=>(
+                        <div key={lbl} style={{flex:1}}>
+                          <div style={{fontSize:7,color:"var(--mu)",marginBottom:2}}>{lbl}</div>
+                          <select value={val} onChange={e=>setter(Number(e.target.value))}
+                            style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 5px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                            {[256,512,640,768,1024].map(v=><option key={v} value={v}>{v}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Steps + CFG */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {[["STEPS",comfySteps,setComfySteps,1,50],["CFG",comfyCfg,setComfyCfg,1,20]].map(([lbl,val,setter,min,max])=>(
+                      <div key={lbl}>
+                        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:3}}>{lbl} <span style={{color:"var(--tx)",fontFamily:"var(--font-mono)"}}>{val}</span></div>
+                        <input type="range" min={min} max={max} step={1} value={val} onChange={e=>setter(Number(e.target.value))} style={{width:"100%"}}/>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Sampler */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>SAMPLER</div>
+                    <select value={comfySampler} onChange={e=>setComfySampler(e.target.value)}
+                      style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 6px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                      {["euler","euler_ancestral","dpm_2","dpm_2_ancestral","dpmpp_2m","dpmpp_sde","ddim","lcm"].map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Seed */}
+                  <div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>SEED <span style={{fontWeight:400}}>(-1 = aléatoire)</span></div>
+                    <div style={{display:"flex",gap:5}}>
+                      <input type="number" value={comfySeed} onChange={e=>setComfySeed(Number(e.target.value))}
+                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 7px",fontFamily:"var(--font-mono)",outline:"none"}}/>
+                      <button onClick={()=>setComfySeed(Math.floor(Math.random()*2**32))}
+                        style={{fontSize:9,padding:"4px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>🎲</button>
+                    </div>
+                  </div>
+
+                  {/* LoRAs */}
+                  {comfyLoras.length>0&&(
+                    <div>
+                      <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>LORAS ({comfyActiveLoras.length} actif{comfyActiveLoras.length!==1?"s":""})</div>
+                      {comfyActiveLoras.map((lora,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+                          <span style={{fontSize:8,flex:1,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lora.name.slice(0,20)}</span>
+                          <input type="range" min={0} max={2} step={0.1} value={lora.strength}
+                            onChange={e=>{const nl=[...comfyActiveLoras];nl[i]={...nl[i],strength:parseFloat(e.target.value)};setComfyActiveLoras(nl);}}
+                            style={{width:60}}/>
+                          <span style={{fontSize:7,color:"var(--mu)",fontFamily:"var(--font-mono)",width:22}}>{lora.strength.toFixed(1)}</span>
+                          <button onClick={()=>setComfyActiveLoras(prev=>prev.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:10}}>✕</button>
+                        </div>
+                      ))}
+                      <select onChange={e=>{if(e.target.value)setComfyActiveLoras(p=>[...p,{name:e.target.value,strength:1.0}]);e.target.value="";}}
+                        style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",fontSize:8,padding:"3px 5px",fontFamily:"var(--font-mono)",outline:"none",marginTop:3}}>
+                        <option value="">＋ Ajouter un LoRA…</option>
+                        {comfyLoras.filter(l=>!comfyActiveLoras.find(a=>a.name===l)).map(l=><option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Generate button */}
+                  <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
+                    style={{padding:"10px",background:"rgba(124,58,237,.2)",border:"2px solid rgba(124,58,237,.5)",borderRadius:8,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-mono)",opacity:!comfyConnected?.4:1}}>
+                    {comfyGenerating?"⟳ Génération… "+comfyProgress+"%":"⬡ Générer l'image"}
+                  </button>
+
+                  {/* Progress bar */}
+                  {comfyGenerating&&(
+                    <div style={{height:4,background:"var(--bd)",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:comfyProgress+"%",background:"#A78BFA",borderRadius:2,transition:"width .5s"}}/>
+                    </div>
+                  )}
+                  {comfyError&&<div style={{fontSize:9,color:"var(--red)",padding:"6px 8px",background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.2)",borderRadius:5}}>{comfyError}</div>}
+                </div>
+
+                {/* Right: result */}
+                <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16,overflow:"auto"}}>
+                  {!comfyResult&&!comfyGenerating&&(
+                    <div style={{textAlign:"center",color:"var(--mu)"}}>
+                      <div style={{fontSize:48,opacity:.15,marginBottom:12}}>⬡</div>
+                      <div style={{fontSize:11}}>Configure et génère ton image</div>
+                      <div style={{fontSize:9,marginTop:6}}>FLUX · Stable Diffusion · SDXL · Toute checkpoint installée</div>
+                    </div>
+                  )}
+                  {comfyGenerating&&!comfyResult&&(
+                    <div style={{textAlign:"center",color:"var(--mu)"}}>
+                      <div style={{fontSize:36,animation:"spin 2s linear infinite",display:"inline-block",marginBottom:12}}>⬡</div>
+                      <div style={{fontSize:11,color:"#A78BFA"}}>Génération en cours… {comfyProgress}%</div>
+                      <div style={{fontSize:9,marginTop:4}}>ComfyUI traite le workflow</div>
+                    </div>
+                  )}
+                  {comfyResult&&(
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,maxWidth:600,width:"100%"}}>
+                      <img src={comfyResult.url} alt="résultat"
+                        style={{maxWidth:"100%",maxHeight:"60vh",objectFit:"contain",borderRadius:10,border:"1px solid var(--bd)",boxShadow:"0 8px 32px rgba(0,0,0,.3)"}}/>
+                      <div style={{fontSize:9,color:"var(--mu)",textAlign:"center",fontStyle:"italic"}}>
+                        {comfyResult.prompt?.slice(0,100)}{(comfyResult.prompt?.length||0)>100?"…":""}
+                      </div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+                        <button onClick={()=>sendComfyToChat()} style={{padding:"7px 16px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,color:"var(--green)",fontSize:10,cursor:"pointer",fontWeight:700}}>💬 → Chat</button>
+                        <button onClick={()=>{window.__openCanvas&&window.__openCanvas('<img src="'+comfyResult.url+'" style="max-width:100%;max-height:100vh;object-fit:contain;display:block;margin:auto;"/>','html','Image ComfyUI');}} style={{padding:"7px 16px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.3)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>▶ Canvas</button>
+                        <a href={comfyResult.url} download={comfyResult.filename||"image.png"} style={{padding:"7px 16px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--blue)",fontSize:10,textDecoration:"none",fontWeight:700}}>⬇ Télécharger</a>
+                        <button onClick={()=>{setComfyPrompt(p=>p);generateComfy();}} disabled={comfyGenerating} style={{padding:"7px 16px",background:"transparent",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>↺ Régénérer</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── WORKFLOWS SUB-TAB ── */}
+            {comfySubTab==="workflows"&&(
+              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+                <div style={{fontSize:9,color:"var(--mu)",marginBottom:12}}>
+                  Charge un fichier <code style={{color:"var(--ac)"}}>workflow_api.json</code> exporté depuis ComfyUI (menu Save → Save (API Format)).
+                </div>
+                {/* Upload workflow */}
+                <div style={{marginBottom:14}}>
+                  <input type="file" accept=".json" id="wf-upload" style={{display:"none"}}
+                    onChange={async e=>{
+                      const f=e.target.files?.[0]; if(!f) return;
+                      try{
+                        const txt=await f.text();
+                        const json=JSON.parse(txt);
+                        setComfyActiveWf(json);
+                        setComfyWfName(f.name.replace(".json",""));
+                        showToast("✓ Workflow chargé : "+f.name);
+                      }catch{showToast("❌ JSON invalide");}
+                      e.target.value="";
+                    }}/>
+                  <label htmlFor="wf-upload" style={{display:"inline-flex",alignItems:"center",gap:7,padding:"8px 16px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.35)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
+                    📂 Charger un workflow .json
+                  </label>
+                  {comfyActiveWf&&(
+                    <span style={{marginLeft:10,fontSize:9,color:"var(--green)"}}>
+                      ✓ {comfyWfName} — {Object.keys(comfyActiveWf).length} nœuds
+                    </span>
+                  )}
+                </div>
+
+                {/* Workflow prompt injection */}
+                {comfyActiveWf&&(
+                  <div style={{marginBottom:14,padding:"10px 12px",background:"var(--s1)",border:"1px solid rgba(124,58,237,.2)",borderRadius:7}}>
+                    <div style={{fontSize:9,fontWeight:700,color:"#A78BFA",marginBottom:7}}>Prompt à injecter dans le workflow</div>
+                    <div style={{fontSize:8,color:"var(--mu)",marginBottom:7}}>L'app remplace automatiquement le premier nœud CLIPTextEncode (positif) par ce texte.</div>
+                    <div style={{display:"flex",gap:7}}>
+                      <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)} placeholder="Ton prompt ici…"
+                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"7px 9px",fontFamily:"var(--font-ui)",outline:"none"}}/>
+                      <button onClick={()=>{
+                        if(!comfyActiveWf) return;
+                        // Inject prompt into first CLIPTextEncode node
+                        const wf=JSON.parse(JSON.stringify(comfyActiveWf));
+                        for(const id of Object.keys(wf)){
+                          if(wf[id].class_type==="CLIPTextEncode"&&wf[id].inputs?.text!==undefined){
+                            wf[id].inputs.text=comfyPrompt||wf[id].inputs.text;
+                            break;
+                          }
+                        }
+                        generateComfy(wf, comfyPrompt);
+                      }} disabled={comfyGenerating||!comfyConnected}
+                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity:!comfyConnected?.4:1}}>
+                        {comfyGenerating?"⟳":"⬡ Lancer"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Saved workflows */}
+                <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>WORKFLOWS SAUVEGARDÉS ({comfyWorkflows.length})</div>
+                {comfyWorkflows.length===0&&<div style={{color:"var(--mu)",fontSize:9}}>Charge un workflow puis clique "Sauvegarder" pour le retrouver ici.</div>}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+                  {comfyWorkflows.map(wf=>(
+                    <div key={wf.id} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,padding:"10px 12px"}}>
+                      <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:3}}>{wf.name}</div>
+                      <div style={{fontSize:8,color:"var(--mu)",marginBottom:8}}>{new Date(wf.ts).toLocaleDateString("fr-FR")} · {Object.keys(wf.json||{}).length} nœuds</div>
+                      <div style={{display:"flex",gap:5}}>
+                        <button onClick={()=>{setComfyActiveWf(wf.json);setComfyWfName(wf.name);setComfySubTab("workflows");showToast("✓ "+wf.name+" chargé");}}
+                          style={{flex:1,fontSize:8,padding:"3px 0",background:"rgba(124,58,237,.1)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>Charger</button>
+                        <button onClick={()=>deleteComfyWorkflow(wf.id)} style={{fontSize:8,padding:"3px 7px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:4,color:"var(--red)",cursor:"pointer"}}>✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {comfyActiveWf&&(
+                  <button onClick={()=>{const name=prompt("Nom du workflow :",comfyWfName||"Mon workflow");if(name)saveComfyWorkflow(name,comfyActiveWf);}}
+                    style={{marginTop:12,padding:"6px 14px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                    💾 Sauvegarder le workflow actuel
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ── HISTORY SUB-TAB ── */}
+            {comfySubTab==="history"&&(
+              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                  <div style={{fontSize:9,color:"var(--mu)"}}>{comfyHistory.length} image{comfyHistory.length!==1?"s":""} générée{comfyHistory.length!==1?"s":""}</div>
+                  {comfyHistory.length>0&&<button onClick={()=>setComfyHistory([])} style={{fontSize:8,padding:"2px 8px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:4,color:"var(--red)",cursor:"pointer",marginLeft:"auto"}}>🗑 Tout effacer</button>}
+                </div>
+                {comfyHistory.length===0&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Aucune génération encore.</div>}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
+                  {comfyHistory.map((h,i)=>(
+                    <div key={i} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,overflow:"hidden"}}>
+                      <img src={h.url} alt={h.prompt} style={{width:"100%",height:140,objectFit:"cover",display:"block"}}
+                        onError={e=>{e.target.style.display="none";}}/>
+                      <div style={{padding:"7px 9px"}}>
+                        <div style={{fontSize:8,color:"var(--mu)",marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.prompt?.slice(0,50)}</div>
+                        <div style={{fontSize:7,color:"var(--mu)",marginBottom:6}}>{new Date(h.ts).toLocaleString("fr-FR")}</div>
+                        <div style={{display:"flex",gap:4}}>
+                          <button onClick={()=>sendComfyToChat(h)} style={{flex:1,fontSize:7,padding:"2px 0",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.25)",borderRadius:3,color:"var(--green)",cursor:"pointer"}}>→ Chat</button>
+                          <a href={h.url} download style={{flex:1,fontSize:7,padding:"2px 0",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,color:"var(--blue)",textDecoration:"none",textAlign:"center"}}>⬇</a>
+                          <button onClick={()=>{setComfyPrompt(h.prompt||"");setComfySubTab("generate");}} style={{flex:1,fontSize:7,padding:"2px 0",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>↺</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── SETTINGS SUB-TAB ── */}
+            {comfySubTab==="settings"&&(
+              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+                <div style={{maxWidth:500}}>
+                  <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>CONNEXION COMFYUI</div>
+                  <div style={{display:"flex",gap:7,marginBottom:10}}>
+                    <input value={comfyUrl} onChange={e=>setComfyUrl(e.target.value)}
+                      placeholder="http://127.0.0.1:8188"
+                      style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",fontFamily:"var(--font-mono)",outline:"none"}}/>
+                    <button onClick={()=>checkComfy(comfyUrl)}
+                      style={{padding:"0 16px",background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                      🔌 Connecter
+                    </button>
+                  </div>
+                  <div style={{padding:"10px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,fontSize:9,lineHeight:1.7}}>
+                    <div style={{fontWeight:700,color:"var(--tx)",marginBottom:6}}>📖 Guide rapide</div>
+                    <div style={{color:"var(--mu)"}}>1. Installe ComfyUI : <code style={{color:"var(--ac)"}}>git clone https://github.com/comfyanonymous/ComfyUI</code></div>
+                    <div style={{color:"var(--mu)"}}>2. Lance : <code style={{color:"var(--ac)"}}>python main.py --listen</code></div>
+                    <div style={{color:"var(--mu)"}}>3. ComfyUI démarre sur <code style={{color:"var(--ac)"}}>http://127.0.0.1:8188</code></div>
+                    <div style={{color:"var(--mu)"}}>4. Clique Connecter ci-dessus</div>
+                    <div style={{marginTop:6,color:"var(--mu)"}}>Modèles : place tes <code style={{color:"var(--ac)"}}>.safetensors</code> dans <code style={{color:"var(--ac)"}}>ComfyUI/models/checkpoints/</code></div>
+                    <div style={{color:"var(--mu)"}}>LoRAs : dans <code style={{color:"var(--ac)"}}>ComfyUI/models/loras/</code></div>
+                  </div>
+                  {comfyConnected&&(
+                    <div style={{marginTop:10,padding:"8px 12px",background:"rgba(74,222,128,.07)",border:"1px solid rgba(74,222,128,.25)",borderRadius:6,fontSize:9}}>
+                      <div style={{color:"var(--green)",fontWeight:700,marginBottom:4}}>● Connecté à {comfyUrl}</div>
+                      <div style={{color:"var(--mu)"}}>{comfyModels.length} checkpoint{comfyModels.length!==1?"s":""} · {comfyLoras.length} LoRA{comfyLoras.length!==1?"s":""}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === "config" && pwaPrompt && !pwaInstalled && (
           <div style={{padding:"8px 14px",background:"rgba(212,168,83,.08)",borderBottom:"1px solid rgba(212,168,83,.2)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
             <span style={{fontSize:18}}>📲</span>
@@ -6544,6 +13327,12 @@ ${allMsgs.map(m=>`
         {/* ── ONGLET COMPARE ── */}
         {tab === "compare" && (
           <div style={{flex:1,overflow:"auto",padding:16,display:"flex",flexDirection:"column",gap:16}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:2}}>
+              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)",letterSpacing:1}}>⚖ COMPARAISON</div>
+              {IDS.filter(id=>enabled[id]).length>=2&&(
+                <button onClick={()=>{const ids=IDS.filter(id=>enabled[id]);setDiffIA1(ids[0]);setDiffIA2(ids[1]);setDiffModal(true);}} style={{marginLeft:"auto",fontSize:8,padding:"3px 10px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",cursor:"pointer"}}>⚡ Diff dernières réponses</button>
+              )}
+            </div>
             <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)",letterSpacing:1}}>📊 HISTORIQUE DES COMPARAISONS</div>
             {voteHistory.length === 0 ? (
               <div style={{textAlign:"center",color:"var(--mu)",fontSize:11,padding:40}}>
@@ -7059,14 +13848,42 @@ ${allMsgs.map(m=>`
 
       {/* MOBILE BOTTOM TAB BAR */}
       <div className="mobile-tabbar" style={isMobile?{display:"flex"}:{display:"none"}}>
-        {MOBILE_TABS.map(([t,ico,lbl,badge])=>(
-          <button key={t} className={"mobile-tab-btn "+(tab===t?"on":"")} onClick={()=>navigateTab(t)} style={{position:"relative"}}>
+        {MOBILE_TABS.map(([t,ico,lbl])=>(
+          <button key={t} className={"mobile-tab-btn "+(tab===t?"on":"")} onClick={()=>navigateTab(t)}>
             <span className="ico">{ico}</span>
             <span>{lbl}</span>
-            {badge && <span style={{position:"absolute",top:4,right:"calc(50% - 14px)",background:"var(--red)",borderRadius:"50%",width:8,height:8,fontSize:0}}/>}
           </button>
         ))}
+        {/* Bouton "Plus" */}
+        <button className={"mobile-tab-btn "+(showMobileMore?"on":"")} onClick={()=>setShowMobileMore(v=>!v)}>
+          <span className="ico">{showMobileMore?"✕":"⋯"}</span>
+          <span>Plus</span>
+        </button>
       </div>
+
+      {/* MOBILE MORE OVERLAY */}
+      {showMobileMore && isMobile && (
+        <>
+          <div className="mobile-more-overlay" onClick={()=>setShowMobileMore(false)}/>
+          <div className="mobile-more-drawer">
+            <div style={{textAlign:"center",marginBottom:10,fontSize:10,color:"var(--ac)",fontWeight:700,fontFamily:"var(--font-display)"}}>Tous les onglets</div>
+            {MOBILE_MORE_SECTIONS.map(section=>(
+              <div key={section.label}>
+                <div className="mobile-more-section">{section.label}</div>
+                <div className="mobile-more-grid">
+                  {section.tabs.map(([t,ico,lbl])=>(
+                    <button key={t} className={"mobile-more-btn "+(tab===t?"on":"")}
+                      onClick={()=>{ navigateTab(t); setShowMobileMore(false); }}>
+                      <span className="mico">{ico}</span>
+                      <span>{lbl}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* PWA INSTALL BANNER */}
       {showPwaBanner && !pwaInstalled && (
@@ -7078,6 +13895,166 @@ ${allMsgs.map(m=>`
           </div>
           {pwaPrompt && <button className="pwa-install-btn" onClick={installPwa}>Installer</button>}
           <button className="pwa-dismiss-btn" onClick={dismissPwaBanner}>✕</button>
+        </div>
+      )}
+
+      {/* ══ CANVAS PANEL ══ */}
+      {canvasContent && (() => {
+        // Build HTML with error catcher injected
+        const isHtml = canvasContent.lang === "html" || canvasContent.lang === "svg";
+        const healScript = `<script>window.onerror=function(msg,src,line,col,err){parent.postMessage({type:'canvas-error',error:(err?.message||msg)+' (L'+line+':'+col+')'},'*');return true;};<\/script>`;
+        const srcDoc = isHtml ? healScript + canvasContent.code : '<html><head>'+healScript+'</head><body style="margin:0;background:#fff;">'+canvasContent.code+'</body></html>';
+        return (
+          <div className="canvas-panel">
+            <div className="canvas-hdr">
+              <span style={{fontSize:11}}>🎨</span>
+              <span style={{flex:1,fontFamily:"var(--font-display)",fontWeight:700,fontSize:11,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {canvasContent.title||"Canvas"}
+                {canvasHealCount>0&&<span style={{marginLeft:6,fontSize:8,color:"var(--green)",fontFamily:"var(--font-mono)"}}>✓ {canvasHealCount} auto-correction{canvasHealCount>1?"s":""}</span>}
+              </span>
+              <span style={{fontSize:8,color:"var(--mu)",padding:"2px 6px",background:"var(--s2)",borderRadius:3,marginRight:4}}>{canvasContent.lang}</span>
+              <button onClick={()=>{const b=new Blob([canvasContent.code],{type:"text/html"});const u=URL.createObjectURL(b);window.open(u,"_blank");}} style={{fontSize:8,padding:"3px 8px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:4,color:"var(--blue)",cursor:"pointer",marginRight:4}}>↗</button>
+              <button onClick={()=>{setCanvasContent(null);setCanvasError(null);}} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:12,width:24,height:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            </div>
+            <iframe className="canvas-iframe" sandbox="allow-scripts"
+              srcDoc={srcDoc} title="Canvas preview"
+              ref={React.useCallback(el=>{
+                if(el){
+                  if(el.__msgHandler) window.removeEventListener('message',el.__msgHandler);
+                  el.__msgHandler=(e)=>{ if(e.data?.type==='canvas-error') setCanvasError(e.data.error); };
+                  window.addEventListener('message',el.__msgHandler);
+                } else if(el===null){
+                  // unmount — handled by effect cleanup
+                }
+              },[])}
+            />
+            {/* Error banner with auto-heal */}
+            {canvasError && (
+              <div style={{padding:"8px 12px",background:"rgba(248,113,113,.1)",borderTop:"1px solid rgba(248,113,113,.3)",flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:9,color:"var(--red)",fontFamily:"var(--font-mono)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>⚠️ {canvasError}</span>
+                <button onClick={healCanvas} disabled={canvasEditing}
+                  style={{padding:"3px 10px",background:"rgba(248,113,113,.15)",border:"1px solid rgba(248,113,113,.4)",borderRadius:5,color:"var(--red)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700,flexShrink:0,opacity:canvasEditing?.5:1}}>
+                  {canvasEditing?"⟳ Correction…":"🔧 Auto-corriger"}
+                </button>
+              </div>
+            )}
+            {/* Edit bar */}
+            <div style={{padding:"8px 12px",borderTop:"1px solid var(--bd)",background:"var(--s1)",flexShrink:0}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                <div style={{fontSize:8,color:"var(--mu)"}}>✦ Modifier avec l'IA</div>
+                {comfyConnected&&<button onClick={()=>{
+                  const promptAI = "illustration for: "+canvasContent?.title;
+                  setComfyPrompt(promptAI);
+                  generateComfy(null, promptAI);
+                }} style={{marginLeft:"auto",fontSize:7,padding:"2px 7px",background:"rgba(124,58,237,.1)",border:"1px solid rgba(124,58,237,.3)",borderRadius:3,color:"#A78BFA",cursor:"pointer"}}>
+                  ⬡ Générer image
+                </button>}
+              </div>
+              <div style={{display:"flex",gap:7}}>
+                <input value={canvasEditInput} onChange={e=>setCanvasEditInput(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&canvasEditInput.trim())editCanvas();}}
+                  placeholder='Ex: "Ajoute un bouton", "Change le fond en noir"…'
+                  style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"6px 10px",fontFamily:"var(--font-ui)",outline:"none"}}/>
+                <button onClick={()=>editCanvas()} disabled={canvasEditing||!canvasEditInput.trim()}
+                  style={{padding:"0 12px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,opacity:canvasEditing||!canvasEditInput.trim()?.4:1}}>
+                  {canvasEditing?"⟳":"✦"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══ DIFF MODAL ══ */}
+      {diffModal && (() => {
+        const activeIAs = IDS.filter(id=>enabled[id]);
+        const ia1 = diffIA1 || activeIAs[0] || "";
+        const ia2 = diffIA2 || activeIAs[1] || "";
+        const msgs1 = (conversations[ia1]||[]).filter(m=>m.role==="assistant");
+        const msgs2 = (conversations[ia2]||[]).filter(m=>m.role==="assistant");
+        const lastMsg1 = msgs1[msgs1.length-1]?.content||"";
+        const lastMsg2 = msgs2[msgs2.length-1]?.content||"";
+        const diff = lastMsg1&&lastMsg2 ? computeDiff(lastMsg1,lastMsg2) : [];
+        const added = diff.filter(d=>d.t==="add").length;
+        const deleted = diff.filter(d=>d.t==="del").length;
+        const similar = diff.filter(d=>d.t==="eq").length;
+        const pct = diff.length>0?Math.round(similar/diff.length*100):0;
+        return (
+          <div onClick={()=>setDiffModal(false)} style={{position:"fixed",inset:0,zIndex:9100,background:"rgba(0,0,0,.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(8px)"}}>
+            <div onClick={e=>e.stopPropagation()} style={{width:"min(860px,96vw)",maxHeight:"90vh",background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:12,overflow:"auto",display:"flex",flexDirection:"column"}}>
+              <div style={{padding:"12px 16px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,position:"sticky",top:0,zIndex:2}}>
+                <span style={{fontSize:14}}>⚡</span>
+                <div style={{flex:1,fontFamily:"var(--font-display)",fontWeight:800,fontSize:13,color:"var(--tx)"}}>Diff de réponses</div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  {[ia1,ia2].map((ia,idx)=>(
+                    <select key={idx} value={ia} onChange={e=>{idx===0?setDiffIA1(e.target.value):setDiffIA2(e.target.value);}}
+                      style={{fontSize:9,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:MODEL_DEFS[ia]?.color||"var(--tx)",padding:"3px 7px",fontFamily:"var(--font-mono)"}}>
+                      {activeIAs.map(id=><option key={id} value={id}>{MODEL_DEFS[id]?.icon} {MODEL_DEFS[id]?.short}</option>)}
+                    </select>
+                  ))}
+                </div>
+                <button onClick={()=>setDiffModal(false)} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",fontSize:14,width:28,height:28,cursor:"pointer"}}>✕</button>
+              </div>
+              {/* Stats */}
+              <div style={{padding:"8px 16px",borderBottom:"1px solid var(--bd)",display:"flex",gap:12,alignItems:"center",background:"var(--s2)"}}>
+                <span style={{fontSize:9,color:"var(--green)",fontFamily:"var(--font-mono)"}}>+{added} mots ajoutés</span>
+                <span style={{fontSize:9,color:"var(--red)",fontFamily:"var(--font-mono)"}}>{deleted} mots supprimés</span>
+                <span style={{fontSize:9,color:"var(--mu)",fontFamily:"var(--font-mono)"}}>{pct}% similaire</span>
+                <div style={{flex:1,height:4,background:"var(--bd)",borderRadius:2,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:pct+"%",background:"var(--green)",borderRadius:2,transition:"width .5s"}}/>
+                </div>
+              </div>
+              {/* Diff text */}
+              <div style={{padding:"14px 16px",fontSize:10,lineHeight:1.9,fontFamily:"var(--font-ui)"}}>
+                {diff.length===0&&<div style={{color:"var(--mu)",textAlign:"center",padding:20}}>Envoie un message d'abord pour comparer les réponses.</div>}
+                {diff.map((d,i)=>(
+                  <span key={i} style={{
+                    background:d.t==="add"?"rgba(74,222,128,.18)":d.t==="del"?"rgba(248,113,113,.18)":"transparent",
+                    color:d.t==="add"?"var(--green)":d.t==="del"?"var(--red)":"var(--tx)",
+                    textDecoration:d.t==="del"?"line-through":"none",
+                    padding:d.t==="eq"?"0":"0 1px",
+                    borderRadius:2,
+                    marginRight:"3px",
+                  }}>{d.v}{" "}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══ PROMPT BUILDER MODAL ══ */}
+      {showPromptBuilder && (
+        <PromptBuilderModal
+          onInsert={(text)=>{setChatInput(text); showToast("✓ Prompt inséré");}}
+          onClose={()=>setShowPromptBuilder(false)}
+          enabled={enabled}
+          apiKeys={apiKeys}
+        />
+      )}
+
+      {/* ══ AUTO-MEMORY SUGGESTIONS ══ */}
+      {showMemSuggest && autoMemSuggestions.length>0 && (
+        <div style={{position:"fixed",bottom:70,left:"50%",transform:"translateX(-50%)",zIndex:9400,background:"var(--s1)",border:"1px solid rgba(212,168,83,.4)",borderRadius:10,padding:"10px 14px",maxWidth:460,boxShadow:"0 4px 24px rgba(0,0,0,.5)"}}>
+          <div style={{fontSize:9,fontWeight:700,color:"var(--ac)",marginBottom:8}}>🧠 Mémoriser ces informations ?</div>
+          {autoMemSuggestions.map((fact,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+              <span style={{fontSize:9,color:"var(--tx)",flex:1}}>• {fact}</span>
+              <button onClick={()=>{
+                const newFact={id:Date.now().toString()+i,text:fact};
+                setMemFacts(p=>[...p,newFact]);
+                try{localStorage.setItem("multiia_mem",JSON.stringify([...memFacts,newFact]));}catch{}
+                setAutoMemSuggestions(p=>p.filter((_,j)=>j!==i));
+                if(autoMemSuggestions.length<=1)setShowMemSuggest(false);
+                showToast("✓ Mémorisé : "+fact.slice(0,40));
+              }} style={{fontSize:8,padding:"2px 8px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer",whiteSpace:"nowrap"}}>
+                ✓ Mémoriser
+              </button>
+            </div>
+          ))}
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            <button onClick={()=>setShowMemSuggest(false)} style={{fontSize:8,padding:"3px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>Ignorer tout</button>
+          </div>
         </div>
       )}
 
