@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "name": "tuto_output",
+  "profile": {
+    "name": "custom",
+    "width": 1920,
+    "height": 1080,
+    "fps_num": 25,
+    "fps_den": 1,
+    "progressive": true,
+    "dar_num": 16,
+    "dar_den": 9
+  },
+  "bin": [],
+  "tracks": [],
+  "transitions": [],
+  "guides": [],
+  "metadata": {
+    "created": "2026-03-18T15:18:28.176616",
+    "modified": "2026-03-18T15:18:28.176616",
+    "software": "kdenlive-cli 1.0"
+  }
+}
