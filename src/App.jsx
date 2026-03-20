@@ -1,6 +1,3 @@
---- src/App.jsx (原始)
-)}
-
       {activeView==="cout" && (
         <div className="stats-bar-section">
           <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,borderBottom:"1px solid var(--bd)",paddingBottom:6}}>Tokens & Coûts estimés par IA</div>
