@@ -2316,7 +2316,7 @@ function YouTubeTab({ apiKeys = {} }) {
             return (
             <div key={i} style={{position:"relative"}}>
               <div className={`yt-vcard ${v.important?"important":""}`}
-                style={{display:"flex",flexDirection:"row",gap:10,alignItems:"center",borderRadius:6,textDecoration:"none",transition:"background .15s,border-color .15s",opacity:isWatched?.55:1,cursor:isSrch?"wait":"pointer"}}
+                style={{display:"flex",flexDirection:"row",gap:10,alignItems:"center",borderRadius:6,textDecoration:"none",transition:"background .15s,border-color .15s",opacity:isWatched ? 0.55 : 1,cursor:isSrch?"wait":"pointer"}}
                 onClick={()=>{ if(!isSrch){ searchAndPlay(v, i); } }}
                 onMouseEnter={e=>e.currentTarget.style.borderColor="#FF6B6B44"}
                 onMouseLeave={e=>e.currentTarget.style.borderColor="var(--bd)"}>
@@ -3644,7 +3644,7 @@ RÉPONSE DE L'APPRENANT : ${userAnswer}
             {/* Sessions roadmap */}
             <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
               {active.sessions?.map((s,i)=>(
-                <div key={i} style={{flexShrink:0,width:110,padding:"8px 10px",borderRadius:8,border:"2px solid "+(i===active.currentSession?"var(--ac)":s.completed?"var(--green)":"var(--bd)"),background:i===active.currentSession?"rgba(212,168,83,.08)":s.completed?"rgba(74,222,128,.06)":"var(--s1)",cursor:"pointer",opacity:i>active.currentSession+1?.6:1}}
+                <div key={i} style={{flexShrink:0,width:110,padding:"8px 10px",borderRadius:8,border:"2px solid "+(i===active.currentSession?"var(--ac)":s.completed?"var(--green)":"var(--bd)"),background:i===active.currentSession?"rgba(212,168,83,.08)":s.completed?"rgba(74,222,128,.06)":"var(--s1)",cursor:"pointer",opacity: i > active.currentSession + 1 ? 0.6 : 1}}
                   onClick={()=>{setSessions(prev=>{const u=prev.map(x=>x.id===active.id?{...x,currentSession:i}:x);saveS(u);return u;});setCurrentStep(null);}}>
                   <div style={{fontSize:9,color:s.completed?"var(--green)":i===active.currentSession?"var(--ac)":"var(--mu)",fontWeight:700,marginBottom:2}}>{s.completed?"✓":i===active.currentSession?"▶":"○"} S{i+1}</div>
                   <div style={{fontSize:8,color:"var(--tx)",lineHeight:1.3}}>{s.titre}</div>
@@ -6881,7 +6881,7 @@ function WebIAsTab() {
             ))}
           </div>
           <button onClick={discoverNewAIs} disabled={discovering}
-            style={{padding:"4px 10px",fontSize:9,fontWeight:700,borderRadius:5,border:"1px solid var(--ac)",background:"transparent",color:"var(--ac)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",opacity:discovering?.6:1}}>
+            style={{padding:"4px 10px",fontSize:9,fontWeight:700,borderRadius:5,border:"1px solid var(--ac)",background:"transparent",color:"var(--ac)",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",opacity: discovering ? 0.6 : 1}}>
             {discovering?"⏳ Recherche...":"🔭 Découvrir nouvelles IAs"}
           </button>
         </div>
@@ -7393,7 +7393,7 @@ function PromptBuilderModal({ onInsert, onClose, enabled, apiKeys }) {
         )}
         <div style={{padding:"12px 16px",borderTop:"1px solid var(--bd)",display:"flex",gap:8}}>
           <button onClick={()=>{onInsert(assembled);onClose();}} disabled={!assembled.trim()}
-            style={{flex:1,padding:"8px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:7,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,opacity:assembled.trim()?.4:1}}>
+            style={{flex:1,padding:"8px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:7,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,opacity: assembled.trim() ? 0.4 : 1}}>
             ↗ Insérer dans le Chat
           </button>
           <button onClick={optimizePrompt} disabled={optimizing||!assembled.trim()}
@@ -9318,8 +9318,12 @@ async function checkCliBridge() {
     };
     window.addEventListener("beforeinstallprompt", handler);
     if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) setPwaInstalled(true);
-    window.addEventListener("appinstalled", () => { setPwaInstalled(true); setShowPwaBanner(false); });
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    const appInstalledHandler = () => { setPwaInstalled(true); setShowPwaBanner(false); };
+    window.addEventListener("appinstalled", appInstalledHandler);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", appInstalledHandler);
+    };
   }, []);
   const installPwa = async () => {
     if (!pwaPrompt) return;
@@ -11195,7 +11199,7 @@ async function checkCliBridge() {
                       </select>
                     )}
                     <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyPrompt.trim()}
-                      style={{padding:"4px 12px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:9,cursor:"pointer",fontWeight:700,opacity:comfyGenerating||!comfyPrompt.trim()?.5:1,whiteSpace:"nowrap"}}>
+                      style={{padding:"4px 12px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:9,cursor:"pointer",fontWeight:700,opacity: comfyGenerating || !comfyPrompt.trim() ? 0.5 : 1,whiteSpace:"nowrap"}}>
                       {comfyGenerating?"⟳ "+comfyProgress+"%":"⬡ Générer"}
                     </button>
                   </div>
@@ -11443,9 +11447,9 @@ async function checkCliBridge() {
                     </div>
                     {/* Reorder */}
                     <button onClick={()=>{if(idx===0)return;const n=[...workflowNodes];[n[idx-1],n[idx]]=[n[idx],n[idx-1]];saveWorkflow(n);}} disabled={idx===0}
-                      style={{background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:9,width:20,height:20,cursor:idx===0?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:idx===0?.3:1}}>↑</button>
+                      style={{background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:9,width:20,height:20,cursor:idx===0?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity: idx === 0 ? 0.3 : 1}}>↑</button>
                     <button onClick={()=>{if(idx===workflowNodes.length-1)return;const n=[...workflowNodes];[n[idx],n[idx+1]]=[n[idx+1],n[idx]];saveWorkflow(n);}} disabled={idx===workflowNodes.length-1}
-                      style={{background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:9,width:20,height:20,cursor:idx===workflowNodes.length-1?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:idx===workflowNodes.length-1?.3:1}}>↓</button>
+                      style={{background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",fontSize:9,width:20,height:20,cursor:idx===workflowNodes.length-1?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity: idx === workflowNodes.length - 1 ? 0.3 : 1}}>↓</button>
                     <button onClick={()=>saveWorkflow(workflowNodes.filter((_,i)=>i!==idx))}
                       style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:9,padding:"2px 6px",cursor:"pointer"}}>✕</button>
                   </div>
@@ -11758,7 +11762,7 @@ async function checkCliBridge() {
                         style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 9px",fontFamily:"var(--font-ui)",outline:"none"}}
                         onKeyDown={e=>{if(e.key==="Enter")generateComfy();}}/>
                       <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
-                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity:!comfyConnected?.4:1}}>
+                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity: !comfyConnected ? 0.4 : 1}}>
                         {comfyGenerating?comfyProgress+"%":"⬡ Go"}
                       </button>
                     </div>
@@ -12300,7 +12304,7 @@ async function checkCliBridge() {
                 placeholder="Pose ta question, problème ou sujet à analyser par le panel d'experts…"
                 rows={3} style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 11px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none"}}/>
               <button onClick={runExpertPanel} disabled={expertRunning||!expertQuery.trim()}
-                style={{padding:"0 18px",background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.4)",borderRadius:7,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:700,opacity:expertRunning||!expertQuery.trim()?.4:1}}>
+                style={{padding:"0 18px",background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.4)",borderRadius:7,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:700,opacity: expertRunning || !expertQuery.trim() ? 0.4 : 1}}>
                 {expertRunning?"⟳":"🧠 Analyser"}
               </button>
             </div>
@@ -12482,7 +12486,7 @@ async function checkCliBridge() {
                 {/* Analyze button */}
                 {!routerAnalysis && (
                   <button onClick={analyzeRouterFile} disabled={routerAnalyzing}
-                    style={{width:"100%",padding:"12px",background:"rgba(212,168,83,.15)",border:"2px solid rgba(212,168,83,.4)",borderRadius:9,color:"var(--ac)",fontSize:13,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerAnalyzing?.6:1}}>
+                    style={{width:"100%",padding:"12px",background:"rgba(212,168,83,.15)",border:"2px solid rgba(212,168,83,.4)",borderRadius:9,color:"var(--ac)",fontSize:13,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity: routerAnalyzing ? 0.6 : 1}}>
                     {routerAnalyzing?"⟳ Analyse en cours…":"🔍 Analyser et proposer un routage"}
                   </button>
                 )}
@@ -12547,7 +12551,7 @@ async function checkCliBridge() {
                     {/* LAUNCH button */}
                     {routerSelected && (
                       <button onClick={launchRouterAction} disabled={routerLaunching}
-                        style={{width:"100%",padding:"14px",background:"rgba(212,168,83,.2)",border:"2px solid var(--ac)",borderRadius:10,color:"var(--ac)",fontSize:14,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity:routerLaunching?.6:1,transition:"all .2s"}}
+                        style={{width:"100%",padding:"14px",background:"rgba(212,168,83,.2)",border:"2px solid var(--ac)",borderRadius:10,color:"var(--ac)",fontSize:14,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity: routerLaunching ? 0.6 : 1,transition:"all .2s"}}
                         onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,168,83,.3)";}}
                         onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,168,83,.2)";}}>
                         {routerLaunching?"⟳ Lancement…":"▶ Lancer dans " + (ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label||routerSelected)}
@@ -12947,7 +12951,7 @@ async function checkCliBridge() {
 
                   {/* Generate button */}
                   <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
-                    style={{padding:"10px",background:"rgba(124,58,237,.2)",border:"2px solid rgba(124,58,237,.5)",borderRadius:8,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-mono)",opacity:!comfyConnected?.4:1}}>
+                    style={{padding:"10px",background:"rgba(124,58,237,.2)",border:"2px solid rgba(124,58,237,.5)",borderRadius:8,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-mono)",opacity: !comfyConnected ? 0.4 : 1}}>
                     {comfyGenerating?"⟳ Génération… "+comfyProgress+"%":"⬡ Générer l'image"}
                   </button>
 
@@ -13045,7 +13049,7 @@ async function checkCliBridge() {
                         }
                         generateComfy(wf, comfyPrompt);
                       }} disabled={comfyGenerating||!comfyConnected}
-                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity:!comfyConnected?.4:1}}>
+                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity: !comfyConnected ? 0.4 : 1}}>
                         {comfyGenerating?"⟳":"⬡ Lancer"}
                       </button>
                     </div>
@@ -13884,7 +13888,7 @@ async function checkCliBridge() {
               <div style={{padding:"8px 12px",background:"rgba(248,113,113,.1)",borderTop:"1px solid rgba(248,113,113,.3)",flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:9,color:"var(--red)",fontFamily:"var(--font-mono)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>⚠️ {canvasError}</span>
                 <button onClick={healCanvas} disabled={canvasEditing}
-                  style={{padding:"3px 10px",background:"rgba(248,113,113,.15)",border:"1px solid rgba(248,113,113,.4)",borderRadius:5,color:"var(--red)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700,flexShrink:0,opacity:canvasEditing?.5:1}}>
+                  style={{padding:"3px 10px",background:"rgba(248,113,113,.15)",border:"1px solid rgba(248,113,113,.4)",borderRadius:5,color:"var(--red)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700,flexShrink:0,opacity: canvasEditing ? 0.5 : 1}}>
                   {canvasEditing?"⟳ Correction…":"🔧 Auto-corriger"}
                 </button>
               </div>
@@ -13907,7 +13911,7 @@ async function checkCliBridge() {
                   placeholder='Ex: "Ajoute un bouton", "Change le fond en noir"…'
                   style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"6px 10px",fontFamily:"var(--font-ui)",outline:"none"}}/>
                 <button onClick={()=>editCanvas()} disabled={canvasEditing||!canvasEditInput.trim()}
-                  style={{padding:"0 12px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,opacity:canvasEditing||!canvasEditInput.trim()?.4:1}}>
+                  style={{padding:"0 12px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700,opacity: canvasEditing || !canvasEditInput.trim() ? 0.4 : 1}}>
                   {canvasEditing?"⟳":"✦"}
                 </button>
               </div>
