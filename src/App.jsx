@@ -11,7 +11,7 @@ import {
 } from "./config/models.js";
 import {
   fmt, classifyError, truncateForModel,
-  callModel, callClaude, callGemini, callCompat, callCohere,
+  callModel, callModelStream, callClaude, callGemini, callCompat, callCohere,
   callPollinations, callPollinationsPaid, correctGrammar,
 } from "./api/ai-service.js";
 
@@ -315,6 +315,53 @@ const S = `
 @import url('https://fonts.cdnfonts.com/css/geist');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090B;--s1:#0F0F13;--s2:#16161C;--bd:#222228;--tx:#DDDDE8;--mu:#555568;--ac:#D4A853;--green:#4ADE80;--red:#F87171;--orange:#FB923C;--blue:#60A5FA;--r:7px;--font-ui:'Inter',system-ui,sans-serif;--font-mono:'IBM Plex Mono',monospace;--font-display:'Geist','Syne',sans-serif}
+/* ── Thème Nord ── */
+.nord{--bg:#2E3440;--s1:#3B4252;--s2:#434C5E;--bd:#4C566A;--tx:#ECEFF4;--mu:#7B88A1;--ac:#88C0D0;--green:#A3BE8C;--red:#BF616A;--orange:#D08770;--blue:#81A1C1}
+.nord body{background:var(--bg)}
+.nord .nav{background:rgba(46,52,64,.95);border-bottom-color:#3B4252}
+.nord .nt.on{background:var(--ac);color:#2E3440}
+.nord .msg.a{border-left-color:var(--ac)}
+.nord textarea,.nord input[type=text]{background:#3B4252;border-color:#4C566A}
+.nord .theme-picker{background:#3B4252}
+.nord .global-search-box{background:#3B4252}
+.nord .onboarding-card{background:#3B4252;border-color:#4C566A}
+/* ── Thème Dracula ── */
+.dracula{--bg:#282A36;--s1:#1E1F29;--s2:#343746;--bd:#44475A;--tx:#F8F8F2;--mu:#6272A4;--ac:#FF79C6;--green:#50FA7B;--red:#FF5555;--orange:#FFB86C;--blue:#8BE9FD}
+.dracula body{background:var(--bg)}
+.dracula .nav{background:rgba(40,42,54,.95);border-bottom-color:#44475A}
+.dracula .nt.on{background:var(--ac);color:#282A36;font-weight:700}
+.dracula .msg.a{border-left-color:#BD93F9}
+.dracula textarea,.dracula input[type=text]{background:#1E1F29;border-color:#44475A}
+.dracula .theme-picker{background:#1E1F29;border-color:#44475A}
+.dracula .global-search-box{background:#1E1F29;border-color:var(--ac)}
+.dracula .onboarding-card{background:#1E1F29;border-color:#44475A}
+/* ── Curseur streaming ── */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.streaming-cursor::after{content:"▋";display:inline-block;animation:blink .7s step-end infinite;color:var(--ac);margin-left:1px;font-size:.9em}
+/* ── Onboarding overlay ── */
+.onboarding-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.onboarding-card{background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:32px 36px;max-width:480px;width:90%;text-align:center;position:relative}
+.onboarding-step{font-size:9px;color:var(--mu);font-family:var(--font-mono);margin-bottom:8px;letter-spacing:2px}
+.onboarding-title{font-family:var(--font-display);font-weight:800;font-size:22px;color:var(--ac);margin-bottom:8px}
+.onboarding-desc{font-size:11px;color:var(--mu);line-height:1.7;margin-bottom:24px}
+.onboarding-dots{display:flex;gap:6px;justify-content:center;margin-bottom:20px}
+.onboarding-dot{width:8px;height:8px;border-radius:50%;background:var(--bd);transition:all .2s}
+.onboarding-dot.on{background:var(--ac);width:20px;border-radius:4px}
+/* ── Recherche globale ── */
+.global-search-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:8000;display:flex;align-items:flex-start;justify-content:center;padding-top:15vh;backdrop-filter:blur(4px)}
+.global-search-box{background:var(--s1);border:1px solid var(--ac);border-radius:12px;width:90%;max-width:600px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.global-search-input{width:100%;background:transparent;border:none;padding:16px 20px;font-size:16px;color:var(--tx);font-family:var(--font-ui);outline:none}
+.global-search-results{max-height:400px;overflow-y:auto}
+.global-search-result{padding:10px 20px;cursor:pointer;border-top:1px solid var(--bd);transition:background .1s}
+.global-search-result:hover{background:var(--s2)}
+.global-search-result-title{font-size:10px;font-weight:700;color:var(--ac);margin-bottom:3px}
+.global-search-result-excerpt{font-size:9px;color:var(--mu);line-height:1.5}
+.global-search-result mark{background:rgba(212,168,83,.3);color:var(--tx);border-radius:2px;padding:0 2px}
+/* ── Thème picker ── */
+.theme-picker{position:absolute;top:calc(100% + 6px);right:0;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:4px;z-index:300;display:flex;flex-direction:column;gap:2px;min-width:120px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.theme-option{padding:6px 12px;border-radius:5px;cursor:pointer;font-size:9px;color:var(--tx);font-family:var(--font-mono);transition:background .1s;border:none;background:transparent;text-align:left;white-space:nowrap}
+.theme-option:hover{background:var(--s2)}
+.theme-option.on{background:rgba(212,168,83,.15);color:var(--ac);font-weight:700}
 html{font-size:16px}
 body{background:var(--bg);color:var(--tx);font-family:var(--font-ui);overflow:hidden}
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
@@ -699,11 +746,27 @@ input[type=file]{display:none}
 .yt-vstar{color:#FF6B6B;font-size:10px;flex-shrink:0}
 
 /* ── THÈME CLAIR ── */
-.light{--bg:#F5F5F7;--s1:#FFFFFF;--s2:#EAEAF0;--bd:#D0D0DC;--tx:#1A1A2E;--mu:#8888A0;--ac:#B8860B;--green:#16A34A;--red:#DC2626;--orange:#EA580C;--blue:#2563EB}
+.light{--bg:#F5F5F7;--s1:#FFFFFF;--s2:#EAEAF0;--bd:#D0D0DC;--tx:#1A1A2E;--mu:#6B7080;--ac:#B8860B;--green:#16A34A;--red:#DC2626;--orange:#EA580C;--blue:#2563EB}
 .light body{background:var(--bg)}
-.light .nav{background:linear-gradient(180deg,#FFFFFF,#F5F5F7)}
-.light .msg.u{background:#E8E8F0;color:var(--tx)}
+.light .nav{background:rgba(255,255,255,.95);border-bottom-color:#D0D0DC;box-shadow:0 1px 8px rgba(0,0,0,.08)}
+.light .msg.u{background:#E2E8F0;color:var(--tx)}
+.light .msg.a{background:#FFFFFF;border-color:#D0D0DC}
 .light .toast{background:#1A1A2E;color:#F5F5F7}
+.light .chat-col{background:#F8F8FA;border-color:#D0D0DC}
+.light .chat-col-hdr{background:#FFFFFF;border-bottom-color:#D0D0DC}
+.light .hist-panel{background:#FFFFFF;border-color:#D0D0DC}
+.light .hist-item{border-bottom-color:#E8E8F0}
+.light .hist-item:hover,.light .hist-item.active{background:#F0F0F5}
+.light .nt{color:#4A4A6A}
+.light .nt.on{background:var(--ac);color:#FFFFFF}
+.light .nt:hover:not(.on){background:#EAEAF5;color:var(--tx)}
+.light .persona-bar{background:#FFFFFF;border-bottom-color:#D0D0DC}
+.light textarea,.light input[type=text],.light input[type=email],.light input[type=password]{background:#FFFFFF;border-color:#C0C0CC;color:var(--tx)}
+.light textarea:focus,.light input:focus{border-color:var(--ac);box-shadow:0 0 0 2px rgba(184,134,11,.15)}
+.light code,.light pre{background:#EAEAF0;border-color:#C8C8D8;color:#2D2D4A}
+.light .theme-picker{background:#FFFFFF;box-shadow:0 4px 20px rgba(0,0,0,.12)}
+.light .global-search-box{background:#FFFFFF;box-shadow:0 8px 40px rgba(0,0,0,.15)}
+.light .onboarding-card{background:#FFFFFF;box-shadow:0 20px 60px rgba(0,0,0,.15)}
 
 /* ── THEME TOGGLE ── */
 .theme-btn{background:none;border:1px solid var(--bd);border-radius:5px;color:var(--mu);cursor:pointer;font-size:12px;padding:3px 7px;transition:all .15s;line-height:1}
@@ -1883,7 +1946,7 @@ Réponds UNIQUEMENT avec un JSON valide dans ce format exact :
           {id:3,title:"Synthèse",action:"Synthétiser et présenter les résultats"}
         ]};
       }
-      const plannedSteps = plan.steps.map(s=>({...s,output:"",status:"pending"}));
+      const plannedSteps = (plan.steps || plan).map(s=>({...s,output:"",status:"pending"}));
       setSteps(plannedSteps);
 
       // Exécuter chaque étape
@@ -2453,7 +2516,7 @@ function YouTubeTab({ apiKeys = {} }) {
 
 
 // ── PROMPTS TAB ───────────────────────────────────────────────────
-function PromptsTab({ onInject }) {
+function PromptsTab({ onInject, apiKeys }) {
   const [catFilter, setCatFilter] = React.useState("Tout");
   const [customPrompts, setCustomPrompts] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("multiia_prompts") || "[]"); } catch { return []; }
@@ -2855,7 +2918,7 @@ function RechercheTab({ enabled, apiKeys, setChatInput, setTab }) {
                 <span style={{color:m.color,fontWeight:700,fontSize:11,fontFamily:"'Syne',sans-serif"}}>{m.name}</span>
                 {results[id] && !loading[id] && (
                   <button style={{marginLeft:"auto",background:"none",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer",fontSize:8,padding:"2px 6px",fontFamily:"'IBM Plex Mono',monospace"}}
-                    onClick={()=>{setChatInput(query);navigateTab("chat");}}>↗ Chat</button>
+                    onClick={()=>{setChatInput(query);setTab("chat");}}>↗ Chat</button>
                 )}
               </div>
               <div className="srch-card-body">
@@ -4109,8 +4172,9 @@ Réponds UNIQUEMENT en JSON :
 
           {/* Votes détaillés */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8}}>
-            {result.votes.map((v,i)=>{
+            {(result.votes||[]).map((v,i)=>{
               const m=MODEL_DEFS[v.id];
+              if (!m) return null;
               return <div key={i} style={{background:"var(--s1)",border:"1px solid "+verdictColor(v.verdict)+"33",borderRadius:8,padding:"10px 12px"}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
                   <span style={{color:m.color,fontSize:12}}>{m.icon}</span>
@@ -4124,10 +4188,10 @@ Réponds UNIQUEMENT en JSON :
           </div>
 
           {/* Sources suggérées */}
-          {result.sources.length>0 && (
+          {(result.sources||[]).length>0 && (
             <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 12px"}}>
               <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:6}}>📚 SOURCES SUGGÉRÉES POUR VÉRIFIER</div>
-              {result.sources.map((s,i)=><div key={i} style={{fontSize:9,color:"var(--blue)",marginBottom:3}}>• {s}</div>)}
+              {(result.sources||[]).map((s,i)=><div key={i} style={{fontSize:9,color:"var(--blue)",marginBottom:3}}>• {s}</div>)}
             </div>
           )}
         </div>
@@ -4945,7 +5009,7 @@ Format Markdown propre.`;
           <div>
             <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
               <div style={{fontSize:9,color:"var(--mu)"}}>
-                {report.ias.map(id=>MODEL_DEFS[id]?.icon+""+MODEL_DEFS[id]?.short).join(" · ")}
+                {(report.ias||[]).map(id=>MODEL_DEFS[id]?.icon+""+MODEL_DEFS[id]?.short).join(" · ")}
                 <span style={{marginLeft:6}}>· {report.angles.length} angles couverts</span>
               </div>
               <div style={{marginLeft:"auto",display:"flex",gap:6}}>
@@ -5690,6 +5754,7 @@ function LiveDebateTimerTab({ enabled, apiKeys }) {
   const [topic, setTopic] = React.useState("");
   const [phase, setPhase] = React.useState("setup"); // setup|running|done
   const [rounds, setRounds] = React.useState([]);
+  const nextRoundRef = React.useRef([]);
   const [currentRound, setCurrentRound] = React.useState(0);
   const [timer, setTimer] = React.useState(0);
   const [timerRunning, setTimerRunning] = React.useState(false);
@@ -5762,10 +5827,10 @@ ${roundDef.desc}${context}
 Commence directement par ton argument. Sois percutant et convaincant.`;
 
     try {
-      const content = await callModel(iaId, [{role:"user",content:prompt}], apiKeys,
+      const iaResponse = await callModel(iaId, [{role:"user",content:prompt}], apiKeys,
         `Tu es un débatteur expert. Tu défends la position "${roundDef.role==="Pour"?"POUR":"CONTRE"}" de façon convaincante et factuelle.`
       );
-      const newRound = { roundIdx, label:roundDef.label, role:roundDef.role, iaId, iaName:m?.short||iaId, iaColor:m?.color||"#D4A853", content, ts:Date.now() };
+      const newRound = { roundIdx, label:roundDef.label, role:roundDef.role, iaId, iaName:m?.short||iaId, iaColor:m?.color||"#D4A853", content:iaResponse, ts:Date.now() };
       setRounds(prev => {
         const updated = [...prev, newRound];
         return updated;
@@ -5781,7 +5846,9 @@ Commence directement par ton argument. Sois percutant et convaincant.`;
     if (currentRound >= ROUND_STRUCTURE.length) { await computeFinalScore(); return; }
     const iaFor = activeIds[0];
     const iaAgainst = activeIds[1] || activeIds[0];
-    await generateRound(currentRound, iaFor, iaAgainst, rounds);
+    // Utiliser le state le plus récent via callback pour éviter la stale closure
+    setRounds(prev => { nextRoundRef.current = prev; return prev; });
+    await generateRound(currentRound, iaFor, iaAgainst, nextRoundRef.current || rounds);
   };
 
   const voteRound = (roundIdx, vote) => {
@@ -8042,13 +8109,13 @@ function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false }; }
-    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false,minimax_m27:false,minimax_m25:false,nemotron3:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false,minimax_m27:false,minimax_m25:false,nemotron3:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
-    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",pollen:"" }; }
-    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",pollen:"" }; }
+    try { const s = localStorage.getItem("multiia_keys"); return s ? JSON.parse(s) : { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",pollen:"",ollama_cloud:"",openrouter:"" }; }
+    catch { return { mistral:"",groq_inf:"",cohere:"",cerebras:"",sambanova:"",pollen:"",ollama_cloud:"",openrouter:"" }; }
   });
 
   useEffect(() => { try { localStorage.setItem("multiia_keys", JSON.stringify(apiKeys)); } catch {} }, [apiKeys]);
@@ -8154,13 +8221,43 @@ function App() {
   const [showGrammarPopup, setShowGrammarPopup] = useState(false);
 
   // ── Thème clair/sombre ──
-  const [darkMode, setDarkMode] = useState(() => {
-    try { return localStorage.getItem("multiia_theme") !== "light"; } catch { return true; }
+  // ── Thèmes (dark, light, nord, dracula) ──────────────────────────
+  const THEMES = {
+    dark:    { label:"🌑 Dark",    cls:"",        icon:"🌑" },
+    light:   { label:"☀️ Light",   cls:"light",   icon:"☀️" },
+    nord:    { label:"🧊 Nord",    cls:"nord",    icon:"🧊" },
+    dracula: { label:"🧛 Dracula", cls:"dracula", icon:"🧛" },
+  };
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem("multiia_theme2") || "dark"; } catch { return "dark"; }
   });
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  // Compatibilité avec l'ancien darkMode
+  const darkMode = theme !== "light";
   useEffect(() => {
-    document.documentElement.classList.toggle("light", !darkMode);
-    try { localStorage.setItem("multiia_theme", darkMode?"dark":"light"); } catch {}
-  }, [darkMode]);
+    const root = document.documentElement;
+    root.classList.remove("light","nord","dracula");
+    const cls = THEMES[theme]?.cls;
+    if (cls) root.classList.add(cls);
+    try { localStorage.setItem("multiia_theme2", theme); } catch {}
+  }, [theme]);
+
+  // ── Streaming ─────────────────────────────────────────────────────
+  const [streamingEnabled, setStreamingEnabled] = useState(() => {
+    try { return localStorage.getItem("multiia_streaming") !== "false"; } catch { return true; }
+  });
+  useEffect(() => { try { localStorage.setItem("multiia_streaming", streamingEnabled?"true":"false"); } catch {} }, [streamingEnabled]);
+
+  // ── Onboarding ────────────────────────────────────────────────────
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try { return !localStorage.getItem("multiia_onboarded"); } catch { return false; }
+  });
+  const [onboardStep, setOnboardStep] = useState(0);
+
+  // ── Recherche globale (Ctrl+F) ────────────────────────────────────
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const globalSearchRef = React.useRef(null);
 
   // ── Mode Focus (1 IA plein écran) ──────────────────────────────
   const [focusId, setFocusId] = useState(null);
@@ -8941,6 +9038,8 @@ async function checkCliBridge() {
       const inInput = active && (active.tagName==="INPUT"||active.tagName==="TEXTAREA");
       // Ctrl+Enter = envoyer même depuis textarea
       if (e.ctrlKey && e.key==="Enter") { e.preventDefault(); if(tab==="chat" && chatInput.trim()) sendChat(); return; }
+      // Ctrl+F = recherche globale
+      if (e.ctrlKey && e.key==="f") { e.preventDefault(); setShowGlobalSearch(v=>{ if(!v) setTimeout(()=>globalSearchRef.current?.focus(),50); return !v; }); return; }
       if (inInput && e.key!=="Escape") return;
       // Ctrl+1..9 = toggle IA
       if (e.ctrlKey && e.key>="1" && e.key<="9") {
@@ -8953,8 +9052,8 @@ async function checkCliBridge() {
       if (e.ctrlKey && e.key==="l") { e.preventDefault(); setConversations(Object.fromEntries(IDS.map(id=>[id,[]]))); showToast("💬 Conversations effacées"); }
       // Ctrl+M = export markdown
       if (e.ctrlKey && e.key==="m") { e.preventDefault(); exportMarkdown(null); }
-      // Escape = quitter focus / solo
-      if (e.key==="Escape") { setFocusId(null); setSoloId(null); setShowRagPanel(false); setCanvasContent(null); }
+      // Escape = quitter focus / solo / recherche globale
+      if (e.key==="Escape") { setFocusId(null); setSoloId(null); setShowRagPanel(false); setCanvasContent(null); setShowGlobalSearch(false); setShowThemePicker(false); }
       // Ctrl+T = reset session tokens
       if (e.ctrlKey && e.key==="t" && !inInput) { e.preventDefault(); setSessionTokens({}); showToast("🔢 Compteur tokens réinitialisé"); }
     };
@@ -9703,7 +9802,18 @@ async function checkCliBridge() {
     if (!val) return;
     setApiKeys(prev => ({ ...prev, [keyName]: val }));
     setCfgDrafts(prev => ({ ...prev, [keyName]: "" }));
-    showToast("✓ Clé enregistrée");
+    // Auto-activer les IAs qui utilisent cette clé
+    const relatedIds = IDS.filter(id => MODEL_DEFS[id]?.keyName === keyName);
+    if (relatedIds.length > 0) {
+      setEnabled(prev => {
+        const n = { ...prev };
+        relatedIds.forEach(id => { n[id] = true; });
+        return n;
+      });
+      showToast(`✓ Clé enregistrée — ${relatedIds.map(id=>MODEL_DEFS[id].short).join(", ")} activé${relatedIds.length>1?"s":""} !`);
+    } else {
+      showToast("✓ Clé enregistrée");
+    }
   };
 
   const exportJson = JSON.stringify({ _info:`MultiIA v${APP_VERSION} - clés API`, ...apiKeys }, null, 2);
@@ -9923,33 +10033,71 @@ async function checkCliBridge() {
       try {
         const hist = [...conversations[id], userMsg];
         let reply;
+
+        // ── Ajouter un message "streaming" vide immédiatement ──────
+        const useStream = streamingEnabled && MODEL_DEFS[id]?.apiType === "compat" && !owuiActive && !ollamaActive;
+        if (useStream) {
+          setConversations(prev => ({
+            ...prev,
+            [id]: [...prev[id], { role:"assistant", content:"", streaming:true }]
+          }));
+        }
+
         if (owuiActive && owuiConnected && owuiModel && id === "__owui__") {
           reply = await callOwui(owuiModel, hist, buildSystem());
         } else if (owuiActive && owuiConnected && owuiModel) {
           reply = await callOwui(owuiModel, hist, buildSystem());
         } else if (ollamaActive && ollamaConnected && ollamaModel && id === "__ollama__") {
           reply = await callOllama(ollamaModel, hist, buildSystem());
+        } else if (useStream) {
+          const safeHist = truncateForModel(hist, id, buildSystem());
+          reply = await callModelStream(id, safeHist, apiKeys, buildSystem(), (partial) => {
+            const thinkP = extractThink(partial);
+            const cleanP = stripThink(partial);
+            setConversations(prev => {
+              const msgs = [...(prev[id]||[])];
+              const lastIdx = msgs.length - 1;
+              if (lastIdx >= 0 && msgs[lastIdx].streaming) {
+                msgs[lastIdx] = { role:"assistant", content:cleanP, think:thinkP||undefined, streaming:true };
+              }
+              return { ...prev, [id]: msgs };
+            });
+            // Auto-scroll pendant le streaming
+            const el = msgsEndRefs.current[id];
+            if (el) el.scrollIntoView({ behavior:"smooth" });
+          }, file);
         } else {
           const safeHist = truncateForModel(hist, id, buildSystem());
           reply = await callModel(id, safeHist, apiKeys, buildSystem(), file);
         }
+
         const thinkContent = extractThink(reply);
         const cleanReply = stripThink(reply);
         if (ttsEnabled && ids.length===1) speakText(cleanReply);
-        // Auto-scroll to bottom
         setTimeout(()=>{ const el = msgsEndRefs.current[id]; if(el) el.scrollIntoView({behavior:"smooth"}); }, 50);
-        // Token estimation (heuristic: 1 token ≈ 4 chars)
         const inEst = Math.round(hist.reduce((a,m)=>(a+(m.content||"").length),0)/4);
         const outEst = Math.round((cleanReply||"").length/4);
         addTokens(id, inEst, outEst);
         setConversations(prev => {
-          const updated = { ...prev, [id]: [...prev[id], { role:"assistant", content:cleanReply, think:thinkContent||undefined }] };
-          return updated;
+          const msgs = [...(prev[id]||[])];
+          const lastIdx = msgs.length - 1;
+          // Remplacer le message streaming ou en ajouter un nouveau
+          if (lastIdx >= 0 && msgs[lastIdx].streaming) {
+            msgs[lastIdx] = { role:"assistant", content:cleanReply, think:thinkContent||undefined };
+          } else {
+            msgs.push({ role:"assistant", content:cleanReply, think:thinkContent||undefined });
+          }
+          return { ...prev, [id]: msgs };
         });
       } catch(e) {
         const errType = classifyError(e.message);
         if (errType==="ratelimit") markLimited(id, errType);
-        setConversations(prev => ({ ...prev, [id]: [...prev[id], { role:"error", content:`❌ ${e.message}` }] }));
+        setConversations(prev => {
+          const msgs = [...(prev[id]||[])];
+          // Supprimer le message streaming vide si erreur
+          if (msgs.length > 0 && msgs[msgs.length-1].streaming) msgs.pop();
+          return { ...prev, [id]: [...msgs, { role:"error", content:`❌ ${e.message}` }] };
+        });
       } finally { setLoading(prev => ({ ...prev, [id]:false })); }
     }));
     // ── Son + notification fin de réponse ──────────────────────────
@@ -10052,7 +10200,7 @@ async function checkCliBridge() {
     const r2 = {};
     const sysT2 = "Tu analyses les réponses de tes pairs et affines ta propre analyse.";
     const buildT2Prompt = (id) => {
-      const others = ids.filter(o=>o!==id).map(o=>`**${MODEL_DEFS[o].short}** :\n${r1[o]||"(pas de réponse)"}`).join("\n\n---\n\n");
+      const others = ids.filter(o=>o!==id).map(o=>`**${MODEL_DEFS[o]?.short||o}** :\n${r1[o]||"(pas de réponse)"}`).join("\n\n---\n\n");
       // Limiter la taille du contexte des "autres" pour les petits modèles
       const isSmall = (MODEL_DEFS[id]?.inputLimit||28000) < 8000;
       const othersCtx = isSmall ? others.slice(0, 2000) : others.slice(0, 8000);
@@ -10100,7 +10248,7 @@ async function checkCliBridge() {
       if (!enabled[sid] || isLimited(sid)) continue;
       try {
         const syn = await callModel(sid, [{ role:"user", content:synPrompt }], apiKeys, "Tu produis des synthèses claires, structurées et actionnables.");
-        setDebSynthesis(syn); setDebSynthBy(MODEL_DEFS[sid].name); synDone = true; break;
+        setDebSynthesis(syn); setDebSynthBy(MODEL_DEFS[sid]?.name||sid); synDone = true; break;
       } catch(e) { const t=classifyError(e.message); if(t==="ratelimit"||t==="credit") markLimited(sid,t); }
     }
     if (!synDone) {
@@ -10295,8 +10443,8 @@ async function checkCliBridge() {
           )}
           <button className={`mh-btn ${ttsEnabled?"on":""}`} title="Lecture vocale" onClick={()=>setTtsEnabled(v=>!v)}>🔊</button>
           <button className={`mh-btn ${memFacts.length>0?"on":""}`} style={memFacts.length>0?{borderColor:"var(--ac)",color:"var(--ac)"}:{}} title="Mémoire locale" onClick={()=>setShowMemPanel(m=>!m)}>💾</button>
-          <button className="mh-btn" title={darkMode?"Mode clair":"Mode sombre"} onClick={()=>setDarkMode(d=>!d)}>
-            {darkMode?"☀":"🌙"}
+          <button className="mh-btn" title="Thème" onClick={()=>setTheme(t=>t==="dark"?"light":t==="light"?"nord":t==="nord"?"dracula":"dark")}>
+            {THEMES[theme]?.icon||"🌑"}
           </button>
           {pwaPrompt && !pwaInstalled && (
             <button className="mh-btn" style={{borderColor:"var(--ac)",color:"var(--ac)"}} onClick={installPwa} title="Installer l'app">📲</button>
@@ -10411,7 +10559,33 @@ async function checkCliBridge() {
               );
             })}
             <button className="btn-xs" onClick={newConv} title="Nouvelle conversation">↺</button>
-            <button className="theme-btn" onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Thème clair":"Thème sombre"}>{darkMode?"☀":"🌙"}</button>
+            {/* ── Sélecteur de thème ── */}
+            <div style={{position:"relative"}}>
+              <button className="theme-btn" onClick={()=>setShowThemePicker(v=>!v)} title="Changer le thème">
+                {THEMES[theme]?.icon||"🌑"}
+              </button>
+              {showThemePicker && (
+                <>
+                  <div style={{position:"fixed",inset:0,zIndex:299}} onClick={()=>setShowThemePicker(false)}/>
+                  <div className="theme-picker">
+                    {Object.entries(THEMES).map(([k,t])=>(
+                      <button key={k} className={`theme-option ${theme===k?"on":""}`} onClick={()=>{setTheme(k);setShowThemePicker(false);}}>
+                        {t.icon} {t.label.split(" ").slice(1).join(" ")}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* ── Toggle streaming ── */}
+            <button className="theme-btn" onClick={()=>setStreamingEnabled(v=>!v)}
+              title={streamingEnabled?"Streaming ON — clic pour désactiver":"Streaming OFF — clic pour activer"}
+              style={{color:streamingEnabled?"var(--green)":"var(--mu)",borderColor:streamingEnabled?"rgba(74,222,128,.3)":"var(--bd)"}}>
+              {streamingEnabled?"⚡":"○"}
+            </button>
+            {/* ── Recherche globale ── */}
+            <button className="theme-btn" onClick={()=>{setShowGlobalSearch(true);setTimeout(()=>globalSearchRef.current?.focus(),50);}}
+              title="Recherche globale (Ctrl+F)">🔍</button>
             <button className={`voice-btn ${ttsEnabled?"speaking":""}`} onClick={()=>setTtsEnabled(v=>!v)} title="Lecture vocale des réponses">🔊</button>
           </div>
         </div>
@@ -10477,12 +10651,49 @@ async function checkCliBridge() {
               <div className="hist-hdr">
                 <span className="hist-hdr-title">📂 Historique</span>
                 <button className="hist-save-btn" onClick={() => saveConv(null)} title="Sauvegarder maintenant">💾</button>
-                <button className="hist-save-btn" style={{background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.3)",color:"var(--blue)"}} title="Partager la conversation" onClick={() => {
-                  const msgs = Object.values(conversations).flat().slice(-8);
-                  if (!msgs.length) { showToast("Aucun message à partager"); return; }
-                  const txt = msgs.map(m=>(m.role==="user"?"Tu: ":"IA: ")+m.content.slice(0,300)).join("\n\n");
-                  navigator.clipboard.writeText(txt);
-                  showToast("📋 Conversation copiée !");
+                <button className="hist-save-btn" style={{background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.3)",color:"var(--blue)"}} title="Exporter & partager la conversation" onClick={async () => {
+                  const activeIAs = IDS.filter(id => enabled[id] && (conversations[id]||[]).some(m=>m.role==="user"||m.role==="assistant"));
+                  if (!activeIAs.length) { showToast("Aucune conversation à partager"); return; }
+                  const date = new Date().toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+                  const lines = [`# 💬 Conversation Multi-IA Hub`, `> Exporté le ${date}`, ""];
+                  activeIAs.forEach(id => {
+                    const m = MODEL_DEFS[id];
+                    const msgs = (conversations[id]||[]).filter(x=>x.role==="user"||x.role==="assistant");
+                    if (!msgs.length) return;
+                    lines.push(`## ${m.icon} ${m.name}`);
+                    msgs.forEach(msg => {
+                      if (msg.role==="user") lines.push(`**👤 Vous :** ${msg.content.replace(/\n/g," ")}`,"");
+                      else lines.push(`**${m.icon} ${m.short} :** ${msg.content}`,"");
+                    });
+                    lines.push("---","");
+                  });
+                  const md = lines.join("\n");
+                  // 1. Télécharger en .md
+                  const blob = new Blob([md],{type:"text/markdown"});
+                  const dlUrl = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href=dlUrl; a.download=`conversation-multiia-${Date.now()}.md`; a.click();
+                  URL.revokeObjectURL(dlUrl);
+                  // 2. Copier dans le presse-papier
+                  try { await navigator.clipboard.writeText(md); } catch {}
+                  // 3. Uploader sur dpaste pour un lien public
+                  showToast("⏳ Création du lien de partage…");
+                  try {
+                    const form = new FormData();
+                    form.append("content", md);
+                    form.append("syntax", "markdown");
+                    form.append("expiry_days", "7");
+                    const resp = await fetch("https://dpaste.com/api/v2/", { method:"POST", body:form });
+                    if (resp.ok) {
+                      const shareUrl = (await resp.text()).trim().replace(/"/g,"") + ".md";
+                      await navigator.clipboard.writeText(shareUrl);
+                      showToast(`🔗 Lien copié : ${shareUrl}`, 5000);
+                    } else {
+                      showToast("📋 Conversation téléchargée !");
+                    }
+                  } catch {
+                    showToast("📋 Conversation téléchargée et copiée !");
+                  }
                 }}>🔗</button>
                 <button className="hist-new-btn" onClick={newConv} title="Nouvelle conversation">＋</button>
               </div>
@@ -10742,9 +10953,11 @@ async function checkCliBridge() {
                   <div className="msgs" style={{position:"relative"}} ref={el => msgRefs.current[id] = el}>
                     {conversations[id].length === 0 && !loading[id] && <div className="empty">{enabled[id]?lim?`⏳ Bloqué — ${fmtCd(id)}`:"En attente…":"Désactivé"}</div>}
                     {conversations[id].map((msg, i) => (
-                      <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative",animation:"fadeInUp .3s ease-out"}:{animation:"fadeInUp .25s ease-out"}}>
+                      <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative",animation:msg.streaming?"none":"fadeInUp .3s ease-out"}:{animation:"fadeInUp .25s ease-out"}}>
                         {msg.think && <CoTBlock think={msg.think}/>}
-                        <MarkdownRenderer text={msg.displayContent || msg.content} />
+                        <span className={msg.streaming?"streaming-cursor":""}>
+                          <MarkdownRenderer text={msg.displayContent || msg.content} />
+                        </span>
                         {msg.displayContent && <span style={{fontSize:8,color:"var(--mu)",marginLeft:6,verticalAlign:"middle"}}>📄 RAG</span>}
                         {msg.role==="blocked" && (
                           <button onClick={()=>setLimited(prev=>{const n={...prev};delete n[id];return n;})}
@@ -10752,7 +10965,7 @@ async function checkCliBridge() {
                             🔓 Débloquer
                           </button>
                         )}
-                        {msg.role==="assistant" && (
+                        {msg.role==="assistant" && !msg.streaming && (
                           <div style={{display:"flex",gap:4,marginTop:5,justifyContent:"flex-end",flexWrap:"wrap"}}>
                             <button className="voice-btn" title="Lire à voix haute" onClick={()=>speakText(msg.content)}>🔊</button>
                             <button className="voice-btn" title="Copier" onClick={()=>{try{navigator.clipboard.writeText(msg.content);}catch{}}}>⎘</button>
@@ -10764,7 +10977,7 @@ async function checkCliBridge() {
                         )}
                       </div>
                     ))}
-                    {loading[id] && <div className="msg ld"><span className="dots"><span>·</span><span>·</span><span>·</span></span></div>}
+                    {loading[id] && !conversations[id]?.some(m=>m.streaming) && <div className="msg ld"><span className="dots"><span>·</span><span>·</span><span>·</span></span></div>}
                     <div ref={el => { if(el) msgsEndRefs.current[id] = el; }} style={{height:1}}/>
                   </div>
                   {/* Scroll-to-bottom btn */}
@@ -10908,7 +11121,7 @@ async function checkCliBridge() {
                     <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
                       Lance <code style={{color:"var(--ac)"}}>ollama serve</code> puis connecte.
                       <div style={{marginTop:4,display:"flex",gap:4,flexWrap:"wrap"}}>
-                        {["llama3.3","mistral","qwen3.5:4b","gemma3","deepseek-r1:7b","phi4"].map(m=>(
+                        {["llama3.3","mistral","minimax-m2.7:cloud","qwen3.5:4b","nemotron3-super:cloud","deepseek-r1:7b","phi4"].map(m=>(
                           <span key={m} onClick={()=>{navigator.clipboard.writeText("ollama pull "+m);showToast("✓ Copié : ollama pull "+m);}}
                             style={{fontSize:7,padding:"1px 6px",background:"rgba(74,222,128,.08)",border:"1px solid rgba(74,222,128,.2)",borderRadius:3,color:"var(--green)",cursor:"pointer"}} title="Cliquer pour copier la commande">
                             {m}
@@ -11664,7 +11877,7 @@ async function checkCliBridge() {
         {/* ── PROMPTS TAB ── */}
         {tab === "prompts" && (
           <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <PromptsTab onInject={injectPrompt}/>
+            <PromptsTab onInject={injectPrompt} apiKeys={apiKeys}/>
           </div>
         )}
 
@@ -12508,7 +12721,41 @@ async function checkCliBridge() {
               <button onClick={saveAdvSettings} style={{marginLeft:"auto",padding:"5px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",cursor:"pointer",fontSize:9,fontFamily:"var(--font-mono)",fontWeight:700}}>💾 Sauvegarder</button>
             </div>
 
-            {/* Global system prompt */}
+            {/* Thème + Streaming */}
+            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:12}}>APPARENCE & PERFORMANCE</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                {/* Thème */}
+                <div>
+                  <div style={{fontSize:8,color:"var(--mu)",marginBottom:6}}>THÈME DE COULEUR</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {Object.entries(THEMES).map(([k,t])=>(
+                      <button key={k} onClick={()=>setTheme(k)}
+                        style={{padding:"5px 12px",borderRadius:8,border:"1px solid "+(theme===k?"var(--ac)":"var(--bd)"),background:theme===k?"rgba(212,168,83,.12)":"transparent",color:theme===k?"var(--ac)":"var(--tx)",fontSize:9,cursor:"pointer",fontWeight:theme===k?700:400}}>
+                        {t.icon} {t.label.split(" ").slice(1).join(" ")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Streaming */}
+                <div>
+                  <div style={{fontSize:8,color:"var(--mu)",marginBottom:6}}>STREAMING DES RÉPONSES</div>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                    <input type="checkbox" checked={streamingEnabled} onChange={e=>setStreamingEnabled(e.target.checked)}/>
+                    <div>
+                      <div style={{fontSize:9,color:"var(--tx)",fontWeight:600}}>⚡ Streaming activé</div>
+                      <div style={{fontSize:8,color:"var(--mu)"}}>Affiche les tokens en temps réel (Groq, Mistral, etc.)</div>
+                    </div>
+                  </label>
+                  <div style={{marginTop:8}}>
+                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>{setShowOnboarding(true);setOnboardStep(0);}}>
+                      <span style={{fontSize:12}}>❓</span>
+                      <div style={{fontSize:9,color:"var(--blue)",cursor:"pointer"}}>Revoir le guide de démarrage</div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
               <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>SYSTEM PROMPT GLOBAL</div>
               <div style={{fontSize:8,color:"var(--mu)",marginBottom:6}}>Ajouté à toutes les requêtes, en plus du persona actif.</div>
@@ -13073,10 +13320,12 @@ async function checkCliBridge() {
                 {[
                   ["Ctrl+Enter","Envoyer le message"],
                   ["Ctrl+1..9","Activer/désactiver l'IA n°X"],
+                  ["Ctrl+F","Recherche globale (conversations, prompts…)"],
                   ["Ctrl+K","Rechercher dans l'historique"],
                   ["Ctrl+L","Effacer toutes les conversations"],
                   ["Ctrl+M","Exporter en Markdown"],
-                  ["Escape","Quitter focus / solo / RAG"],
+                  ["Ctrl+T","Réinitialiser le compteur de tokens"],
+                  ["Escape","Quitter focus / solo / RAG / recherche"],
                 ].map(([k,d])=>(
                   <div key={k} style={{display:"flex",alignItems:"center",gap:8,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,padding:"5px 10px"}}>
                     <code style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:3,padding:"2px 6px",color:"var(--ac)",fontSize:9,whiteSpace:"nowrap"}}>{k}</code>
@@ -13161,6 +13410,51 @@ async function checkCliBridge() {
                   {apiKeys.pollen && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ Clé OK</span>}
                 </div>
               </div>
+
+              {/* ── Ollama Cloud key banner ── */}
+              <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(6,182,212,.08)",border:"1px solid rgba(6,182,212,.3)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:"0 0 auto"}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"#06B6D4",marginBottom:2}}>☁️ Ollama Cloud — ⬡ MiniMax M2.7 · ⬡ MiniMax M2.5</div>
+                  <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
+                    Gratuit · <a href="https://ollama.com/settings/tokens" target="_blank" rel="noreferrer" style={{color:"#06B6D4"}}>ollama.com/settings/tokens</a> → créer un token<br/>
+                    <span style={{opacity:.7}}>Sans compte : utilise Ollama en local (<code style={{color:"#06B6D4"}}>ollama run minimax-m2.7:cloud</code>)</span>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,flex:1,minWidth:220,alignItems:"center"}}>
+                  <input className="key-inp" type="password"
+                    placeholder={apiKeys.ollama_cloud ? "••••••••" : "Coller ton token Ollama ici…"}
+                    value={cfgDrafts.ollama_cloud||""}
+                    onChange={e=>setCfgDrafts(p=>({...p,ollama_cloud:e.target.value}))}
+                    onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts.ollama_cloud)saveCfgKey("ollama_cloud");}}
+                    style={{flex:1}}
+                  />
+                  <button className="save-btn" disabled={!cfgDrafts.ollama_cloud} onClick={()=>saveCfgKey("ollama_cloud")}>✓ Sauvegarder</button>
+                  {apiKeys.ollama_cloud && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ M2.7 + M2.5 actifs</span>}
+                </div>
+              </div>
+
+              {/* ── OpenRouter key banner ── */}
+              <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(118,185,0,.08)",border:"1px solid rgba(118,185,0,.3)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:"0 0 auto"}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"#76B900",marginBottom:2}}>⬟ OpenRouter — ⬟ Nemotron 3 Super · + 200 modèles</div>
+                  <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
+                    Gratuit (crédits offerts) · <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" style={{color:"#76B900"}}>openrouter.ai/keys</a> → créer une clé<br/>
+                    <span style={{opacity:.7}}>Nemotron 3 Super 120B : #1 open-source pour agents multi-étapes · 1M tokens de contexte</span>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,flex:1,minWidth:220,alignItems:"center"}}>
+                  <input className="key-inp" type="password"
+                    placeholder={apiKeys.openrouter ? "••••••••" : "Coller ta clé OpenRouter ici…"}
+                    value={cfgDrafts.openrouter||""}
+                    onChange={e=>setCfgDrafts(p=>({...p,openrouter:e.target.value}))}
+                    onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts.openrouter)saveCfgKey("openrouter");}}
+                    style={{flex:1}}
+                  />
+                  <button className="save-btn" disabled={!cfgDrafts.openrouter} onClick={()=>saveCfgKey("openrouter")}>✓ Sauvegarder</button>
+                  {apiKeys.openrouter && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ Nemotron actif</span>}
+                </div>
+              </div>
+
               <div className="tbl-wrap">
                 <table className="tbl">
                   <thead><tr><th>IA</th><th>Provider</th><th>Contexte</th><th>Prix</th><th>Statut</th><th>Clé API</th></tr></thead>
@@ -13716,6 +14010,149 @@ async function checkCliBridge() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+
+      {/* ══ ONBOARDING WIZARD ══ */}
+      {showOnboarding && (
+        <div className="onboarding-overlay" onClick={e=>e.target===e.currentTarget&&(setShowOnboarding(false),localStorage.setItem("multiia_onboarded","1"))}>
+          <div className="onboarding-card">
+            <div className="onboarding-step">ÉTAPE {onboardStep+1} / 3</div>
+            {onboardStep===0 && <>
+              <div style={{fontSize:48,marginBottom:12}}>🤖</div>
+              <div className="onboarding-title">Bienvenue sur Multi-IA Hub</div>
+              <div className="onboarding-desc">
+                Compare jusqu'à <strong>10 IAs en parallèle</strong> — Groq, Mistral, Llama 4, GPT-4o et plus.<br/>
+                Entièrement gratuit. Tes clés restent dans ton navigateur.
+              </div>
+            </>}
+            {onboardStep===1 && <>
+              <div style={{fontSize:48,marginBottom:12}}>🔑</div>
+              <div className="onboarding-title">Configure tes IAs</div>
+              <div className="onboarding-desc">
+                Va dans <strong>⚙ Config</strong> pour ajouter tes clés API gratuites.<br/>
+                <strong>Groq</strong> est le plus rapide — 14 400 req/jour gratuites.<br/>
+                <strong>Mistral</strong> est excellent pour le français.
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginBottom:8}}>
+                {["groq","mistral","cerebras"].map(id=>{const m=MODEL_DEFS[id];return m?<div key={id} style={{padding:"4px 10px",borderRadius:8,background:m.color+"18",border:"1px solid "+m.color+"44",fontSize:9,color:m.color,fontWeight:700}}>{m.icon} {m.short} — FREE</div>:null;})}
+              </div>
+            </>}
+            {onboardStep===2 && <>
+              <div style={{fontSize:48,marginBottom:12}}>⚡</div>
+              <div className="onboarding-title">Prêt à explorer !</div>
+              <div className="onboarding-desc">
+                <strong>Ctrl+F</strong> — Recherche globale<br/>
+                <strong>Ctrl+Enter</strong> — Envoyer le message<br/>
+                <strong>32 onglets</strong> — Débat, Mentor, Civilisations, Flash…<br/>
+                Le streaming est activé — les réponses arrivent en temps réel ⚡
+              </div>
+            </>}
+            <div className="onboarding-dots">
+              {[0,1,2].map(i=><div key={i} className={`onboarding-dot ${i===onboardStep?"on":""}`}/>)}
+            </div>
+            <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+              {onboardStep>0 && (
+                <button onClick={()=>setOnboardStep(s=>s-1)}
+                  style={{padding:"8px 20px",background:"transparent",border:"1px solid var(--bd)",borderRadius:8,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>
+                  ← Retour
+                </button>
+              )}
+              <button onClick={()=>{
+                if(onboardStep<2){setOnboardStep(s=>s+1);}
+                else{setShowOnboarding(false);try{localStorage.setItem("multiia_onboarded","1");}catch{}navigateTab("config");}
+              }} style={{padding:"8px 24px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:8,color:"var(--ac)",fontSize:11,cursor:"pointer",fontWeight:700}}>
+                {onboardStep<2?"Suivant →":"Configurer mes IAs ⚙"}
+              </button>
+            </div>
+            <button onClick={()=>{setShowOnboarding(false);try{localStorage.setItem("multiia_onboarded","1");}catch{}}}
+              style={{position:"absolute",top:12,right:14,background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:16}}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* ══ RECHERCHE GLOBALE Ctrl+F ══ */}
+      {showGlobalSearch && (
+        <div className="global-search-overlay" onClick={e=>e.target===e.currentTarget&&setShowGlobalSearch(false)}>
+          <div className="global-search-box">
+            <div style={{display:"flex",alignItems:"center",borderBottom:"1px solid var(--bd)"}}>
+              <span style={{padding:"0 14px",fontSize:16,color:"var(--mu)"}}>🔍</span>
+              <input
+                ref={globalSearchRef}
+                className="global-search-input"
+                value={globalSearch}
+                onChange={e=>setGlobalSearch(e.target.value)}
+                placeholder="Rechercher dans les conversations, prompts, projets…"
+                onKeyDown={e=>e.key==="Escape"&&setShowGlobalSearch(false)}
+              />
+              <button onClick={()=>setShowGlobalSearch(false)}
+                style={{padding:"0 16px",background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:14,height:"100%"}}>✕</button>
+            </div>
+            {globalSearch.trim().length > 1 && (()=>{
+              const q = globalSearch.toLowerCase();
+              const highlight = (text) => {
+                if (!text) return "";
+                const idx = text.toLowerCase().indexOf(q);
+                if (idx<0) return text.slice(0,80);
+                const start = Math.max(0,idx-30);
+                const end = Math.min(text.length,idx+q.length+50);
+                return (start>0?"…":"")+text.slice(start,idx)+"<mark>"+text.slice(idx,idx+q.length)+"</mark>"+text.slice(idx+q.length,end)+(end<text.length?"…":"");
+              };
+              const results = [];
+              // Chercher dans historique conversations
+              (savedConvs||[]).forEach(conv=>{
+                const msgs = Object.values(conv.conversations||{}).flat();
+                const match = msgs.find(m=>m.content?.toLowerCase().includes(q));
+                if (match || conv.title?.toLowerCase().includes(q)) {
+                  results.push({type:"conv",icon:"💬",title:conv.title||"Conversation",excerpt:highlight(match?.content||conv.title),action:()=>{setShowGlobalSearch(false);navigateTab("chat");}});
+                }
+              });
+              // Chercher dans prompts
+              const allPrompts = [...(JSON.parse(localStorage.getItem("multiia_prompts")||"[]")),...DEFAULT_PROMPTS,...EXTRA_PROMPTS];
+              allPrompts.forEach(p=>{
+                if(p.title?.toLowerCase().includes(q)||p.text?.toLowerCase().includes(q)){
+                  results.push({type:"prompt",icon:"📋",title:p.title,excerpt:highlight(p.text),action:()=>{setShowGlobalSearch(false);injectPrompt(p.text);}});
+                }
+              });
+              // Chercher dans projets
+              (projects||[]).forEach(p=>{
+                if(p.name?.toLowerCase().includes(q)||p.context?.toLowerCase().includes(q)||p.notes?.toLowerCase().includes(q)){
+                  results.push({type:"project",icon:"📁",title:p.name,excerpt:highlight(p.context||p.notes),action:()=>{setShowGlobalSearch(false);navigateTab("projects");}});
+                }
+              });
+              // Chercher dans mémoire
+              (memFacts||[]).forEach(f=>{
+                if(f.text?.toLowerCase().includes(q)){
+                  results.push({type:"memory",icon:"📌",title:"Mémoire",excerpt:highlight(f.text),action:()=>{setShowGlobalSearch(false);}});
+                }
+              });
+              if(results.length===0) return <div style={{padding:"20px",textAlign:"center",color:"var(--mu)",fontSize:11}}>Aucun résultat pour "{globalSearch}"</div>;
+              return (
+                <div className="global-search-results">
+                  <div style={{padding:"6px 20px",fontSize:8,color:"var(--mu)",borderBottom:"1px solid var(--bd)"}}>{results.length} résultat{results.length>1?"s":""}</div>
+                  {results.slice(0,12).map((r,i)=>(
+                    <div key={i} className="global-search-result" onClick={r.action}>
+                      <div className="global-search-result-title">{r.icon} {r.type==="conv"?"Conversation":r.type==="prompt"?"Prompt":r.type==="project"?"Projet":"Mémoire"} — {r.title}</div>
+                      <div className="global-search-result-excerpt" dangerouslySetInnerHTML={{__html:r.excerpt}}/>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            {globalSearch.trim().length <= 1 && (
+              <div style={{padding:"16px 20px"}}>
+                <div style={{fontSize:9,color:"var(--mu)",marginBottom:10,fontWeight:700}}>RECHERCHE DANS</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {[["💬","Conversations",(savedConvs||[]).length],["📋","Prompts",DEFAULT_PROMPTS.length+EXTRA_PROMPTS.length],["📁","Projets",(projects||[]).length],["📌","Mémoire",(memFacts||[]).length]].map(([ico,lbl,n])=>(
+                    <div key={lbl} style={{padding:"6px 12px",background:"var(--s2)",borderRadius:6,fontSize:9,color:"var(--mu)"}}>
+                      {ico} {lbl} <strong style={{color:"var(--tx)"}}>{n}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:12,fontSize:8,color:"var(--mu)"}}>💡 Ctrl+F pour ouvrir · Escape pour fermer</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

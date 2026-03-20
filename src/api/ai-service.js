@@ -175,12 +175,10 @@ export async function callPollinationsPaid(messages, apiKey, model, system="Tu e
 
 export async function callCompat(messages, apiKey, baseUrl, model, system="Tu es un assistant IA utile et concis.") {
   const headers = {"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`};
-  // OpenRouter needs HTTP-Referer
   if (baseUrl.includes("openrouter")) {
     headers["HTTP-Referer"] = "https://multiia-hub.vercel.app";
     headers["X-Title"] = "Multi-IA Hub";
   }
-  // Find model id from baseUrl+model to apply correct limit
   const modelId = Object.keys(MODEL_DEFS).find(id => MODEL_DEFS[id].model === model && MODEL_DEFS[id].baseUrl === baseUrl);
   const safeMessages = truncateForModel(messages, modelId, system);
   const r = await fetch(`${baseUrl}/chat/completions`,{method:"POST",headers,body:JSON.stringify({model,max_tokens:1500,messages:[{role:"system",content:system},...safeMessages.map(m=>({role:m.role,content:m.content}))]})});
@@ -190,6 +188,71 @@ export async function callCompat(messages, apiKey, baseUrl, model, system="Tu es
   if(d.error) throw new Error(typeof d.error==="string"?d.error:(d.error.message||JSON.stringify(d.error)));
   if(!d.choices || !d.choices[0]) throw new Error("Réponse vide — modèle indisponible. Détail: " + JSON.stringify(d).slice(0,200));
   return d.choices[0].message.content;
+}
+
+// ── Streaming SSE — tokens affichés au fur et à mesure ────────────
+export async function callCompatStream(messages, apiKey, baseUrl, model, system="Tu es un assistant IA utile et concis.", onChunk) {
+  const headers = {"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`};
+  if (baseUrl.includes("openrouter")) {
+    headers["HTTP-Referer"] = "https://multiia-hub.vercel.app";
+    headers["X-Title"] = "Multi-IA Hub";
+  }
+  const modelId = Object.keys(MODEL_DEFS).find(id => MODEL_DEFS[id].model === model && MODEL_DEFS[id].baseUrl === baseUrl);
+  const safeMessages = truncateForModel(messages, modelId, system);
+  const r = await fetch(`${baseUrl}/chat/completions`, {
+    method:"POST", headers,
+    body: JSON.stringify({
+      model, max_tokens:1500, stream:true,
+      messages:[{role:"system",content:system},...safeMessages.map(m=>({role:m.role,content:m.content}))]
+    })
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`HTTP ${r.status}: ${txt.slice(0,120)}`);
+  }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = "";
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream:true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop(); // garde la ligne incomplète
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === "data: [DONE]") continue;
+      if (!trimmed.startsWith("data: ")) continue;
+      try {
+        const json = JSON.parse(trimmed.slice(6));
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          onChunk(fullText);
+        }
+      } catch {}
+    }
+  }
+  return fullText;
+}
+
+export async function callModelStream(id, messages, keys, system, onChunk, attachedFile=null) {
+  const m = MODEL_DEFS[id];
+  if (!m) throw new Error("IA inconnue : " + id);
+  const msgWithFile = attachedFile && attachedFile.type !== "image"
+    ? messages.map((msg,i) => i===messages.length-1 ? {...msg, content:`📎 Fichier: ${attachedFile.name}\n\n${attachedFile.content}\n\n---\n${msg.content}`} : msg)
+    : messages;
+  // Seuls les providers compat supportent le streaming natif
+  if (m.apiType === "compat") {
+    const key = keys[m.keyName];
+    if (!key) throw new Error(`Clé API manquante pour ${m.name}.`);
+    return callCompatStream(msgWithFile, key, m.baseUrl, m.model, system, onChunk);
+  }
+  // Fallback non-streaming pour les autres (pollinations, cohere, gemini)
+  const result = await callModel(id, messages, keys, system, attachedFile);
+  onChunk(result);
+  return result;
 }
 export async function callCohere(messages, apiKey, system="Tu es un assistant IA utile et concis.") {
   if (!apiKey) throw new Error("Clé Cohere manquante. Va sur dashboard.cohere.com/api-keys");
