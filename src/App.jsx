@@ -1,4 +1,4 @@
---- src/App.jsx (原始)
+--- src/App.jsx 
 )}
 
       {activeView==="cout" && (
