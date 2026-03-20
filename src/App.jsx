@@ -7,12 +7,12 @@ import {
   REDACTION_ACTIONS, IDS, PRICING, RATE_LIMIT_COOLDOWN, CREDIT_COOLDOWN,
   getDiscoveredAIs, saveDiscoveredAIs, fetchYTVideos, DISCOVERY_SOURCES,
   VOICE_THEMES, VEILLE_THEMES, PROJECT_TEMPLATES, EXTRA_PROMPTS,
-  GLOSSAIRE_IA, BENCHMARK_TESTS,
+  GLOSSAIRE_IA, BENCHMARK_TESTS
 } from "./config/models.js";
 import {
   fmt, classifyError, truncateForModel,
   callModel, callClaude, callGemini, callCompat, callCohere,
-  callPollinations, callPollinationsPaid, correctGrammar,
+  callPollinations, callPollinationsPaid, correctGrammar
 } from "./api/ai-service.js";
 
 function tokenizeCode(code, lang) {
@@ -2484,6 +2484,167 @@ function PromptsTab({ onInject }) {
   const [genLoading, setGenLoading] = React.useState(false);
   const [genResults, setGenResults] = React.useState([]);
 
+  // ── Prompt Genetics Lab ──────────────────────────────────────────
+  const GENETICS_KEY = "multiia_prompt_genetics";
+  const [geneticsPool, setGeneticsPool] = React.useState(() => {
+    try { const s = localStorage.getItem(GENETICS_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [selectedForBreeding, setSelectedForBreeding] = React.useState([]);
+  const [mutationLevel, setMutationLevel] = React.useState(0.3);
+  const [evolving, setEvolving] = React.useState(false);
+  const [generationCount, setGenerationCount] = React.useState(0);
+  const [fitnessCriteria, setFitnessCriteria] = React.useState("clarté, précision, efficacité");
+
+  const saveGenetics = (pool) => { setGeneticsPool(pool); try { localStorage.setItem(GENETICS_KEY, JSON.stringify(pool)); } catch {} };
+
+  const addToPool = (prompt, title) => {
+    const newPrompt = {
+      id: "g_" + Date.now(),
+      title: title || prompt.slice(0, 40) + "…",
+      prompt,
+      fitness: 50,
+      generation: generationCount + 1,
+      parents: selectedForBreeding.length === 2 ? selectedForBreeding : [],
+      mutations: 0,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [newPrompt, ...geneticsPool];
+    saveGenetics(updated);
+    setGenerationCount(generationCount + 1);
+  };
+
+  const calculateFitness = async (promptObj) => {
+    // Simule un score de fitness basé sur plusieurs critères
+    const p = promptObj.prompt;
+    let score = 50;
+    // Longueur optimale
+    if (p.length > 100 && p.length < 1000) score += 15;
+    // Présence de contexte
+    if (p.toLowerCase().includes("contexte") || p.toLowerCase().includes("rôle")) score += 10;
+    // Format de sortie spécifié
+    if (p.toLowerCase().includes("format") || p.toLowerCase().includes("structure")) score += 10;
+    // Exemples inclus
+    if (p.toLowerCase().includes("exemple") || p.includes(":")) score += 10;
+    // Contraintes
+    if (p.toLowerCase().includes("contrainte") || p.toLowerCase().includes("limite")) score += 5;
+    return Math.min(100, score);
+  };
+
+  const mutatePrompt = (prompt, level) => {
+    const mutations = [
+      (p) => p.replace(/analyse/gi, "analyse approfondie et détaillée"),
+      (p) => p.replace(/génère/gi, "génère de manière créative et structurée"),
+      (p) => p + "\n\nPrends une profonde inspiration et résous ce problème étape par étape.",
+      (p) => "Tu es un expert mondial dans ce domaine. " + p,
+      (p) => p + "\n\nFormat de sortie requis : sois clair, concis et utilise des sections.",
+      (p) => p.replace(/\./g, ". ") + " Assure-toi que chaque point est bien développé.",
+      (p) => "Contexte : Cette tâche est critique pour mon projet.\n" + p,
+      (p) => p + "\n\nContrainte importante : ne fais aucune supposition non vérifiée.",
+    ];
+    let mutated = prompt;
+    const numMutations = Math.floor(level * mutations.length);
+    const shuffled = [...mutations].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < Math.max(1, numMutations); i++) {
+      mutated = shuffled[i](mutated);
+    }
+    return { mutated, mutationCount: Math.max(1, numMutations) };
+  };
+
+  const crossover = (parent1, parent2) => {
+    // Combine les meilleurs éléments des deux parents
+    const p1Parts = parent1.prompt.split(/\n\n+/);
+    const p2Parts = parent2.prompt.split(/\n\n+/);
+    const childParts = [];
+    
+    // Prend l'intro du parent 1 si elle existe
+    if (p1Parts[0] && p1Parts[0].length < 200) childParts.push(p1Parts[0]);
+    else if (p2Parts[0]) childParts.push(p2Parts[0]);
+    
+    // Fusionne les instructions principales
+    const middle1 = p1Parts.slice(1, -1).join("\n\n");
+    const middle2 = p2Parts.slice(1, -1).join("\n\n");
+    if (middle1 && middle2) {
+      childParts.push(middle1 + "\n\n" + middle2);
+    } else if (middle1) {
+      childParts.push(middle1);
+    } else if (middle2) {
+      childParts.push(middle2);
+    }
+    
+    // Prend la conclusion/format du parent 2
+    if (p2Parts[p2Parts.length - 1] && p2Parts.length > 1) {
+      childParts.push(p2Parts[p2Parts.length - 1]);
+    } else if (p1Parts[p1Parts.length - 1] && p1Parts.length > 1) {
+      childParts.push(p1Parts[p1Parts.length - 1]);
+    }
+    
+    return childParts.join("\n\n") || parent1.prompt + " " + parent2.prompt;
+  };
+
+  const evolvePrompts = async () => {
+    if (selectedForBreeding.length < 2) {
+      alert("Sélectionne 2 prompts parents pour commencer l'évolution");
+      return;
+    }
+    setEvolving(true);
+    try {
+      const parents = geneticsPool.filter(p => selectedForBreeding.includes(p.id));
+      if (parents.length !== 2) throw new Error("Il faut exactement 2 parents");
+      
+      // Crossover
+      const childPrompt = crossover(parents[0], parents[1]);
+      
+      // Mutation
+      const { mutated, mutationCount } = mutatePrompt(childPrompt, mutationLevel);
+      
+      // Calcul du fitness
+      const baseFitness = await calculateFitness({ prompt: mutated });
+      
+      const evolvedPrompt = {
+        id: "e_" + Date.now(),
+        title: `G${generationCount + 1} - Enfant de "${parents[0].title.slice(0, 20)}" & "${parents[1].title.slice(0, 20)}"`,
+        prompt: mutated,
+        fitness: baseFitness,
+        generation: generationCount + 1,
+        parents: selectedForBreeding,
+        mutations: mutationCount,
+        createdAt: new Date().toISOString(),
+      };
+      
+      const updated = [evolvedPrompt, ...geneticsPool];
+      saveGenetics(updated);
+      setGenerationCount(generationCount + 1);
+      setSelectedForBreeding([evolvedPrompt.id]);
+    } catch (e) {
+      alert("Erreur lors de l'évolution : " + e.message);
+    }
+    setEvolving(false);
+  };
+
+  const toggleSelection = (id) => {
+    if (selectedForBreeding.includes(id)) {
+      setSelectedForBreeding(selectedForBreeding.filter(sid => sid !== id));
+    } else if (selectedForBreeding.length < 2) {
+      setSelectedForBreeding([...selectedForBreeding, id]);
+    }
+  };
+
+  const importFromLibrary = () => {
+    // Importe des prompts de la bibliothèque vers le pool génétique
+    const imported = allPrompts.slice(0, 5).map((p, i) => ({
+      id: "gi_" + Date.now() + "_" + i,
+      title: p.title,
+      prompt: p.text,
+      fitness: 60,
+      generation: 0,
+      parents: [],
+      mutations: 0,
+      createdAt: new Date().toISOString(),
+    }));
+    const updated = [...imported, ...geneticsPool];
+    saveGenetics(updated);
+  };
+
   // ── Trending Prompts ──────────────────────────────────────────
   const TRENDING_KEY = "multiia_trending_prompts";
   const DEFAULT_TRENDING = [
@@ -2627,6 +2788,89 @@ function PromptsTab({ onInject }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* ══ PROMPT GENETICS LAB ══ */}
+      <div style={{padding:"12px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"linear-gradient(135deg, rgba(96,165,250,.08), rgba(212,168,83,.05))"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
+          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,color:"var(--blue)"}}>🧬 Prompt Genetics Lab
+            <span style={{fontSize:8,color:"var(--mu)",fontWeight:400,marginLeft:8}}>- Évolution algorithmique de prompts</span>
+          </div>
+          {generationCount > 0 && (
+            <span style={{fontSize:8,color:"var(--ac)",background:"rgba(212,168,83,.1)",padding:"2px 8px",borderRadius:4}}>Génération #{generationCount}</span>
+          )}
+          <button onClick={importFromLibrary} disabled={geneticsPool.length >= 20}
+            style={{marginLeft:"auto",fontSize:8,padding:"4px 10px",background:geneticsPool.length>=20?"var(--s2)":"rgba(96,165,250,.15)",border:"1px solid rgba(96,165,250,.4)",borderRadius:4,color:geneticsPool.length>=20?"var(--mu)":"var(--blue)",cursor:geneticsPool.length>=20?"not-allowed":"pointer",fontFamily:"'IBM Plex Mono',monospace",fontWeight:700}}>
+            📥 Importer depuis bibliothèque
+          </button>
+        </div>
+        
+        {/* Pool génétique */}
+        <div style={{display:"flex",gap:12,marginBottom:12}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:6}}>🧪 POOL GÉNÉTIQUE ({geneticsPool.length})</div>
+            {geneticsPool.length === 0 ? (
+              <div style={{fontSize:9,color:"var(--mu)",padding:"12px",background:"var(--s2)",borderRadius:6,textAlign:"center"}}>
+                Aucun prompt dans le pool. Importe depuis la bibliothèque ou ajoute manuellement.
+              </div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:220,overflowY:"auto"}}>
+                {geneticsPool.map((p, idx) => (
+                  <div key={p.id} onClick={()=>toggleSelection(p.id)}
+                    style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:selectedForBreeding.includes(p.id)?"rgba(96,165,250,.15)":"var(--s2)",border:selectedForBreeding.includes(p.id)?"1px solid var(--blue)":"1px solid var(--bd)",borderRadius:5,cursor:"pointer",transition:"all .15s"}}
+                    onMouseEnter={e=>{if(!selectedForBreeding.includes(p.id))e.currentTarget.style.borderColor="var(--mu)"}}
+                    onMouseLeave={e=>{if(!selectedForBreeding.includes(p.id))e.currentTarget.style.borderColor="var(--bd)"}}>
+                    <span style={{fontSize:8,color:selectedForBreeding.includes(p.id)?"var(--blue)":"var(--mu)",width:16,textAlign:"center"}}>
+                      {selectedForBreeding.includes(p.id)?"☑":"☐"}
+                    </span>
+                    <span style={{fontSize:9,color:"var(--tx)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.title}</span>
+                    <span style={{fontSize:7,color:"var(--green)",background:"rgba(74,222,128,.1)",padding:"1px 5px",borderRadius:3}}>Fitness: {p.fitness}</span>
+                    <span style={{fontSize:7,color:"var(--orange)"}}>G{p.generation}</span>
+                    {p.mutations > 0 && <span style={{fontSize:7,color:"var(--blue)"}}>μ{p.mutations}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Contrôles d'évolution */}
+          <div style={{width:200,flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
+            <div style={{fontSize:9,fontWeight:700,color:"var(--mu)"}}>⚙️ CONTRÔLES</div>
+            <div>
+              <label style={{fontSize:8,color:"var(--tx)",display:"block",marginBottom:4}}>Taux de mutation: {Math.round(mutationLevel*100)}%</label>
+              <input type="range" min="0" max="1" step="0.1" value={mutationLevel} onChange={e=>setMutationLevel(parseFloat(e.target.value))}
+                style={{width:"100%",accentColor:"var(--blue)"}}/>
+            </div>
+            <div>
+              <label style={{fontSize:8,color:"var(--tx)",display:"block",marginBottom:4}}>Critères fitness</label>
+              <input value={fitnessCriteria} onChange={e=>setFitnessCriteria(e.target.value)}
+                style={{width:"100%",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:8,padding:"4px 6px"}}/>
+            </div>
+            <button onClick={evolvePrompts} disabled={evolving || selectedForBreeding.length !== 2}
+              style={{padding:"8px 12px",background:evolving||selectedForBreeding.length!==2?"var(--s2)":"linear-gradient(135deg, var(--blue), var(--ac))",border:"none",borderRadius:6,color:evolving||selectedForBreeding.length!==2?"var(--mu)":"#09090B",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:10,cursor:evolving||selectedForBreeding.length!==2?"not-allowed":"pointer",marginTop:"auto"}}>
+              {evolving ? "⏳ Évolution..." : selectedForBreeding.length===2 ? "🧬 ÉVOLUER →" : "Sélectionne 2 parents"}
+            </button>
+            {selectedForBreeding.length === 2 && (
+              <div style={{fontSize:7,color:"var(--green)",textAlign:"center"}}>✓ Prêt pour croisement</div>
+            )}
+          </div>
+        </div>
+        
+        {/* Dernières évolutions */}
+        {geneticsPool.filter(p=>p.generation===generationCount && generationCount>0).length > 0 && (
+          <div style={{marginTop:10,padding:"8px 10px",background:"rgba(74,222,128,.05)",border:"1px solid rgba(74,222,128,.2)",borderRadius:6}}>
+            <div style={{fontSize:9,fontWeight:700,color:"var(--green)",marginBottom:6}}>✨ DERNIÈRE GÉNÉRATION</div>
+            {geneticsPool.filter(p=>p.generation===generationCount).slice(0,3).map(p=>(
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"var(--s2)",borderRadius:4,marginBottom:4}}>
+                <span style={{fontSize:8,color:"var(--green)"}}>🧬</span>
+                <span style={{fontSize:9,color:"var(--tx)",flex:1}}>{p.title}</span>
+                <span style={{fontSize:7,color:"var(--green)"}}>Fitness: {p.fitness}</span>
+                <button onClick={()=>onInject&&onInject(p.prompt)}
+                  style={{fontSize:7,padding:"2px 6px",background:"rgba(74,222,128,.15)",border:"1px solid rgba(74,222,128,.3)",borderRadius:3,color:"var(--green)",cursor:"pointer",fontWeight:700}}>↗ Utiliser</button>
+              </div>
+            ))}
           </div>
         )}
       </div>
