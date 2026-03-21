@@ -1821,8 +1821,8 @@ function App() {
   const [arenaSort, setArenaSort] = useState("score");
 
   const [enabled, setEnabled] = useState(() => {
-    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false,minimax_m27:false,minimax_m25:false,nemotron3:false }; }
-    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,poll_gemini:false,minimax_m27:false,minimax_m25:false,nemotron3:false }; }
+    try { const s = localStorage.getItem("multiia_enabled"); return s ? JSON.parse(s) : { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,llama4m:false,qwen3_235b:false,minimax_m27:false,minimax_m25:false,nemotron3:false }; }
+    catch { return { groq:true,mistral:true,cohere:false,cerebras:false,sambanova:false,qwen3:false,llama4s:false,gemma2:false,poll_gpt:false,poll_claude:false,poll_deepseek:false,llama4m:false,qwen3_235b:false,minimax_m27:false,minimax_m25:false,nemotron3:false }; }
   });
 
   const [apiKeys, setApiKeys] = useState(() => {
@@ -3117,7 +3117,7 @@ async function checkCliBridge() {
     }));
 
     // Step 2: synthesis — a 4th IA reads all analyses
-    const synthId = activeIds.find(id => !["poll_gpt","poll_gemini","poll_claude"].includes(id)) || activeIds[0];
+    const synthId = activeIds.find(id => !["poll_gpt","poll_claude","poll_deepseek"].includes(id)) || activeIds[0];
     const analysisText = experts.map((e,idx2) => e.icon+" "+e.name+":\n"+(analyses[idx2]||"").slice(0,500)).join("\n\n---\n\n");
     const synthPrompt = "Question initiale : \""+q+"\"\\n\n"+analysisText+"\n\n---\n\nEn tant que coordinateur, synthétise ces analyses en :\n1. CONSENSUS\n2. TENSIONS\n3. RECOMMANDATION FINALE\n\nSois concis et actionnable.";
     try {
@@ -7068,8 +7068,8 @@ async function checkCliBridge() {
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
                   {[
+                    {id:"llama4m",     note:"✅ Gratuit — OpenRouter gratuit",     tier:"free"},
                     {id:"poll_gpt",     note:"✅ Sans clé — anonymous",            tier:"free"},
-                    {id:"poll_gemini",  note:"✅ Sans clé — openai-large anonymous",tier:"free"},
                     {id:"poll_claude",  note:"🔑 Clé Pollen Seed gratuite requise", tier:"paid"},
                     {id:"poll_deepseek",note:"🔑 Clé Pollen Seed gratuite requise", tier:"paid"},
                   ].map(p=>(
