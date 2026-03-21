@@ -119,7 +119,9 @@ export async function callGemini(messages, apiKey, system="Tu es un assistant IA
 export async function callOllamaCloud(messages, apiKey, model, system="Tu es un assistant IA utile et concis.") {
   if (!apiKey) throw new Error("Clé Ollama Cloud manquante. Va sur ollama.com/settings/tokens pour en créer une gratuite.");
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  const r = await fetch("https://ollama.com/api/chat", {
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const ollamaEndpoint = isLocal ? "https://ollama.com/api/chat" : "/api/ollama";
+  const r = await fetch(ollamaEndpoint, {
     method:"POST",
     headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
     body:JSON.stringify({ model, messages:msgs, stream:false })
@@ -135,7 +137,9 @@ export async function callOllamaCloud(messages, apiKey, model, system="Tu es un 
 export async function callOllamaCloudStream(messages, apiKey, model, system="Tu es un assistant IA utile et concis.", onChunk) {
   if (!apiKey) throw new Error("Clé Ollama Cloud manquante. Va sur ollama.com/settings/tokens pour en créer une gratuite.");
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  const r = await fetch("https://ollama.com/api/chat", {
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const ollamaEndpoint = isLocal ? "https://ollama.com/api/chat" : "/api/ollama";
+  const r = await fetch(ollamaEndpoint, {
     method:"POST",
     headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
     body:JSON.stringify({ model, messages:msgs, stream:true })
@@ -176,19 +180,27 @@ let _pollQueue = Promise.resolve();
 const POLL_DELAY_MS = 8000; // 8s entre requêtes Pollinations (gen endpoint plus permissif)
 
 export async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  const r = await fetch("https://text.pollinations.ai/openai", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ model:"openai", messages:msgs, max_tokens:1500, private:true, referrer:"multiia-hub.vercel.app" })
+  // GET endpoint → pas de CORS, supporte multi-turn via contexte
+  const history = messages.slice(0, -1)
+    .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+    .join("\n");
+  const last = messages[messages.length - 1].content;
+  const prompt = history ? `${history}\nUser: ${last}` : last;
+
+  const params = new URLSearchParams({
+    model,                              // "openai" ou "openai-large"
+    system,
+    private: "true",
+    referrer: "multiia-hub.vercel.app"
   });
+  const r = await fetch(
+    `https://text.pollinations.ai/${encodeURIComponent(prompt)}?${params}`
+  );
   if (!r.ok) {
-    const txt = await r.text().catch(()=>"");
-    throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150));
+    const txt = await r.text().catch(() => "");
+    throw new Error("Pollinations " + r.status + ": " + txt.slice(0, 150));
   }
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-  return d.choices?.[0]?.message?.content || "";
+  return await r.text();
 }
 
 export async function callPollinationsPaid(messages, apiKey, model, system="Tu es un assistant IA utile et concis.") {
