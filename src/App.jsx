@@ -515,10 +515,7 @@ textarea::placeholder{color:var(--mu)}
   body{overflow:auto}.app{height:100dvh;overflow:hidden}
   .tbar{display:none}.pills{display:none}
   .col{flex:none;height:100dvh}.col.mobile-hidden{display:none}
-  .mobile-col-tabs{display:flex !important;padding:4px 8px;gap:4px;overflow-x:auto;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--s1);scrollbar-width:none}
-  .mobile-col-tabs::-webkit-scrollbar{display:none}
-  .mct-btn{padding:4px 10px;border-radius:4px;border:1px solid var(--bd);font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;background:transparent;color:var(--mu);white-space:nowrap;flex-shrink:0}
-  .mct-btn.active{background:var(--ac);color:#09090B;border-color:var(--ac);font-weight:600}
+
   .nav{padding:5px 8px}
 }
 .scroll-tab{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
@@ -1037,13 +1034,11 @@ html, body{
   }
   .mh-btn.on{ border-color:var(--ac); color:var(--ac); }
 
-  /* ── Persona bar mobile ── */
-  .persona-bar{ overflow-x:auto; scrollbar-width:none; padding:5px 10px; }
-  .persona-bar::-webkit-scrollbar{ display:none; }
-  .persona-chips{ flex-wrap:nowrap; }
+  /* ── Masquer la barre persona sur mobile (gagne de la place) ── */
+  .persona-bar{ display:none !important; }
 
-  /* ── Tab content padding pour la tabbar ── */
-  .tab-content-mobile{ padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
+  /* ── Tab content padding pour la tabbar (fixe le chat) ── */
+  .tab-content-mobile{ flex:1; display:flex; flex-direction:column; overflow:hidden; padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 
   /* ── CHAT : une colonne à la fois avec sélecteur ── */
   .cols{ flex-direction:column; overflow:hidden; }
@@ -1053,32 +1048,32 @@ html, body{
     min-width:0 !important;
     border-right:none !important;
     border-bottom:none !important;
-    display:none; /* caché par défaut, visible via JS */
+    display:none;
     opacity:1 !important;
     filter:none !important;
   }
   .col.mobile-active{ display:flex !important; flex:1 !important; }
-  
+
   /* Sélecteur IA en haut du chat (chips scrollables) */
   .mobile-ia-selector{
     display:flex !important;
     overflow-x:auto; scrollbar-width:none;
-    padding:8px 10px; gap:8px; flex-shrink:0;
-    background:var(--s1); border-bottom:2px solid var(--bd);
+    padding:6px 8px; gap:6px; flex-shrink:0;
+    background:var(--s1); border-bottom:1px solid var(--bd);
     align-items:center;
   }
   .mobile-ia-selector::-webkit-scrollbar{ display:none; }
   .mobile-ia-chip{
-    flex-shrink:0; padding:8px 16px; border-radius:8px; border:2px solid;
-    font-size:13px; font-weight:600; cursor:pointer; font-family:'IBM Plex Mono',monospace;
+    flex-shrink:0; padding:6px 12px; border-radius:20px; border:1.5px solid;
+    font-size:12px; font-weight:600; cursor:pointer; font-family:'IBM Plex Mono',monospace;
     transition:all .15s; background:var(--s2); white-space:nowrap;
-    display:flex; align-items:center; gap:6px; min-height:42px;
+    display:flex; align-items:center; gap:5px; min-height:36px;
     color: var(--tx);
   }
   .mobile-ia-chip.active{
-    font-weight:800;
-    box-shadow: 0 0 12px rgba(255,255,255,.1);
-    transform: scale(1.04);
+    font-weight:700;
+    box-shadow: 0 0 10px rgba(255,255,255,.08);
+    transform: scale(1.03);
   }
 
   /* ── Input chat mobile ── */
@@ -1111,7 +1106,8 @@ html, body{
   .arena-wrap{ padding:10px; }
   .arena-table td, .arena-table th{ padding:5px 4px !important; font-size:9px !important; }
 
-  /* ── Messages taille tactile ── */
+  /* ── Messages taille tactile + espace au-dessus du foot ── */
+  .msgs{ padding-bottom: calc(14px + env(safe-area-inset-bottom)) !important; }
   .msg{ font-size:14px !important; line-height:1.65 !important; padding:10px 12px !important; }
   .voice-btn{ min-height:32px !important; min-width:32px !important; font-size:14px !important; }
 
@@ -1154,12 +1150,12 @@ html, body{
     -webkit-backdrop-filter:blur(18px);
   }
   .mobile-tab-btn{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
-    background:none; border:none; cursor:pointer; padding:5px 2px;
-    color:var(--mu); font-size:8px; font-family:'IBM Plex Mono',monospace;
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:none; border:none; cursor:pointer; padding:6px 2px;
+    color:var(--mu); font-size:9px; font-family:'IBM Plex Mono',monospace;
     transition:all .18s; -webkit-tap-highlight-color:transparent;
   }
-  .mobile-tab-btn .ico{ font-size:20px; line-height:1; transition:transform .18s; }
+  .mobile-tab-btn .ico{ font-size:22px; line-height:1; transition:transform .18s; }
   .mobile-tab-btn.on{ color:var(--ac); }
   .mobile-tab-btn.on .ico{ transform:scale(1.18); }
   .mobile-tab-btn:active{ transform:scale(.88); }
@@ -1170,12 +1166,12 @@ html, body{
     animation:fadeIn .15s ease;
   }
   .mobile-more-drawer{
-    position:fixed; bottom:calc(62px + env(safe-area-inset-bottom)); left:0; right:0;
+    position:fixed; bottom:calc(68px + env(safe-area-inset-bottom)); left:0; right:0;
     background:rgba(18,18,24,.98); border-top:1px solid var(--bd);
     border-radius:18px 18px 0 0; z-index:249;
-    padding:12px 10px 6px;
+    padding:14px 12px 8px;
     animation:slideUp .2s cubic-bezier(.4,0,.2,1);
-    max-height:72vh; overflow-y:auto;
+    max-height:65vh; overflow-y:auto;
   }
   @keyframes slideUp{ from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
   .mobile-more-grid{
@@ -4324,23 +4320,6 @@ async function checkCliBridge() {
         )}
 
         {/* TOKEN BAR */}
-
-
-        {/* MOBILE COL TABS */}
-        {tab === "chat" && (
-          <div className="mobile-col-tabs">
-            {enabledIds.map(id => {
-              const m = MODEL_DEFS[id]; const lim = isLimited(id);
-              return (
-                <button key={id} className={`mct-btn ${mobileCol===id?"active":""}`}
-                  style={mobileCol===id?{}:{borderColor:lim?"var(--red)":m.color,color:lim?"var(--red)":m.color}}
-                  onClick={() => setMobileCol(id)}>
-                  {m.icon} {m.short}{lim?` ⏳${fmtCd(id)}`:""}
-                </button>
-              );
-            })}
-          </div>
-        )}
 
         {/* ── CHAT TAB ── */}
         {tab === "chat" && <>
