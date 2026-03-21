@@ -176,38 +176,19 @@ let _pollQueue = Promise.resolve();
 const POLL_DELAY_MS = 8000; // 8s entre requêtes Pollinations (gen endpoint plus permissif)
 
 export async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  // gen.pollinations.ai — nouveau endpoint unifié (text.pollinations.ai legacy déprécié)
-  const ticket = _pollQueue;
-  _pollQueue = ticket.then(() => new Promise(res => setTimeout(res, POLL_DELAY_MS)));
-  await ticket;
   const msgs = system ? [{role:"system",content:system},...messages] : messages;
-  const mdl = model || "openai"; // openai = GPT-4o, openai-large = GPT-4o Large
-  // Try gen.pollinations.ai first (no key required for openai/openai-large)
-  try {
-    const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ model:mdl, messages:msgs, max_tokens:1500, private:true, referrer:"multiia-hub.vercel.app" })
-    });
-    if(r.ok) {
-      const d = await r.json();
-      if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-      return d.choices?.[0]?.message?.content || "";
-    }
-    const errTxt = await r.text().catch(()=>"");
-    throw new Error("Pollinations " + r.status + ": " + errTxt.slice(0,150));
-  } catch(e) {
-    // Fallback to legacy endpoint for backward compat
-    const r2 = await fetch("https://text.pollinations.ai/openai", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ model:"openai", messages:msgs, max_tokens:1500, private:true, referrer:"multiia-hub.vercel.app" })
-    });
-    if(!r2.ok) throw new Error("Pollinations fallback " + r2.status);
-    const d2 = await r2.json();
-    if(d2.error) throw new Error(d2.error.message||JSON.stringify(d2.error));
-    return d2.choices?.[0]?.message?.content || "";
+  const r = await fetch("https://text.pollinations.ai/openai", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ model:"openai", messages:msgs, max_tokens:1500, private:true, referrer:"multiia-hub.vercel.app" })
+  });
+  if (!r.ok) {
+    const txt = await r.text().catch(()=>"");
+    throw new Error("Pollinations " + r.status + ": " + txt.slice(0,150));
   }
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.choices?.[0]?.message?.content || "";
 }
 
 export async function callPollinationsPaid(messages, apiKey, model, system="Tu es un assistant IA utile et concis.") {
