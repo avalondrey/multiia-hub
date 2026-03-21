@@ -1,4 +1,6 @@
 import React from 'react';
+import { MODEL_DEFS } from "../config/models.js";
+import { callModel } from "../api/ai-service.js";
 
 export default function ConsensusTab({ enabled, apiKeys, conversations, ...anyOtherProps }) {
   const [claim, setClaim] = React.useState("");
