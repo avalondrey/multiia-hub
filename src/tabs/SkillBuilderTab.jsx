@@ -1,4 +1,6 @@
 import React from 'react';
+import { MODEL_DEFS } from "../config/models.js";
+import { callModel } from "../api/ai-service.js";
 
 export default function SkillBuilderTab({ enabled, apiKeys, navigateTab, setChatInput, ...anyOtherProps }) {
   const SKILLS_KEY = "multiia_skills";

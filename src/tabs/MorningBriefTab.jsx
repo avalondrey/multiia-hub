@@ -1,4 +1,6 @@
 import React from 'react';
+import { MODEL_DEFS } from "../config/models.js";
+import { callModel } from "../api/ai-service.js";
 
 export default function MorningBriefTab({ enabled, apiKeys, projects, memFacts, usageStats, ...anyOtherProps }) {
   const BRIEF_KEY = "multiia_morning_brief";

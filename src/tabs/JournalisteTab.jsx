@@ -1,4 +1,6 @@
 import React from 'react';
+import { MODEL_DEFS } from "../config/models.js";
+import { callModel } from "../api/ai-service.js";
 
 export default function JournalisteTab({ enabled, apiKeys, ...anyOtherProps }) {
   const [subject, setSubject] = React.useState("");
