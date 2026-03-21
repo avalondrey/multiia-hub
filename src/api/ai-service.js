@@ -114,6 +114,61 @@ export async function callGemini(messages, apiKey, system="Tu es un assistant IA
   if(!d.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("Gemini: réponse vide. Détail: " + JSON.stringify(d).slice(0,200));
   return d.candidates[0].content.parts[0].text;
 }
+// ── Ollama Cloud ─────────────────────────────────────────────────
+// API Ollama Cloud : https://ollama.com/api/chat avec Bearer token
+export async function callOllamaCloud(messages, apiKey, model, system="Tu es un assistant IA utile et concis.") {
+  if (!apiKey) throw new Error("Clé Ollama Cloud manquante. Va sur ollama.com/settings/tokens pour en créer une gratuite.");
+  const msgs = system ? [{role:"system",content:system},...messages] : messages;
+  const r = await fetch("https://ollama.com/api/chat", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+    body:JSON.stringify({ model, messages:msgs, stream:false })
+  });
+  if (!r.ok) {
+    const txt = await r.text().catch(()=>"");
+    throw new Error(`Ollama Cloud ${r.status}: ${txt.slice(0,150)}`);
+  }
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.message?.content || "";
+}
+export async function callOllamaCloudStream(messages, apiKey, model, system="Tu es un assistant IA utile et concis.", onChunk) {
+  if (!apiKey) throw new Error("Clé Ollama Cloud manquante. Va sur ollama.com/settings/tokens pour en créer une gratuite.");
+  const msgs = system ? [{role:"system",content:system},...messages] : messages;
+  const r = await fetch("https://ollama.com/api/chat", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+    body:JSON.stringify({ model, messages:msgs, stream:true })
+  });
+  if (!r.ok) {
+    const txt = await r.text().catch(()=>"");
+    throw new Error(`Ollama Cloud ${r.status}: ${txt.slice(0,150)}`);
+  }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = "";
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream:true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const json = JSON.parse(trimmed);
+        const content = json.message?.content;
+        if (content) {
+          fullText += content;
+          onChunk(fullText);
+        }
+      } catch {}
+    }
+  }
+  return fullText;
+}
 // ── Pollinations.AI — deux endpoints ──────────────────────────────
 // text.pollinations.ai/openai  = GRATUIT ANONYME, modèle "openai" uniquement (legacy)
 // gen.pollinations.ai/v1/...   = TOUS les modèles (claude, deepseek, gemini…) — clé Pollen gratuite sur enter.pollinations.ai
@@ -249,6 +304,11 @@ export async function callModelStream(id, messages, keys, system, onChunk, attac
     if (!key) throw new Error(`Clé API manquante pour ${m.name}.`);
     return callCompatStream(msgWithFile, key, m.baseUrl, m.model, system, onChunk);
   }
+  if (m.apiType === "ollama_cloud") {
+    const key = keys[m.keyName];
+    if (!key) throw new Error(`Clé API manquante pour ${m.name}.`);
+    return callOllamaCloudStream(msgWithFile, key, m.model, system, onChunk);
+  }
   // Fallback non-streaming pour les autres (pollinations, cohere, gemini)
   const result = await callModel(id, messages, keys, system, attachedFile);
   onChunk(result);
@@ -282,6 +342,7 @@ export async function callModel(id, messages, keys, system, attachedFile=null) {
   if(m.apiType==="cohere") return callCohere(messages,keys.cohere,system);
   if(m.apiType==="pollinations")      return callPollinations(msgWithFile,m.model,system);
   if(m.apiType==="pollinations_paid") return callPollinationsPaid(msgWithFile,keys.pollen||"",m.model,system);
+  if(m.apiType==="ollama_cloud") return callOllamaCloud(msgWithFile,keys.ollama_cloud,m.model,system);
   if(m.apiType==="compat") {
     const key = keys[m.keyName];
     if(!key) throw new Error(`Clé API manquante pour ${m.name}. Va dans ⚙ Config pour l'ajouter gratuitement.`);
