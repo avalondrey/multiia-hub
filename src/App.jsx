@@ -981,9 +981,9 @@ html, body{
 .agent-final{background:linear-gradient(135deg,rgba(212,168,83,.08),rgba(74,222,128,.04));border:1px solid rgba(212,168,83,.3);border-radius:8px;padding:14px;margin-top:10px}
 .agent-final-content{font-size:12px;color:var(--tx);line-height:1.7}
 /* ══ TRADUCTEUR ══ */
-.trad-wrap{flex:1;display:flex;overflow:hidden}
-.trad-left{width:48%;border-right:1px solid var(--bd);display:flex;flex-direction:column}
-.trad-right{flex:1;display:flex;flex-direction:column;overflow-y:auto}
+.trad-wrap{flex:1;display:flex;overflow:hidden;min-height:0}
+.trad-left{width:48%;border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.trad-right{flex:1;display:flex;flex-direction:column;overflow-y:auto;min-height:0}
 .trad-lang-bar{padding:8px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:5px;flex-shrink:0;background:var(--s1);flex-wrap:wrap}
 .trad-lang-btn{padding:4px 10px;border-radius:5px;border:1px solid var(--bd);font-size:10px;cursor:pointer;background:transparent;color:var(--mu);transition:all .15s}
 .trad-lang-btn.on{background:var(--ac);border-color:var(--ac);color:#09090B;font-weight:700}
@@ -997,8 +997,8 @@ html, body{
 .yt-play-big{font-size:28px}
 @media(max-width:767px){
   .notes-list{display:none}
-  .trad-wrap{flex-direction:column}
-  .trad-left{width:100%;border-right:none;border-bottom:1px solid var(--bd);max-height:40vh}
+  .trad-wrap{flex-direction:column;min-height:0}
+  .trad-left{width:100%;border-right:none;border-bottom:1px solid var(--bd);max-height:40vh;overflow:hidden}
 }
 
 /* ── MOBILE BOTTOM TAB BAR ── */
@@ -5645,18 +5645,20 @@ async function checkCliBridge() {
 
         {/* ── TRADUCTEUR TAB ── */}
         {tab === "traducteur" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
             <div style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:8}}>
               <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🌍 Traducteur Multi-IA</div>
               <div style={{fontSize:9,color:"var(--mu)",marginLeft:4}}>Toutes les IAs traduisent en parallèle — compare et choisis la meilleure version</div>
             </div>
-            <TraducteurTab enabled={enabled} apiKeys={apiKeys}/>
+            <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
+              <TraducteurTab enabled={enabled} apiKeys={apiKeys}/>
+            </div>
           </div>
         )}
 
         {/* ── AGENT TAB ── */}
         {tab === "agent" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
             <AgentTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
@@ -6314,13 +6316,13 @@ async function checkCliBridge() {
         )}
 
         {tab === "dna" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
             <PromptDNATab onInject={injectPrompt}/>
           </div>
         )}
 
         {tab === "conference" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
             <ConferenceTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
@@ -6332,13 +6334,15 @@ async function checkCliBridge() {
         )}
 
         {tab === "brief" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
             <MorningBriefTab
               enabled={enabled}
               apiKeys={apiKeys}
               projects={projects}
               memFacts={memFacts}
               usageStats={usageStats}
+              savedConvs={savedConvs}
+              conversations={conversations}
             />
           </div>
         )}
@@ -6373,7 +6377,7 @@ async function checkCliBridge() {
         )}
 
         {tab === "secondbrain" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
             <SecondBrainTab savedConvs={savedConvs} projects={projects} memFacts={memFacts} usageStats={usageStats} apiKeys={apiKeys} enabled={enabled}/>
           </div>
         )}
