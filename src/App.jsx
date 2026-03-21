@@ -28,6 +28,7 @@ import IaMentorTab from "./tabs/IaMentorTab.jsx";
 import ConsensusTab from "./tabs/ConsensusTab.jsx";
 import ConferenceTab from "./tabs/ConferenceTab.jsx";
 import MorningBriefTab from "./tabs/MorningBriefTab.jsx";
+import PromptDNATab from "./tabs/PromptDNATab.jsx";
 import SkillBuilderTab from "./tabs/SkillBuilderTab.jsx";
 import TaskToIAsTab from "./tabs/TaskToIAsTab.jsx";
 import JournalisteTab from "./tabs/JournalisteTab.jsx";
