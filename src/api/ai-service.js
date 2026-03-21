@@ -180,27 +180,25 @@ let _pollQueue = Promise.resolve();
 const POLL_DELAY_MS = 8000; // 8s entre requêtes Pollinations (gen endpoint plus permissif)
 
 export async function callPollinations(messages, model, system="Tu es un assistant IA utile et concis.") {
-  // GET endpoint → pas de CORS, supporte multi-turn via contexte
-  const history = messages.slice(0, -1)
-    .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-    .join("\n");
-  const last = messages[messages.length - 1].content;
-  const prompt = history ? `${history}\nUser: ${last}` : last;
-
-  const params = new URLSearchParams({
-    model,                              // "openai" ou "openai-large"
-    system,
-    private: "true",
-    referrer: "multiia-hub.vercel.app"
+  const msgs = system ? [{ role: "system", content: system }, ...messages] : messages;
+  const r = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,           // "openai" ou "openai-large" — inchangé
+      messages: msgs,
+      max_tokens: 1500,
+      private: true,
+      referrer: "multiia-hub.vercel.app"
+    })
   });
-  const r = await fetch(
-    `https://text.pollinations.ai/${encodeURIComponent(prompt)}?${params}`
-  );
   if (!r.ok) {
     const txt = await r.text().catch(() => "");
     throw new Error("Pollinations " + r.status + ": " + txt.slice(0, 150));
   }
-  return await r.text();
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+  return d.choices?.[0]?.message?.content || "";
 }
 
 export async function callPollinationsPaid(messages, apiKey, model, system="Tu es un assistant IA utile et concis.") {
