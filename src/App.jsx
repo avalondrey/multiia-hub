@@ -28,7 +28,6 @@ import IaMentorTab from "./tabs/IaMentorTab.jsx";
 import ConsensusTab from "./tabs/ConsensusTab.jsx";
 import ConferenceTab from "./tabs/ConferenceTab.jsx";
 import MorningBriefTab from "./tabs/MorningBriefTab.jsx";
-import PromptDNATab from "./tabs/PromptDNATab.jsx";
 import SkillBuilderTab from "./tabs/SkillBuilderTab.jsx";
 import TaskToIAsTab from "./tabs/TaskToIAsTab.jsx";
 import JournalisteTab from "./tabs/JournalisteTab.jsx";
@@ -44,6 +43,7 @@ import VoiceTab from "./tabs/VoiceTab.jsx";
 import ProjectsTab from "./tabs/ProjectsTab.jsx";
 import AideTab from "./tabs/AideTab.jsx";
 import StudioTab from "./tabs/StudioTab.jsx";
+import PromptDNATab from "./tabs/PromptDNATab.jsx";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -982,7 +982,7 @@ html, body{
 .agent-final{background:linear-gradient(135deg,rgba(212,168,83,.08),rgba(74,222,128,.04));border:1px solid rgba(212,168,83,.3);border-radius:8px;padding:14px;margin-top:10px}
 .agent-final-content{font-size:12px;color:var(--tx);line-height:1.7}
 /* ══ TRADUCTEUR ══ */
-.trad-wrap{flex:1;display:flex;overflow-y:auto;min-height:0}
+.trad-wrap{flex:1;display:flex;overflow:hidden;min-height:0}
 .trad-left{width:48%;border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .trad-right{flex:1;display:flex;flex-direction:column;overflow-y:auto;min-height:0}
 .trad-lang-bar{padding:8px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:5px;flex-shrink:0;background:var(--s1);flex-wrap:wrap}
@@ -5572,21 +5572,21 @@ async function checkCliBridge() {
 
         {/* ── PROMPTS TAB ── */}
         {tab === "prompts" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <PromptsTab onInject={injectPrompt} apiKeys={apiKeys}/>
           </div>
         )}
 
         {/* ── RÉDACTION TAB ── */}
         {tab === "redaction" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <RedactionTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
 
         {/* ── RECHERCHE TAB ── */}
         {tab === "recherche" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <RechercheTab enabled={enabled} apiKeys={apiKeys} setChatInput={setChatInput} setTab={setTab}/>
           </div>
         )}
@@ -5639,7 +5639,7 @@ async function checkCliBridge() {
 
         {/* ── NOTES TAB ── */}
         {tab === "notes" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <NotesTab onCopyToChat={(text) => { navigateTab("chat"); setTimeout(()=>setChatInput(text),100); }}/>
           </div>
         )}
@@ -5666,7 +5666,7 @@ async function checkCliBridge() {
 
         {/* ── STATS TAB ── */}
         {tab === "stats" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <StatsTab stats={usageStats} onReset={resetStats}/>
           </div>
         )}
@@ -6293,25 +6293,25 @@ async function checkCliBridge() {
 
 
         {tab === "benchmark" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <BenchmarkTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
 
         {tab === "glossaire" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <GlossaireTab navigateTab={navigateTab} setChatInput={setChatInput}/>
           </div>
         )}
 
         {tab === "autopsy" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <PromptAutopsyTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
           </div>
         )}
 
         {tab === "mentor" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <IaMentorTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
@@ -6329,7 +6329,7 @@ async function checkCliBridge() {
         )}
 
         {tab === "consensus" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <ConsensusTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
           </div>
         )}
@@ -6349,7 +6349,7 @@ async function checkCliBridge() {
         )}
 
         {tab === "taskia" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <TaskToIAsTab
               enabled={enabled}
               apiKeys={apiKeys}
@@ -6360,19 +6360,19 @@ async function checkCliBridge() {
         )}
 
         {tab === "journaliste" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <JournalisteTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
 
         {tab === "skills" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <SkillBuilderTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
           </div>
         )}
 
         {tab === "contradict" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <ContradictionTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
           </div>
         )}
@@ -6384,31 +6384,31 @@ async function checkCliBridge() {
         )}
 
         {tab === "livedebate" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <LiveDebateTimerTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
 
         {tab === "contexttrans" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <ContextTranslatorTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
 
         {tab === "apioptim" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <ApiOptimizerTab usageStats={usageStats} enabled={enabled}/>
           </div>
         )}
 
         {tab === "civilisations" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <CivilisationsTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
 
         {tab === "flash" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <ModeFlashTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
           </div>
         )}
