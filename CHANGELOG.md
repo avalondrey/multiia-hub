@@ -4,6 +4,23 @@
 
 ---
 
+## [v21.1] — 2026-03-20
+
+### 🏗️ Refactoring (extraction des onglets)
+- **Structure** — App.jsx réduit de ~14 160 à ~12 439 lignes
+- **Nouveaux fichiers** dans `src/tabs/` (11 tabs) :
+  - `NotesTab.jsx` — onglet Notes (~68 lignes)
+  - `PromptsTab.jsx` — onglet Prompts (~253 lignes)
+  - `RedactionTab.jsx` — onglet Rédaction (~87 lignes)
+  - `RechercheTab.jsx` — onglet Recherche (~89 lignes)
+  - `BenchmarkTab.jsx` — onglet Benchmark (~131 lignes)
+  - `AgentTab.jsx` — onglet Agent IA (~153 lignes)
+  - `TraducteurTab.jsx` — onglet Traducteur (~73 lignes)
+- **Composant partagé** `src/components/MarkdownRenderer.jsx` — placeholder pour les tabs
+- **Note** — ~21 onglets restent à extraire (ChatTab, ArenaTab, DebateTab, etc.)
+
+---
+
 ## [v20.0] — 2026-03-16
 
 ### 🔧 Corrections (bugs critiques)
