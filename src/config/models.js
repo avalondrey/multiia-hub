@@ -22,13 +22,13 @@ export const MODEL_DEFS = {
   minimax_m25: { name:"MiniMax M2.5 (Ollama)", short:"M2.5",   provider:"MiniMax via Ollama", color:"#0891B2", bg:"#040C10", border:"#062030", icon:"⬡", apiType:"ollama_cloud", maxTokens:32768, inputLimit:28000, free:false, keyName:"ollama_cloud", keyLink:"https://ollama.com/settings/tokens", desc:"Clé Ollama gratuite · SWE-Bench = Claude Opus 4.6", baseUrl:"https://ollama.com", model:"minimax-m2.5:cloud" },
   // ── OpenRouter (clé gratuite) ─────────────────────────────────────
   nemotron3:   { name:"Nemotron 3 Super (120B)", short:"Nemotron", provider:"NVIDIA via OpenRouter", color:"#76B900", bg:"#081200", border:"#1A3300", icon:"⬟", apiType:"compat", maxTokens:131072, inputLimit:8000, free:false, keyName:"openrouter", keyLink:"https://openrouter.ai/keys", desc:"Clé OpenRouter · 120B MoE, #1 pour agents multi-étapes", baseUrl:"https://openrouter.ai/api/v1", model:"nvidia/nemotron-3-super-120b-a12b:free" },
-  // ── Via Pollinations.AI (SANS CLÉ) ──────────────────────────────
+  // ── Via Pollinations.AI (clé Pollen gratuite sur enter.pollinations.ai) ─
   llama4s:    { name:"Llama 4 Scout (Groq)",   short:"L4 Scout", provider:"Groq / Meta",    color:"#FF6B35", bg:"#180A04", border:"#3D1500", icon:"🦙", apiType:"compat", maxTokens:128000, inputLimit:32000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — Llama 4 Scout 17B multimodal", baseUrl:"https://api.groq.com/openai/v1", model:"meta-llama/llama-4-scout-17b-16e-instruct" },
   gemma2:     { name:"Llama 3.1 8B (Groq)",     short:"L3.1-8B",  provider:"Groq / Meta",    color:"#34D399", bg:"#08180E", border:"#0A3D20", icon:"◎", apiType:"compat", maxTokens:8192,   inputLimit:6000, free:true, keyName:"groq_inf",  keyLink:"https://console.groq.com/keys",   desc:"GRATUIT — même clé Groq, très rapide (ctx 8k)", baseUrl:"https://api.groq.com/openai/v1", model:"llama-3.1-8b-instant" },
-  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations",      maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai", desc:"SANS CLÉ — 1 req/16s max", model:"openai" },
+  poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations_paid", maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:"pollen",      keyLink:"https://enter.pollinations.ai", desc:"Clé Pollen gratuite · enter.pollinations.ai", model:"openai" },
   poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"claude-airforce" },
   poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"deepseek" },
-  poll_gemini:   { name:"GPT-4o Large (Pollinations)", short:"GPT-4o L", provider:"OpenAI via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations",      maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:null,          keyLink:"https://text.pollinations.ai",   desc:"SANS CLÉ — 1 req/16s max", model:"openai-large" },
+  poll_gemini:   { name:"GPT-4o Large (Pollinations)", short:"GPT-4o L", provider:"OpenAI via Pollinations",   color:"#6BA5E0", bg:"#080E18", border:"#0A1A3D", icon:"◇", apiType:"pollinations_paid", maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:"pollen",      keyLink:"https://enter.pollinations.ai",   desc:"Clé Pollen gratuite · enter.pollinations.ai", model:"openai-large" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -380,10 +380,10 @@ export const PRICING = {
   minimax_m27:  { in:0.00, out:0.00, label:"MiniMax M2.7 — Clé Ollama gratuite" },
   minimax_m25:  { in:0.00, out:0.00, label:"MiniMax M2.5 — Clé Ollama gratuite" },
   nemotron3:    { in:0.00, out:0.00, label:"Nemotron 3 Super — Clé OpenRouter" },
-  poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — SANS CLÉ" },
-  poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — SANS CLÉ" },
-  poll_deepseek:{ in:0.00, out:0.00, label:"DeepSeek (Pollinations) — SANS CLÉ" },
-  poll_gemini:  { in:0.00, out:0.00, label:"Gemini (Pollinations) — SANS CLÉ" },
+  poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — Clé Pollen" },
+  poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — Clé Pollen" },
+  poll_deepseek:{ in:0.00, out:0.00, label:"DeepSeek (Pollinations) — Clé Pollen" },
+  poll_gemini:  { in:0.00, out:0.00, label:"GPT-4o Large (Pollinations) — Clé Pollen" },
 };
 
 // ── Prompts par défaut ────────────────────────────────────────────
@@ -400,10 +400,10 @@ export const TOKEN_PRICE = {
   minimax_m27: { in: 0.0, out: 0.0,   free:false },
   minimax_m25: { in: 0.0, out: 0.0,   free:false },
   nemotron3:   { in: 0.0, out: 0.0,   free:false },
-  poll_gpt:  { in: 0.0,   out: 0.0,   free:true },
-  poll_claude: { in: 0.0, out: 0.0,   free:true },
-  poll_deepseek:{ in:0.0, out: 0.0,   free:true },
-  poll_gemini: { in: 0.0, out: 0.0,   free:true },
+  poll_gpt:  { in: 0.0,   out: 0.0,   free:false },
+  poll_claude: { in: 0.0, out: 0.0,   free:false },
+  poll_deepseek:{ in:0.0, out: 0.0,   free:false },
+  poll_gemini: { in: 0.0, out: 0.0,   free:false },
 };
 
 export const DEFAULT_PROMPTS = [
