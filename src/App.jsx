@@ -971,7 +971,7 @@ html, body{
 .attach-preview button:hover{color:var(--red)}
 .msg-file-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(212,168,83,.1);border:1px solid rgba(212,168,83,.3);border-radius:4px;font-size:9px;color:var(--ac);margin-bottom:4px;cursor:pointer}
 /* ══ AGENT AUTONOME ══ */
-.agent-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.agent-wrap{flex:1;display:flex;flex-direction:column;overflow:auto}
 .agent-hdr{padding:14px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--s1)}
 .agent-body{flex:1;overflow-y:auto;padding:12px 16px}
 .agent-step-card{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:10px;transition:border-color .3s}
@@ -1918,6 +1918,9 @@ function App() {
   const STATS_KEY = "multiia_stats";
   const loadStats = () => { try { return JSON.parse(localStorage.getItem(STATS_KEY)||"{}"); } catch { return {}; } };
   const [usageStats, setUsageStats] = React.useState(loadStats);
+  const [projects, setProjects] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("multiia_projects") || "[]"); } catch { return []; }
+  });
   const resetStats = () => { setUsageStats({}); localStorage.removeItem(STATS_KEY); };
   React.useEffect(() => { localStorage.setItem(STATS_KEY, JSON.stringify(usageStats)); }, [usageStats]);
   const [cfgDrafts, setCfgDrafts] = useState({});
@@ -5427,143 +5430,141 @@ async function checkCliBridge() {
         {/* ── YOUTUBE TAB ── */}
         {/* ── MÉDIAS TAB (YouTube + Images fusionnés) ── */}
         {tab === "medias" && (
-          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",paddingBottom:isMobile?"64px":"0"}}>
-            <div className="media-subtabs">
-              {[["youtube","▶ YouTube"],["images","🎨 Images IA"],["comfy","⬡ ComfyUI Local"],["webia","🌐 IAs Web"]].map(([k,l])=>(
-                <button key={k} className={"media-stab "+(mediaSubTab===k?"on":"")} onClick={()=>setMediaSubTab(k)}>{l}</button>
-              ))}
-            </div>
-            <div className="media-content">
-              {mediaSubTab==="youtube" && <YouTubeTab apiKeys={apiKeys} />}
-              {mediaSubTab==="comfy" && (
-                <div style={{flex:1,overflow:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                    <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"#A78BFA"}}>⬡ ComfyUI Local</div>
-                    <div style={{fontSize:9,color:comfyConnected?"var(--green)":"var(--red)"}}>
-                      {comfyConnected?"● Connecté":"○ Non connecté"}
-                    </div>
-                    {!comfyConnected&&<button onClick={()=>checkComfy()} style={{fontSize:9,padding:"3px 10px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.35)",borderRadius:5,color:"#A78BFA",cursor:"pointer"}}>🔌 Connecter</button>}
-                    <button onClick={()=>navigateTab("comfyui")} style={{marginLeft:"auto",fontSize:9,padding:"3px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>↗ Onglet complet</button>
+          <div className="media-subtabs">
+            {[["youtube","▶ YouTube"],["images","🎨 Images IA"],["comfy","⬡ ComfyUI Local"],["webia","🌐 IAs Web"]].map(([k,l])=>(
+              <button key={k} className={"media-stab "+(mediaSubTab===k?"on":"")} onClick={()=>setMediaSubTab(k)}>{l}</button>
+            ))}
+          </div>
+          <div className="media-content">
+            {mediaSubTab==="youtube" && <YouTubeTab apiKeys={apiKeys} />}
+            {mediaSubTab==="comfy" && (
+              <div style={{flex:1,overflow:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"#A78BFA"}}>⬡ ComfyUI Local</div>
+                  <div style={{fontSize:9,color:comfyConnected?"var(--green)":"var(--red)"}}>
+                    {comfyConnected?"● Connecté":"○ Non connecté"}
                   </div>
-                  {/* Quick generate */}
-                  <div style={{background:"var(--s1)",border:"1px solid rgba(124,58,237,.2)",borderRadius:8,padding:"12px 14px"}}>
-                    <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>GÉNÉRATION RAPIDE</div>
-                    <div style={{display:"flex",gap:7,marginBottom:8}}>
-                      <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
-                        placeholder="Décris l'image à générer (en anglais)…"
-                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 9px",fontFamily:"var(--font-ui)",outline:"none"}}
-                        onKeyDown={e=>{if(e.key==="Enter")generateComfy();}}/>
-                      <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
-                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity: !comfyConnected ? 0.4 : 1}}>
-                        {comfyGenerating?comfyProgress+"%":"⬡ Go"}
-                      </button>
-                    </div>
-                    {comfyGenerating&&<div style={{height:3,background:"var(--bd)",borderRadius:2}}><div style={{height:"100%",width:comfyProgress+"%",background:"#A78BFA",transition:"width .5s",borderRadius:2}}/></div>}
-                    {comfyResult&&(
-                      <div style={{marginTop:8,display:"flex",gap:8,alignItems:"center"}}>
-                        <img src={comfyResult.url} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid var(--bd)"}}/>
-                        <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                          <button onClick={()=>sendComfyToChat()} style={{fontSize:8,padding:"3px 9px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>💬 → Chat</button>
-                          <a href={comfyResult.url} download style={{fontSize:8,padding:"3px 9px",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:4,color:"var(--blue)",textDecoration:"none",textAlign:"center"}}>⬇ Sauver</a>
-                        </div>
-                      </div>
-                    )}
+                  {!comfyConnected&&<button onClick={()=>checkComfy()} style={{fontSize:9,padding:"3px 10px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.35)",borderRadius:5,color:"#A78BFA",cursor:"pointer"}}>🔌 Connecter</button>}
+                  <button onClick={()=>navigateTab("comfyui")} style={{marginLeft:"auto",fontSize:9,padding:"3px 10px",background:"transparent",border:"1px solid var(--bd)",borderRadius:5,color:"var(--mu)",cursor:"pointer"}}>↗ Onglet complet</button>
+                </div>
+                {/* Quick generate */}
+                <div style={{background:"var(--s1)",border:"1px solid rgba(124,58,237,.2)",borderRadius:8,padding:"12px 14px"}}>
+                  <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>GÉNÉRATION RAPIDE</div>
+                  <div style={{display:"flex",gap:7,marginBottom:8}}>
+                    <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
+                      placeholder="Décris l'image à générer (en anglais)…"
+                      style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"6px 9px",fontFamily:"var(--font-ui)",outline:"none"}}
+                      onKeyDown={e=>{if(e.key==="Enter")generateComfy();}}/>
+                    <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
+                      style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:5,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity: !comfyConnected ? 0.4 : 1}}>
+                      {comfyGenerating?comfyProgress+"%":"⬡ Go"}
+                    </button>
                   </div>
-                  {/* History grid */}
-                  {comfyHistory.length>0&&(
-                    <div>
-                      <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>HISTORIQUE ({comfyHistory.length})</div>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
-                        {comfyHistory.slice(0,12).map((h,i)=>(
-                          <div key={i} style={{borderRadius:6,overflow:"hidden",border:"1px solid var(--bd)",cursor:"pointer"}} onClick={()=>setComfyResult(h)}>
-                            <img src={h.url} alt={h.prompt} style={{width:"100%",height:90,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.opacity=".3";}}/>
-                          </div>
-                        ))}
+                  {comfyGenerating&&<div style={{height:3,background:"var(--bd)",borderRadius:2}}><div style={{height:"100%",width:comfyProgress+"%",background:"#A78BFA",transition:"width .5s",borderRadius:2}}/></div>}
+                  {comfyResult&&(
+                    <div style={{marginTop:8,display:"flex",gap:8,alignItems:"center"}}>
+                      <img src={comfyResult.url} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid var(--bd)"}}/>
+                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                        <button onClick={()=>sendComfyToChat()} style={{fontSize:8,padding:"3px 9px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:4,color:"var(--green)",cursor:"pointer"}}>💬 → Chat</button>
+                        <a href={comfyResult.url} download style={{fontSize:8,padding:"3px 9px",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:4,color:"var(--blue)",textDecoration:"none",textAlign:"center"}}>⬇ Sauver</a>
                       </div>
                     </div>
                   )}
                 </div>
-              )}
-              {mediaSubTab==="webia" && (
-                <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-                  <div style={{padding:"8px 12px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                    <span style={{fontSize:10,color:"var(--mu)"}}>Clique sur une IA pour l'ouvrir en iframe ·</span>
-                    <span style={{fontSize:9,color:"var(--orange)"}}>⚠️ Certains sites bloquent les iframes (ouvrent dans un nouvel onglet)</span>
-                  </div>
-                  <div style={{display:"flex",gap:8,padding:"10px 12px",flexWrap:"wrap",flexShrink:0,borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
-                    {WEB_AIS.map(ia=>(
-                      <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
-                        style={{display:"flex",alignItems:"center",gap:7,padding:"7px 12px",background:"var(--s2)",border:`1px solid ${ia.color}44`,borderRadius:8,textDecoration:"none",cursor:"pointer",transition:"all .15s"}}
-                        onMouseEnter={e=>e.currentTarget.style.borderColor=ia.color}
-                        onMouseLeave={e=>e.currentTarget.style.borderColor=ia.color+"44"}>
-                        <span style={{fontSize:14,color:ia.color}}>{ia.icon}</span>
-                        <div>
-                          <div style={{fontSize:10,fontWeight:700,color:ia.color}}>{ia.name}</div>
-                          <div style={{fontSize:8,color:"var(--mu)"}}>{ia.subtitle}</div>
+                {/* History grid */}
+                {comfyHistory.length>0&&(
+                  <div>
+                    <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>HISTORIQUE ({comfyHistory.length})</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
+                      {comfyHistory.slice(0,12).map((h,i)=>(
+                        <div key={i} style={{borderRadius:6,overflow:"hidden",border:"1px solid var(--bd)",cursor:"pointer"}} onClick={()=>setComfyResult(h)}>
+                          <img src={h.url} alt={h.prompt} style={{width:"100%",height:90,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.opacity=".3";}}/>
                         </div>
-                        <span style={{fontSize:9,color:"var(--mu)",marginLeft:4}}>↗</span>
-                      </a>
-                    ))}
-                  </div>
-                  <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:"var(--mu)",padding:20,textAlign:"center"}}>
-                    <div style={{fontSize:36}}>🌐</div>
-                    <div style={{fontSize:12}}>Les IAs web s'ouvrent dans un nouvel onglet</div>
-                    <div style={{fontSize:10}}>La plupart des sites IA bloquent les iframes pour des raisons de sécurité.</div>
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center",marginTop:8}}>
-                      {WEB_AIS.map(ia=>(
-                        <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
-                          style={{padding:"8px 16px",background:`${ia.color}18`,border:`1px solid ${ia.color}44`,borderRadius:8,color:ia.color,textDecoration:"none",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
-                          {ia.icon} {ia.name}
-                        </a>
                       ))}
                     </div>
                   </div>
-                </div>
-              )}
-              {mediaSubTab==="images" && (
-          <div className="img-wrap">
-            <div style={{ marginBottom:12 }}>
-              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:"clamp(14px,2.5vw,18px)", color:"var(--ac)", marginBottom:5 }}>🎨 Générateurs d'Images IA</div>
-              <div style={{ fontSize:11, color:"var(--mu)", marginBottom:12 }}>Priorité aux outils <strong style={{color:"var(--green)"}}>gratuits et open source</strong>. Qualité, vitesse et facilité notées sur 10.</div>
-              <div className="img-filter">
-                {[["free","⭐ Gratuits d'abord"],["oss","🔓 Open Source"],["all","Tous"],["paid","💰 Payants"]].map(([f,l]) => (
-                  <button key={f} className={`filter-btn ${imgFilter===f?"on":""}`} onClick={() => setImgFilter(f)}>{l}</button>
-                ))}
+                )}
               </div>
-            </div>
-            <div className="img-grid">
-              {filteredImages.map(g => (
-                <div key={g.id} className={`img-card ${g.license&&(g.license.includes("Apache")||g.license.includes("GPL"))?"oss":""}`} style={{ borderColor:g.color+"44" }}>
-                  <div className="ic-hdr">
-                    <div className="ic-icon" style={{ background:g.color+"18", color:g.color }}>{g.icon}</div>
-                    <div style={{ flex:1 }}>
-                      <div className="ic-name" style={{ color:g.color }}>{g.name}</div>
-                      <div className="ic-sub">{g.provider}</div>
-                    </div>
-                    <div>
-                      <span className="ic-free" style={{ background:g.free?"rgba(74,222,128,.12)":"rgba(251,146,60,.1)", color:g.free?"var(--green)":"var(--orange)" }}>{g.free?"GRATUIT":"PAYANT"}</span>
-                      {g.license && (g.license.includes("Apache")||g.license.includes("GPL")) && <div style={{ fontSize:7, color:"var(--green)", marginTop:2 }}>🔓 {g.license}</div>}
-                    </div>
-                  </div>
-                  <div className="ic-meters">
-                    {[["Qualité",g.quality],["Vitesse",g.speed],["Facilité",g.ease]].map(([l,v]) => (
-                      <div key={l} className="meter-item">
-                        <div className="meter-lbl">{l}</div>
-                        <MeterBar val={v} />
+            )}
+            {mediaSubTab==="webia" && (
+              <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+                <div style={{padding:"8px 12px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  <span style={{fontSize:10,color:"var(--mu)"}}>Clique sur une IA pour l'ouvrir en iframe ·</span>
+                  <span style={{fontSize:9,color:"var(--orange)"}}>⚠️ Certains sites bloquent les iframes (ouvrent dans un nouvel onglet)</span>
+                </div>
+                <div style={{display:"flex",gap:8,padding:"10px 12px",flexWrap:"wrap",flexShrink:0,borderBottom:"1px solid var(--bd)",background:"var(--s1)"}}>
+                  {WEB_AIS.map(ia=>(
+                    <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
+                      style={{display:"flex",alignItems:"center",gap:7,padding:"7px 12px",background:"var(--s2)",border:`1px solid ${ia.color}44`,borderRadius:8,textDecoration:"none",cursor:"pointer",transition:"all .15s"}}
+                      onMouseEnter={e=>e.currentTarget.style.borderColor=ia.color}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor=ia.color+"44"}>
+                      <span style={{fontSize:14,color:ia.color}}>{ia.icon}</span>
+                      <div>
+                        <div style={{fontSize:10,fontWeight:700,color:ia.color}}>{ia.name}</div>
+                        <div style={{fontSize:8,color:"var(--mu)"}}>{ia.subtitle}</div>
                       </div>
+                      <span style={{fontSize:9,color:"var(--mu)",marginLeft:4}}>↗</span>
+                    </a>
+                  ))}
+                </div>
+                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:"var(--mu)",padding:20,textAlign:"center"}}>
+                  <div style={{fontSize:36}}>🌐</div>
+                  <div style={{fontSize:12}}>Les IAs web s'ouvrent dans un nouvel onglet</div>
+                  <div style={{fontSize:10}}>La plupart des sites IA bloquent les iframes pour des raisons de sécurité.</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center",marginTop:8}}>
+                    {WEB_AIS.map(ia=>(
+                      <a key={ia.id} href={ia.url} target="_blank" rel="noreferrer"
+                        style={{padding:"8px 16px",background:`${ia.color}18`,border:`1px solid ${ia.color}44`,borderRadius:8,color:ia.color,textDecoration:"none",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
+                        {ia.icon} {ia.name}
+                      </a>
                     ))}
                   </div>
-                  <div className="ic-desc">{g.desc}</div>
-                  <div className="ic-strengths">{g.strengths.slice(0,4).map(s => <span key={s} className="ic-str">{s}</span>)}</div>
-                  <div className="ic-limits">⚠️ {g.limits}</div>
-                  <div className="ic-tags">{g.freeLabel && <span className="ic-tag" style={{ color:g.free?"var(--green)":"var(--orange)", borderColor:g.free?"rgba(74,222,128,.3)":"rgba(251,146,60,.3)" }}>{g.freeLabel}</span>}{g.tags.map(t=><span key={t} className="ic-tag">{t}</span>)}</div>
-                  <a href={g.url} target="_blank" rel="noreferrer" className="ic-btn" style={{ borderColor:g.color, color:g.color }}>↗ {g.urlLabel}</a>
                 </div>
+              </div>
+            )}
+            {mediaSubTab==="images" && (
+        <div className="img-wrap">
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:"clamp(14px,2.5vw,18px)", color:"var(--ac)", marginBottom:5 }}>🎨 Générateurs d'Images IA</div>
+            <div style={{ fontSize:11, color:"var(--mu)", marginBottom:12 }}>Priorité aux outils <strong style={{color:"var(--green)"}}>gratuits et open source</strong>. Qualité, vitesse et facilité notées sur 10.</div>
+            <div className="img-filter">
+              {[["free","⭐ Gratuits d'abord"],["oss","🔓 Open Source"],["all","Tous"],["paid","💰 Payants"]].map(([f,l]) => (
+                <button key={f} className={`filter-btn ${imgFilter===f?"on":""}`} onClick={() => setImgFilter(f)}>{l}</button>
               ))}
             </div>
-            <div className="cfg-note" style={{ marginTop:14 }}>
-              💡 <strong>Conseil</strong> : Pour la meilleure qualité gratuite localement → <strong style={{color:"var(--green)"}}>FLUX.1 via ComfyUI</strong>. Pour la plus simple sans installation → <strong style={{color:"#4FC3F7"}}>Bing Image Creator</strong> (DALL-E 3 gratuit). Pour le texte dans les images → <strong style={{color:"#F59E0B"}}>Ideogram</strong>.
-            </div>
+          </div>
+          <div className="img-grid">
+            {filteredImages.map(g => (
+              <div key={g.id} className={`img-card ${g.license&&(g.license.includes("Apache")||g.license.includes("GPL"))?"oss":""}`} style={{ borderColor:g.color+"44" }}>
+                <div className="ic-hdr">
+                  <div className="ic-icon" style={{ background:g.color+"18", color:g.color }}>{g.icon}</div>
+                  <div style={{ flex:1 }}>
+                    <div className="ic-name" style={{ color:g.color }}>{g.name}</div>
+                    <div className="ic-sub">{g.provider}</div>
+                  </div>
+                  <div>
+                    <span className="ic-free" style={{ background:g.free?"rgba(74,222,128,.12)":"rgba(251,146,60,.1)", color:g.free?"var(--green)":"var(--orange)" }}>{g.free?"GRATUIT":"PAYANT"}</span>
+                    {g.license && (g.license.includes("Apache")||g.license.includes("GPL")) && <div style={{ fontSize:7, color:"var(--green)", marginTop:2 }}>🔓 {g.license}</div>}
+                  </div>
+                </div>
+                <div className="ic-meters">
+                  {[["Qualité",g.quality],["Vitesse",g.speed],["Facilité",g.ease]].map(([l,v]) => (
+                    <div key={l} className="meter-item">
+                      <div className="meter-lbl">{l}</div>
+                      <MeterBar val={v} />
+                    </div>
+                  ))}
+                </div>
+                <div className="ic-desc">{g.desc}</div>
+                <div className="ic-strengths">{g.strengths.slice(0,4).map(s => <span key={s} className="ic-str">{s}</span>)}</div>
+                <div className="ic-limits">⚠️ {g.limits}</div>
+                <div className="ic-tags">{g.freeLabel && <span className="ic-tag" style={{ color:g.free?"var(--green)":"var(--orange)", borderColor:g.free?"rgba(74,222,128,.3)":"rgba(251,146,60,.3)" }}>{g.freeLabel}</span>}{g.tags.map(t=><span key={t} className="ic-tag">{t}</span>)}</div>
+                <a href={g.url} target="_blank" rel="noreferrer" className="ic-btn" style={{ borderColor:g.color, color:g.color }}>↗ {g.urlLabel}</a>
+              </div>
+            ))}
+          </div>
+          <div className="cfg-note" style={{ marginTop:14 }}>
+            💡 <strong>Conseil</strong> : Pour la meilleure qualité gratuite localement → <strong style={{color:"var(--green)"}}>FLUX.1 via ComfyUI</strong>. Pour la plus simple sans installation → <strong style={{color:"#4FC3F7"}}>Bing Image Creator</strong> (DALL-E 3 gratuit). Pour le texte dans les images → <strong style={{color:"#F59E0B"}}>Ideogram</strong>.
           </div>
               )}
             </div>
@@ -5572,23 +5573,17 @@ async function checkCliBridge() {
 
         {/* ── PROMPTS TAB ── */}
         {tab === "prompts" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <PromptsTab onInject={injectPrompt} apiKeys={apiKeys}/>
-          </div>
+          <PromptsTab onInject={injectPrompt} apiKeys={apiKeys}/>
         )}
 
         {/* ── RÉDACTION TAB ── */}
         {tab === "redaction" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <RedactionTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <RedactionTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {/* ── RECHERCHE TAB ── */}
         {tab === "recherche" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <RechercheTab enabled={enabled} apiKeys={apiKeys} setChatInput={setChatInput} setTab={setTab}/>
-          </div>
+          <RechercheTab enabled={enabled} apiKeys={apiKeys} setChatInput={setChatInput} setTab={setTab}/>
         )}
 
         {/* ── WORKFLOWS TAB ── */}
@@ -5639,9 +5634,7 @@ async function checkCliBridge() {
 
         {/* ── NOTES TAB ── */}
         {tab === "notes" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <NotesTab onCopyToChat={(text) => { navigateTab("chat"); setTimeout(()=>setChatInput(text),100); }}/>
-          </div>
+          <NotesTab onCopyToChat={(text) => { navigateTab("chat"); setTimeout(()=>setChatInput(text),100); }}/>
         )}
 
         {/* ── TRADUCTEUR TAB ── */}
@@ -5651,16 +5644,12 @@ async function checkCliBridge() {
 
         {/* ── AGENT TAB ── */}
         {tab === "agent" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
-            <AgentTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <AgentTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {/* ── STATS TAB ── */}
         {tab === "stats" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <StatsTab stats={usageStats} onReset={resetStats}/>
-          </div>
+          <StatsTab stats={usageStats} onReset={resetStats}/>
         )}
 
         {/* ── DEBATE TAB ── */}
@@ -6285,124 +6274,88 @@ async function checkCliBridge() {
 
 
         {tab === "benchmark" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <BenchmarkTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <BenchmarkTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {tab === "glossaire" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <GlossaireTab navigateTab={navigateTab} setChatInput={setChatInput}/>
-          </div>
+          <GlossaireTab navigateTab={navigateTab} setChatInput={setChatInput}/>
         )}
 
         {tab === "autopsy" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <PromptAutopsyTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
-          </div>
+          <PromptAutopsyTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
         )}
 
         {tab === "mentor" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <IaMentorTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <IaMentorTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {tab === "dna" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
-            <PromptDNATab onInject={injectPrompt}/>
-          </div>
+          <PromptDNATab onInject={injectPrompt}/>
         )}
 
         {tab === "conference" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
-            <ConferenceTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <ConferenceTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {tab === "consensus" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <ConsensusTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
-          </div>
+          <ConsensusTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
         )}
 
         {tab === "brief" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
-            <MorningBriefTab
-              enabled={enabled}
-              apiKeys={apiKeys}
-              projects={projects}
-              memFacts={memFacts}
-              usageStats={usageStats}
-              savedConvs={savedConvs}
-              conversations={conversations}
-            />
-          </div>
+          <MorningBriefTab
+            enabled={enabled}
+            apiKeys={apiKeys}
+            projects={projects}
+            memFacts={memFacts}
+            usageStats={usageStats}
+            savedConvs={savedConvs}
+            conversations={conversations}
+          />
         )}
 
         {tab === "taskia" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <TaskToIAsTab
-              enabled={enabled}
-              apiKeys={apiKeys}
-              navigateTab={navigateTab}
-              setChatInput={setChatInput}
-            />
-          </div>
+          <TaskToIAsTab
+            enabled={enabled}
+            apiKeys={apiKeys}
+            navigateTab={navigateTab}
+            setChatInput={setChatInput}
+          />
         )}
 
         {tab === "journaliste" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <JournalisteTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <JournalisteTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {tab === "skills" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <SkillBuilderTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
-          </div>
+          <SkillBuilderTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
         )}
 
         {tab === "contradict" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <ContradictionTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
-          </div>
+          <ContradictionTab enabled={enabled} apiKeys={apiKeys} conversations={conversations}/>
         )}
 
         {tab === "secondbrain" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
-            <SecondBrainTab savedConvs={savedConvs} projects={projects} memFacts={memFacts} usageStats={usageStats} apiKeys={apiKeys} enabled={enabled}/>
-          </div>
+          <SecondBrainTab savedConvs={savedConvs} projects={projects} memFacts={memFacts} usageStats={usageStats} apiKeys={apiKeys} enabled={enabled}/>
         )}
 
         {tab === "livedebate" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <LiveDebateTimerTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <LiveDebateTimerTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {tab === "contexttrans" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <ContextTranslatorTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <ContextTranslatorTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {tab === "apioptim" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <ApiOptimizerTab usageStats={usageStats} enabled={enabled}/>
-          </div>
+          <ApiOptimizerTab usageStats={usageStats} enabled={enabled}/>
         )}
 
         {tab === "civilisations" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <CivilisationsTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <CivilisationsTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {tab === "flash" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <ModeFlashTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
-          </div>
+          <ModeFlashTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
         )}
 
         {/* ══ ADVANCED SETTINGS TAB ══ */}
@@ -6504,332 +6457,330 @@ async function checkCliBridge() {
 
         {/* ══ COMFYUI TAB ══ */}
         {tab === "comfyui" && (
-          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            {/* Header */}
-            <div style={{padding:"8px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",flexShrink:0}}>
-              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"#A78BFA"}}>⬡ ComfyUI Studio</div>
-              <div style={{fontSize:9,color:comfyConnected?"var(--green)":"var(--mu)"}}>
-                {comfyConnected?"● Connecté — "+comfyUrl:"○ Non connecté"}
-              </div>
-              {/* Sub-tabs */}
-              <div style={{marginLeft:"auto",display:"flex",gap:3}}>
-                {[["generate","🎨 Générer"],["workflows","🔀 Workflows"],["history","🕐 Historique"],["settings","⚙ Config"]].map(([k,l])=>(
-                  <button key={k} onClick={()=>setComfySubTab(k)}
-                    style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+(comfySubTab===k?"#A78BFA":"var(--bd)"),background:comfySubTab===k?"rgba(124,58,237,.15)":"transparent",color:comfySubTab===k?"#A78BFA":"var(--mu)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
+          {/* Header */}
+          <div style={{padding:"8px 14px",borderBottom:"1px solid var(--bd)",background:"var(--s1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",flexShrink:0}}>
+            <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:14,color:"#A78BFA"}}>⬡ ComfyUI Studio</div>
+            <div style={{fontSize:9,color:comfyConnected?"var(--green)":"var(--mu)"}}>
+              {comfyConnected?"● Connecté — "+comfyUrl:"○ Non connecté"}
             </div>
+            {/* Sub-tabs */}
+            <div style={{marginLeft:"auto",display:"flex",gap:3}}>
+              {[["generate","🎨 Générer"],["workflows","🔀 Workflows"],["history","🕐 Historique"],["settings","⚙ Config"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setComfySubTab(k)}
+                  style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+(comfySubTab===k?"#A78BFA":"var(--bd)"),background:comfySubTab===k?"rgba(124,58,237,.15)":"transparent",color:comfySubTab===k?"#A78BFA":"var(--mu)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {/* ── GENERATE SUB-TAB ── */}
-            {comfySubTab==="generate"&&(
-              <div style={{flex:1,overflow:"auto",display:"flex",gap:0,minHeight:0}}>
-                {/* Left: controls */}
-                <div style={{width:"min(300px,45%)",flexShrink:0,borderRight:"1px solid var(--bd)",overflow:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
-                  {!comfyConnected&&(
-                    <div style={{padding:"10px 12px",background:"rgba(124,58,237,.06)",border:"1px solid rgba(124,58,237,.2)",borderRadius:7,fontSize:9,color:"var(--mu)"}}>
-                      <div style={{fontWeight:700,color:"#A78BFA",marginBottom:4}}>⬡ ComfyUI non connecté</div>
-                      Lance ComfyUI sur ton PC (port 8188), puis va dans l'onglet ⚙ Config pour connecter.
-                      <button onClick={()=>setComfySubTab("settings")} style={{marginTop:6,display:"block",fontSize:8,padding:"3px 8px",background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>→ Config</button>
-                    </div>
-                  )}
-
-                  {/* Positive prompt */}
-                  <div>
-                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>PROMPT POSITIF</div>
-                    <textarea value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
-                      placeholder="masterpiece, best quality, detailed, a beautiful landscape at sunset, photorealistic…"
-                      rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"7px 9px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
-                    <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                      {["masterpiece","photorealistic","8k","anime style","oil painting","cinematic lighting"].map(tag=>(
-                        <button key={tag} onClick={()=>setComfyPrompt(p=>p?(p+", "+tag):tag)}
-                          style={{fontSize:7,padding:"1px 6px",background:"rgba(124,58,237,.08)",border:"1px solid rgba(124,58,237,.2)",borderRadius:3,color:"#A78BFA",cursor:"pointer"}}>
-                          +{tag}
-                        </button>
-                      ))}
-                    </div>
+          {/* ── GENERATE SUB-TAB ── */}
+          {comfySubTab==="generate"&&(
+            <div style={{flex:1,overflow:"auto",display:"flex",gap:0,minHeight:0}}>
+              {/* Left: controls */}
+              <div style={{width:"min(300px,45%)",flexShrink:0,borderRight:"1px solid var(--bd)",overflow:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
+                {!comfyConnected&&(
+                  <div style={{padding:"10px 12px",background:"rgba(124,58,237,.06)",border:"1px solid rgba(124,58,237,.2)",borderRadius:7,fontSize:9,color:"var(--mu)"}}>
+                    <div style={{fontWeight:700,color:"#A78BFA",marginBottom:4}}>⬡ ComfyUI non connecté</div>
+                    Lance ComfyUI sur ton PC (port 8188), puis va dans l'onglet ⚙ Config pour connecter.
+                    <button onClick={()=>setComfySubTab("settings")} style={{marginTop:6,display:"block",fontSize:8,padding:"3px 8px",background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>→ Config</button>
                   </div>
+                )}
 
-                  {/* Negative prompt */}
-                  <div>
-                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>PROMPT NÉGATIF</div>
-                    <textarea value={comfyNegPrompt} onChange={e=>setComfyNegPrompt(e.target.value)}
-                      rows={2} style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(248,113,113,.2)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"7px 9px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                {/* Positive prompt */}
+                <div>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>PROMPT POSITIF</div>
+                  <textarea value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)}
+                    placeholder="masterpiece, best quality, detailed, a beautiful landscape at sunset, photorealistic…"
+                    rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"7px 9px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                  <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                    {["masterpiece","photorealistic","8k","anime style","oil painting","cinematic lighting"].map(tag=>(
+                      <button key={tag} onClick={()=>setComfyPrompt(p=>p?(p+", "+tag):tag)}
+                        style={{fontSize:7,padding:"1px 6px",background:"rgba(124,58,237,.08)",border:"1px solid rgba(124,58,237,.2)",borderRadius:3,color:"#A78BFA",cursor:"pointer"}}>
+                        +{tag}
+                      </button>
+                    ))}
                   </div>
+                </div>
 
-                  {/* Model selector */}
-                  {comfyModels.length>0&&(
-                    <div>
-                      <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>MODÈLE (CHECKPOINT)</div>
-                      <select value={comfyModel} onChange={e=>setComfyModel(e.target.value)}
-                        style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,padding:"5px 7px",fontFamily:"var(--font-mono)",outline:"none"}}>
-                        {comfyModels.map(m=><option key={m} value={m}>{m}</option>)}
-                      </select>
-                    </div>
-                  )}
+                {/* Negative prompt */}
+                <div>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>PROMPT NÉGATIF</div>
+                  <textarea value={comfyNegPrompt} onChange={e=>setComfyNegPrompt(e.target.value)}
+                    rows={2} style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(248,113,113,.2)",borderRadius:6,color:"var(--tx)",fontSize:9,padding:"7px 9px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+                </div>
 
-                  {/* Size */}
+                {/* Model selector */}
+                {comfyModels.length>0&&(
                   <div>
-                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>DIMENSIONS</div>
-                    <div style={{display:"flex",gap:6}}>
-                      {[["W",comfyWidth,setComfyWidth],[" H",comfyHeight,setComfyHeight]].map(([lbl,val,setter])=>(
-                        <div key={lbl} style={{flex:1}}>
-                          <div style={{fontSize:7,color:"var(--mu)",marginBottom:2}}>{lbl}</div>
-                          <select value={val} onChange={e=>setter(Number(e.target.value))}
-                            style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 5px",fontFamily:"var(--font-mono)",outline:"none"}}>
-                            {[256,512,640,768,1024].map(v=><option key={v} value={v}>{v}</option>)}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>MODÈLE (CHECKPOINT)</div>
+                    <select value={comfyModel} onChange={e=>setComfyModel(e.target.value)}
+                      style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:9,padding:"5px 7px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                      {comfyModels.map(m=><option key={m} value={m}>{m}</option>)}
+                    </select>
                   </div>
+                )}
 
-                  {/* Steps + CFG */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    {[["STEPS",comfySteps,setComfySteps,1,50],["CFG",comfyCfg,setComfyCfg,1,20]].map(([lbl,val,setter,min,max])=>(
-                      <div key={lbl}>
-                        <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:3}}>{lbl} <span style={{color:"var(--tx)",fontFamily:"var(--font-mono)"}}>{val}</span></div>
-                        <input type="range" min={min} max={max} step={1} value={val} onChange={e=>setter(Number(e.target.value))} style={{width:"100%"}}/>
+                {/* Size */}
+                <div>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>DIMENSIONS</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {[["W",comfyWidth,setComfyWidth],[" H",comfyHeight,setComfyHeight]].map(([lbl,val,setter])=>(
+                      <div key={lbl} style={{flex:1}}>
+                        <div style={{fontSize:7,color:"var(--mu)",marginBottom:2}}>{lbl}</div>
+                        <select value={val} onChange={e=>setter(Number(e.target.value))}
+                          style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"3px 5px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                          {[256,512,640,768,1024].map(v=><option key={v} value={v}>{v}</option>)}
+                        </select>
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  {/* Sampler */}
+                {/* Steps + CFG */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {[["STEPS",comfySteps,setComfySteps,1,50],["CFG",comfyCfg,setComfyCfg,1,20]].map(([lbl,val,setter,min,max])=>(
+                    <div key={lbl}>
+                      <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:3}}>{lbl} <span style={{color:"var(--tx)",fontFamily:"var(--font-mono)"}}>{val}</span></div>
+                      <input type="range" min={min} max={max} step={1} value={val} onChange={e=>setter(Number(e.target.value))} style={{width:"100%"}}/>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sampler */}
+                <div>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>SAMPLER</div>
+                  <select value={comfySampler} onChange={e=>setComfySampler(e.target.value)}
+                    style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 6px",fontFamily:"var(--font-mono)",outline:"none"}}>
+                    {["euler","euler_ancestral","dpm_2","dpm_2_ancestral","dpmpp_2m","dpmpp_sde","ddim","lcm"].map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                {/* Seed */}
+                <div>
+                  <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>SEED <span style={{fontWeight:400}}>(-1 = aléatoire)</span></div>
+                  <div style={{display:"flex",gap:5}}>
+                    <input type="number" value={comfySeed} onChange={e=>setComfySeed(Number(e.target.value))}
+                      style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 7px",fontFamily:"var(--font-mono)",outline:"none"}}/>
+                    <button onClick={()=>setComfySeed(Math.floor(Math.random()*2**32))}
+                      style={{fontSize:9,padding:"4px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>🎲</button>
+                  </div>
+                </div>
+
+                {/* LoRAs */}
+                {comfyLoras.length>0&&(
                   <div>
-                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>SAMPLER</div>
-                    <select value={comfySampler} onChange={e=>setComfySampler(e.target.value)}
-                      style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 6px",fontFamily:"var(--font-mono)",outline:"none"}}>
-                      {["euler","euler_ancestral","dpm_2","dpm_2_ancestral","dpmpp_2m","dpmpp_sde","ddim","lcm"].map(s=><option key={s} value={s}>{s}</option>)}
+                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>LORAS ({comfyActiveLoras.length} actif{comfyActiveLoras.length!==1?"s":""})</div>
+                    {comfyActiveLoras.map((lora,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+                        <span style={{fontSize:8,flex:1,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lora.name.slice(0,20)}</span>
+                        <input type="range" min={0} max={2} step={0.1} value={lora.strength}
+                          onChange={e=>{const nl=[...comfyActiveLoras];nl[i]={...nl[i],strength:parseFloat(e.target.value)};setComfyActiveLoras(nl);}}
+                          style={{width:60}}/>
+                        <span style={{fontSize:7,color:"var(--mu)",fontFamily:"var(--font-mono)",width:22}}>{lora.strength.toFixed(1)}</span>
+                        <button onClick={()=>setComfyActiveLoras(prev=>prev.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:10}}>✕</button>
+                      </div>
+                    ))}
+                    <select onChange={e=>{if(e.target.value)setComfyActiveLoras(p=>[...p,{name:e.target.value,strength:1.0}]);e.target.value="";}}
+                      style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",fontSize:8,padding:"3px 5px",fontFamily:"var(--font-mono)",outline:"none",marginTop:3}}>
+                      <option value="">＋ Ajouter un LoRA…</option>
+                      {comfyLoras.filter(l=>!comfyActiveLoras.find(a=>a.name===l)).map(l=><option key={l} value={l}>{l}</option>)}
                     </select>
                   </div>
+                )}
 
-                  {/* Seed */}
-                  <div>
-                    <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>SEED <span style={{fontWeight:400}}>(-1 = aléatoire)</span></div>
-                    <div style={{display:"flex",gap:5}}>
-                      <input type="number" value={comfySeed} onChange={e=>setComfySeed(Number(e.target.value))}
-                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 7px",fontFamily:"var(--font-mono)",outline:"none"}}/>
-                      <button onClick={()=>setComfySeed(Math.floor(Math.random()*2**32))}
-                        style={{fontSize:9,padding:"4px 8px",background:"transparent",border:"1px solid var(--bd)",borderRadius:4,color:"var(--mu)",cursor:"pointer"}}>🎲</button>
+                {/* Generate button */}
+                <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
+                  style={{padding:"10px",background:"rgba(124,58,237,.2)",border:"2px solid rgba(124,58,237,.5)",borderRadius:8,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-mono)",opacity: !comfyConnected ? 0.4 : 1}}>
+                  {comfyGenerating?"⟳ Génération… "+comfyProgress+"%":"⬡ Générer l'image"}
+                </button>
+
+                {/* Progress bar */}
+                {comfyGenerating&&(
+                  <div style={{height:4,background:"var(--bd)",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:comfyProgress+"%",background:"#A78BFA",borderRadius:2,transition:"width .5s"}}/>
+                  </div>
+                )}
+                {comfyError&&<div style={{fontSize:9,color:"var(--red)",padding:"6px 8px",background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.2)",borderRadius:5}}>{comfyError}</div>}
+              </div>
+
+              {/* Right: result */}
+              <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16,overflow:"auto"}}>
+                {!comfyResult&&!comfyGenerating&&(
+                  <div style={{textAlign:"center",color:"var(--mu)"}}>
+                    <div style={{fontSize:48,opacity:.15,marginBottom:12}}>⬡</div>
+                    <div style={{fontSize:11}}>Configure et génère ton image</div>
+                    <div style={{fontSize:9,marginTop:6}}>FLUX · Stable Diffusion · SDXL · Toute checkpoint installée</div>
+                  </div>
+                )}
+                {comfyGenerating&&!comfyResult&&(
+                  <div style={{textAlign:"center",color:"var(--mu)"}}>
+                    <div style={{fontSize:36,animation:"spin 2s linear infinite",display:"inline-block",marginBottom:12}}>⬡</div>
+                    <div style={{fontSize:11,color:"#A78BFA"}}>Génération en cours… {comfyProgress}%</div>
+                    <div style={{fontSize:9,marginTop:4}}>ComfyUI traite le workflow</div>
+                  </div>
+                )}
+                {comfyResult&&(
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,maxWidth:600,width:"100%"}}>
+                    <img src={comfyResult.url} alt="résultat"
+                      style={{maxWidth:"100%",maxHeight:"60vh",objectFit:"contain",borderRadius:10,border:"1px solid var(--bd)",boxShadow:"0 8px 32px rgba(0,0,0,.3)"}}/>
+                    <div style={{fontSize:9,color:"var(--mu)",textAlign:"center",fontStyle:"italic"}}>
+                      {comfyResult.prompt?.slice(0,100)}{(comfyResult.prompt?.length||0)>100?"…":""}
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+                      <button onClick={()=>sendComfyToChat()} style={{padding:"7px 16px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,color:"var(--green)",fontSize:10,cursor:"pointer",fontWeight:700}}>💬 → Chat</button>
+                      <button onClick={()=>{window.__openCanvas&&window.__openCanvas('<img src="'+comfyResult.url+'" style="max-width:100%;max-height:100vh;object-fit:contain;display:block;margin:auto;"/>','html','Image ComfyUI');}} style={{padding:"7px 16px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.3)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>▶ Canvas</button>
+                      <a href={comfyResult.url} download={comfyResult.filename||"image.png"} style={{padding:"7px 16px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--blue)",fontSize:10,textDecoration:"none",fontWeight:700}}>⬇ Télécharger</a>
+                      <button onClick={()=>{setComfyPrompt(p=>p);generateComfy();}} disabled={comfyGenerating} style={{padding:"7px 16px",background:"transparent",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>↺ Régénérer</button>
                     </div>
                   </div>
-
-                  {/* LoRAs */}
-                  {comfyLoras.length>0&&(
-                    <div>
-                      <div style={{fontSize:8,color:"var(--mu)",fontWeight:700,marginBottom:4}}>LORAS ({comfyActiveLoras.length} actif{comfyActiveLoras.length!==1?"s":""})</div>
-                      {comfyActiveLoras.map((lora,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
-                          <span style={{fontSize:8,flex:1,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lora.name.slice(0,20)}</span>
-                          <input type="range" min={0} max={2} step={0.1} value={lora.strength}
-                            onChange={e=>{const nl=[...comfyActiveLoras];nl[i]={...nl[i],strength:parseFloat(e.target.value)};setComfyActiveLoras(nl);}}
-                            style={{width:60}}/>
-                          <span style={{fontSize:7,color:"var(--mu)",fontFamily:"var(--font-mono)",width:22}}>{lora.strength.toFixed(1)}</span>
-                          <button onClick={()=>setComfyActiveLoras(prev=>prev.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:10}}>✕</button>
-                        </div>
-                      ))}
-                      <select onChange={e=>{if(e.target.value)setComfyActiveLoras(p=>[...p,{name:e.target.value,strength:1.0}]);e.target.value="";}}
-                        style={{width:"100%",background:"var(--s2)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",fontSize:8,padding:"3px 5px",fontFamily:"var(--font-mono)",outline:"none",marginTop:3}}>
-                        <option value="">＋ Ajouter un LoRA…</option>
-                        {comfyLoras.filter(l=>!comfyActiveLoras.find(a=>a.name===l)).map(l=><option key={l} value={l}>{l}</option>)}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Generate button */}
-                  <button onClick={()=>generateComfy()} disabled={comfyGenerating||!comfyConnected}
-                    style={{padding:"10px",background:"rgba(124,58,237,.2)",border:"2px solid rgba(124,58,237,.5)",borderRadius:8,color:"#A78BFA",fontSize:11,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-mono)",opacity: !comfyConnected ? 0.4 : 1}}>
-                    {comfyGenerating?"⟳ Génération… "+comfyProgress+"%":"⬡ Générer l'image"}
-                  </button>
-
-                  {/* Progress bar */}
-                  {comfyGenerating&&(
-                    <div style={{height:4,background:"var(--bd)",borderRadius:2,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:comfyProgress+"%",background:"#A78BFA",borderRadius:2,transition:"width .5s"}}/>
-                    </div>
-                  )}
-                  {comfyError&&<div style={{fontSize:9,color:"var(--red)",padding:"6px 8px",background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.2)",borderRadius:5}}>{comfyError}</div>}
-                </div>
-
-                {/* Right: result */}
-                <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16,overflow:"auto"}}>
-                  {!comfyResult&&!comfyGenerating&&(
-                    <div style={{textAlign:"center",color:"var(--mu)"}}>
-                      <div style={{fontSize:48,opacity:.15,marginBottom:12}}>⬡</div>
-                      <div style={{fontSize:11}}>Configure et génère ton image</div>
-                      <div style={{fontSize:9,marginTop:6}}>FLUX · Stable Diffusion · SDXL · Toute checkpoint installée</div>
-                    </div>
-                  )}
-                  {comfyGenerating&&!comfyResult&&(
-                    <div style={{textAlign:"center",color:"var(--mu)"}}>
-                      <div style={{fontSize:36,animation:"spin 2s linear infinite",display:"inline-block",marginBottom:12}}>⬡</div>
-                      <div style={{fontSize:11,color:"#A78BFA"}}>Génération en cours… {comfyProgress}%</div>
-                      <div style={{fontSize:9,marginTop:4}}>ComfyUI traite le workflow</div>
-                    </div>
-                  )}
-                  {comfyResult&&(
-                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,maxWidth:600,width:"100%"}}>
-                      <img src={comfyResult.url} alt="résultat"
-                        style={{maxWidth:"100%",maxHeight:"60vh",objectFit:"contain",borderRadius:10,border:"1px solid var(--bd)",boxShadow:"0 8px 32px rgba(0,0,0,.3)"}}/>
-                      <div style={{fontSize:9,color:"var(--mu)",textAlign:"center",fontStyle:"italic"}}>
-                        {comfyResult.prompt?.slice(0,100)}{(comfyResult.prompt?.length||0)>100?"…":""}
-                      </div>
-                      <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
-                        <button onClick={()=>sendComfyToChat()} style={{padding:"7px 16px",background:"rgba(74,222,128,.12)",border:"1px solid rgba(74,222,128,.3)",borderRadius:6,color:"var(--green)",fontSize:10,cursor:"pointer",fontWeight:700}}>💬 → Chat</button>
-                        <button onClick={()=>{window.__openCanvas&&window.__openCanvas('<img src="'+comfyResult.url+'" style="max-width:100%;max-height:100vh;object-fit:contain;display:block;margin:auto;"/>','html','Image ComfyUI');}} style={{padding:"7px 16px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.3)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>▶ Canvas</button>
-                        <a href={comfyResult.url} download={comfyResult.filename||"image.png"} style={{padding:"7px 16px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:6,color:"var(--blue)",fontSize:10,textDecoration:"none",fontWeight:700}}>⬇ Télécharger</a>
-                        <button onClick={()=>{setComfyPrompt(p=>p);generateComfy();}} disabled={comfyGenerating} style={{padding:"7px 16px",background:"transparent",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>↺ Régénérer</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* ── WORKFLOWS SUB-TAB ── */}
-            {comfySubTab==="workflows"&&(
-              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
-                <div style={{fontSize:9,color:"var(--mu)",marginBottom:12}}>
-                  Charge un fichier <code style={{color:"var(--ac)"}}>workflow_api.json</code> exporté depuis ComfyUI (menu Save → Save (API Format)).
-                </div>
-                {/* Upload workflow */}
-                <div style={{marginBottom:14}}>
-                  <input type="file" accept=".json" id="wf-upload" style={{display:"none"}}
-                    onChange={async e=>{
-                      const f=e.target.files?.[0]; if(!f) return;
-                      try{
-                        const txt=await f.text();
-                        const json=JSON.parse(txt);
-                        setComfyActiveWf(json);
-                        setComfyWfName(f.name.replace(".json",""));
-                        showToast("✓ Workflow chargé : "+f.name);
-                      }catch{showToast("❌ JSON invalide");}
-                      e.target.value="";
-                    }}/>
-                  <label htmlFor="wf-upload" style={{display:"inline-flex",alignItems:"center",gap:7,padding:"8px 16px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.35)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
-                    📂 Charger un workflow .json
-                  </label>
-                  {comfyActiveWf&&(
-                    <span style={{marginLeft:10,fontSize:9,color:"var(--green)"}}>
-                      ✓ {comfyWfName} — {Object.keys(comfyActiveWf).length} nœuds
-                    </span>
-                  )}
-                </div>
-
-                {/* Workflow prompt injection */}
+          {/* ── WORKFLOWS SUB-TAB ── */}
+          {comfySubTab==="workflows"&&(
+            <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:"var(--mu)",marginBottom:12}}>
+                Charge un fichier <code style={{color:"var(--ac)"}}>workflow_api.json</code> exporté depuis ComfyUI (menu Save → Save (API Format)).
+              </div>
+              {/* Upload workflow */}
+              <div style={{marginBottom:14}}>
+                <input type="file" accept=".json" id="wf-upload" style={{display:"none"}}
+                  onChange={async e=>{
+                    const f=e.target.files?.[0]; if(!f) return;
+                    try{
+                      const txt=await f.text();
+                      const json=JSON.parse(txt);
+                      setComfyActiveWf(json);
+                      setComfyWfName(f.name.replace(".json",""));
+                      showToast("✓ Workflow chargé : "+f.name);
+                    }catch{showToast("❌ JSON invalide");}
+                    e.target.value="";
+                  }}/>
+                <label htmlFor="wf-upload" style={{display:"inline-flex",alignItems:"center",gap:7,padding:"8px 16px",background:"rgba(124,58,237,.12)",border:"1px solid rgba(124,58,237,.35)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontFamily:"var(--font-mono)",fontWeight:700}}>
+                  📂 Charger un workflow .json
+                </label>
                 {comfyActiveWf&&(
-                  <div style={{marginBottom:14,padding:"10px 12px",background:"var(--s1)",border:"1px solid rgba(124,58,237,.2)",borderRadius:7}}>
-                    <div style={{fontSize:9,fontWeight:700,color:"#A78BFA",marginBottom:7}}>Prompt à injecter dans le workflow</div>
-                    <div style={{fontSize:8,color:"var(--mu)",marginBottom:7}}>L'app remplace automatiquement le premier nœud CLIPTextEncode (positif) par ce texte.</div>
-                    <div style={{display:"flex",gap:7}}>
-                      <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)} placeholder="Ton prompt ici…"
-                        style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"7px 9px",fontFamily:"var(--font-ui)",outline:"none"}}/>
-                      <button onClick={()=>{
-                        if(!comfyActiveWf) return;
-                        // Inject prompt into first CLIPTextEncode node
-                        const wf=JSON.parse(JSON.stringify(comfyActiveWf));
-                        for(const id of Object.keys(wf)){
-                          if(wf[id].class_type==="CLIPTextEncode"&&wf[id].inputs?.text!==undefined){
-                            wf[id].inputs.text=comfyPrompt||wf[id].inputs.text;
-                            break;
-                          }
+                  <span style={{marginLeft:10,fontSize:9,color:"var(--green)"}}>
+                    ✓ {comfyWfName} — {Object.keys(comfyActiveWf).length} nœuds
+                  </span>
+                )}
+              </div>
+
+              {/* Workflow prompt injection */}
+              {comfyActiveWf&&(
+                <div style={{marginBottom:14,padding:"10px 12px",background:"var(--s1)",border:"1px solid rgba(124,58,237,.2)",borderRadius:7}}>
+                  <div style={{fontSize:9,fontWeight:700,color:"#A78BFA",marginBottom:7}}>Prompt à injecter dans le workflow</div>
+                  <div style={{fontSize:8,color:"var(--mu)",marginBottom:7}}>L'app remplace automatiquement le premier nœud CLIPTextEncode (positif) par ce texte.</div>
+                  <div style={{display:"flex",gap:7}}>
+                    <input value={comfyPrompt} onChange={e=>setComfyPrompt(e.target.value)} placeholder="Ton prompt ici…"
+                      style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--tx)",fontSize:10,padding:"7px 9px",fontFamily:"var(--font-ui)",outline:"none"}}/>
+                    <button onClick={()=>{
+                      if(!comfyActiveWf) return;
+                      // Inject prompt into first CLIPTextEncode node
+                      const wf=JSON.parse(JSON.stringify(comfyActiveWf));
+                      for(const id of Object.keys(wf)){
+                        if(wf[id].class_type==="CLIPTextEncode"&&wf[id].inputs?.text!==undefined){
+                          wf[id].inputs.text=comfyPrompt||wf[id].inputs.text;
+                          break;
                         }
-                        generateComfy(wf, comfyPrompt);
-                      }} disabled={comfyGenerating||!comfyConnected}
-                        style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity: !comfyConnected ? 0.4 : 1}}>
-                        {comfyGenerating?"⟳":"⬡ Lancer"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Saved workflows */}
-                <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>WORKFLOWS SAUVEGARDÉS ({comfyWorkflows.length})</div>
-                {comfyWorkflows.length===0&&<div style={{color:"var(--mu)",fontSize:9}}>Charge un workflow puis clique "Sauvegarder" pour le retrouver ici.</div>}
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
-                  {comfyWorkflows.map(wf=>(
-                    <div key={wf.id} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,padding:"10px 12px"}}>
-                      <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:3}}>{wf.name}</div>
-                      <div style={{fontSize:8,color:"var(--mu)",marginBottom:8}}>{new Date(wf.ts).toLocaleDateString("fr-FR")} · {Object.keys(wf.json||{}).length} nœuds</div>
-                      <div style={{display:"flex",gap:5}}>
-                        <button onClick={()=>{setComfyActiveWf(wf.json);setComfyWfName(wf.name);setComfySubTab("workflows");showToast("✓ "+wf.name+" chargé");}}
-                          style={{flex:1,fontSize:8,padding:"3px 0",background:"rgba(124,58,237,.1)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>Charger</button>
-                        <button onClick={()=>deleteComfyWorkflow(wf.id)} style={{fontSize:8,padding:"3px 7px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:4,color:"var(--red)",cursor:"pointer"}}>✕</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {comfyActiveWf&&(
-                  <button onClick={()=>{const name=prompt("Nom du workflow :",comfyWfName||"Mon workflow");if(name)saveComfyWorkflow(name,comfyActiveWf);}}
-                    style={{marginTop:12,padding:"6px 14px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
-                    💾 Sauvegarder le workflow actuel
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* ── HISTORY SUB-TAB ── */}
-            {comfySubTab==="history"&&(
-              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                  <div style={{fontSize:9,color:"var(--mu)"}}>{comfyHistory.length} image{comfyHistory.length!==1?"s":""} générée{comfyHistory.length!==1?"s":""}</div>
-                  {comfyHistory.length>0&&<button onClick={()=>setComfyHistory([])} style={{fontSize:8,padding:"2px 8px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:4,color:"var(--red)",cursor:"pointer",marginLeft:"auto"}}>🗑 Tout effacer</button>}
-                </div>
-                {comfyHistory.length===0&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Aucune génération encore.</div>}
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
-                  {comfyHistory.map((h,i)=>(
-                    <div key={i} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,overflow:"hidden"}}>
-                      <img src={h.url} alt={h.prompt} style={{width:"100%",height:140,objectFit:"cover",display:"block"}}
-                        onError={e=>{e.target.style.display="none";}}/>
-                      <div style={{padding:"7px 9px"}}>
-                        <div style={{fontSize:8,color:"var(--mu)",marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.prompt?.slice(0,50)}</div>
-                        <div style={{fontSize:7,color:"var(--mu)",marginBottom:6}}>{new Date(h.ts).toLocaleString("fr-FR")}</div>
-                        <div style={{display:"flex",gap:4}}>
-                          <button onClick={()=>sendComfyToChat(h)} style={{flex:1,fontSize:7,padding:"2px 0",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.25)",borderRadius:3,color:"var(--green)",cursor:"pointer"}}>→ Chat</button>
-                          <a href={h.url} download style={{flex:1,fontSize:7,padding:"2px 0",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,color:"var(--blue)",textDecoration:"none",textAlign:"center"}}>⬇</a>
-                          <button onClick={()=>{setComfyPrompt(h.prompt||"");setComfySubTab("generate");}} style={{flex:1,fontSize:7,padding:"2px 0",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>↺</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── SETTINGS SUB-TAB ── */}
-            {comfySubTab==="settings"&&(
-              <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
-                <div style={{maxWidth:500}}>
-                  <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>CONNEXION COMFYUI</div>
-                  <div style={{display:"flex",gap:7,marginBottom:10}}>
-                    <input value={comfyUrl} onChange={e=>setComfyUrl(e.target.value)}
-                      placeholder="http://127.0.0.1:8188"
-                      style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",fontFamily:"var(--font-mono)",outline:"none"}}/>
-                    <button onClick={()=>checkComfy(comfyUrl)}
-                      style={{padding:"0 16px",background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>
-                      🔌 Connecter
+                      }
+                      generateComfy(wf, comfyPrompt);
+                    }} disabled={comfyGenerating||!comfyConnected}
+                      style={{padding:"0 14px",background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.5)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700,opacity: !comfyConnected ? 0.4 : 1}}>
+                      {comfyGenerating?"⟳":"⬡ Lancer"}
                     </button>
                   </div>
-                  <div style={{padding:"10px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,fontSize:9,lineHeight:1.7}}>
-                    <div style={{fontWeight:700,color:"var(--tx)",marginBottom:6}}>📖 Guide rapide</div>
-                    <div style={{color:"var(--mu)"}}>1. Installe ComfyUI : <code style={{color:"var(--ac)"}}>git clone https://github.com/comfyanonymous/ComfyUI</code></div>
-                    <div style={{color:"var(--mu)"}}>2. Lance : <code style={{color:"var(--ac)"}}>python main.py --listen</code></div>
-                    <div style={{color:"var(--mu)"}}>3. ComfyUI démarre sur <code style={{color:"var(--ac)"}}>http://127.0.0.1:8188</code></div>
-                    <div style={{color:"var(--mu)"}}>4. Clique Connecter ci-dessus</div>
-                    <div style={{marginTop:6,color:"var(--mu)"}}>Modèles : place tes <code style={{color:"var(--ac)"}}>.safetensors</code> dans <code style={{color:"var(--ac)"}}>ComfyUI/models/checkpoints/</code></div>
-                    <div style={{color:"var(--mu)"}}>LoRAs : dans <code style={{color:"var(--ac)"}}>ComfyUI/models/loras/</code></div>
-                  </div>
-                  {comfyConnected&&(
-                    <div style={{marginTop:10,padding:"8px 12px",background:"rgba(74,222,128,.07)",border:"1px solid rgba(74,222,128,.25)",borderRadius:6,fontSize:9}}>
-                      <div style={{color:"var(--green)",fontWeight:700,marginBottom:4}}>● Connecté à {comfyUrl}</div>
-                      <div style={{color:"var(--mu)"}}>{comfyModels.length} checkpoint{comfyModels.length!==1?"s":""} · {comfyLoras.length} LoRA{comfyLoras.length!==1?"s":""}</div>
-                    </div>
-                  )}
                 </div>
+              )}
+
+              {/* Saved workflows */}
+              <div style={{fontSize:9,fontWeight:700,color:"var(--mu)",marginBottom:8}}>WORKFLOWS SAUVEGARDÉS ({comfyWorkflows.length})</div>
+              {comfyWorkflows.length===0&&<div style={{color:"var(--mu)",fontSize:9}}>Charge un workflow puis clique "Sauvegarder" pour le retrouver ici.</div>}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+                {comfyWorkflows.map(wf=>(
+                  <div key={wf.id} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,padding:"10px 12px"}}>
+                    <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:3}}>{wf.name}</div>
+                    <div style={{fontSize:8,color:"var(--mu)",marginBottom:8}}>{new Date(wf.ts).toLocaleDateString("fr-FR")} · {Object.keys(wf.json||{}).length} nœuds</div>
+                    <div style={{display:"flex",gap:5}}>
+                      <button onClick={()=>{setComfyActiveWf(wf.json);setComfyWfName(wf.name);setComfySubTab("workflows");showToast("✓ "+wf.name+" chargé");}}
+                        style={{flex:1,fontSize:8,padding:"3px 0",background:"rgba(124,58,237,.1)",border:"1px solid rgba(124,58,237,.3)",borderRadius:4,color:"#A78BFA",cursor:"pointer"}}>Charger</button>
+                      <button onClick={()=>deleteComfyWorkflow(wf.id)} style={{fontSize:8,padding:"3px 7px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:4,color:"var(--red)",cursor:"pointer"}}>✕</button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+              {comfyActiveWf&&(
+                <button onClick={()=>{const name=prompt("Nom du workflow :",comfyWfName||"Mon workflow");if(name)saveComfyWorkflow(name,comfyActiveWf);}}
+                  style={{marginTop:12,padding:"6px 14px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",fontSize:9,cursor:"pointer",fontFamily:"var(--font-mono)"}}>
+                  💾 Sauvegarder le workflow actuel
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ── HISTORY SUB-TAB ── */}
+          {comfySubTab==="history"&&(
+            <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                <div style={{fontSize:9,color:"var(--mu)"}}>{comfyHistory.length} image{comfyHistory.length!==1?"s":""} générée{comfyHistory.length!==1?"s":""}</div>
+                {comfyHistory.length>0&&<button onClick={()=>setComfyHistory([])} style={{fontSize:8,padding:"2px 8px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:4,color:"var(--red)",cursor:"pointer",marginLeft:"auto"}}>🗑 Tout effacer</button>}
+              </div>
+              {comfyHistory.length===0&&<div style={{textAlign:"center",padding:40,color:"var(--mu)",fontSize:10}}>Aucune génération encore.</div>}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
+                {comfyHistory.map((h,i)=>(
+                  <div key={i} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,overflow:"hidden"}}>
+                    <img src={h.url} alt={h.prompt} style={{width:"100%",height:140,objectFit:"cover",display:"block"}}
+                      onError={e=>{e.target.style.display="none";}}/>
+                    <div style={{padding:"7px 9px"}}>
+                      <div style={{fontSize:8,color:"var(--mu)",marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.prompt?.slice(0,50)}</div>
+                      <div style={{fontSize:7,color:"var(--mu)",marginBottom:6}}>{new Date(h.ts).toLocaleString("fr-FR")}</div>
+                      <div style={{display:"flex",gap:4}}>
+                        <button onClick={()=>sendComfyToChat(h)} style={{flex:1,fontSize:7,padding:"2px 0",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.25)",borderRadius:3,color:"var(--green)",cursor:"pointer"}}>→ Chat</button>
+                        <a href={h.url} download style={{flex:1,fontSize:7,padding:"2px 0",background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,color:"var(--blue)",textDecoration:"none",textAlign:"center"}}>⬇</a>
+                        <button onClick={()=>{setComfyPrompt(h.prompt||"");setComfySubTab("generate");}} style={{flex:1,fontSize:7,padding:"2px 0",background:"transparent",border:"1px solid var(--bd)",borderRadius:3,color:"var(--mu)",cursor:"pointer"}}>↺</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── SETTINGS SUB-TAB ── */}
+          {comfySubTab==="settings"&&(
+            <div style={{flex:1,overflow:"auto",padding:"12px 14px"}}>
+              <div style={{maxWidth:500}}>
+                <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:8}}>CONNEXION COMFYUI</div>
+                <div style={{display:"flex",gap:7,marginBottom:10}}>
+                  <input value={comfyUrl} onChange={e=>setComfyUrl(e.target.value)}
+                    placeholder="http://127.0.0.1:8188"
+                    style={{flex:1,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"7px 10px",fontFamily:"var(--font-mono)",outline:"none"}}/>
+                  <button onClick={()=>checkComfy(comfyUrl)}
+                    style={{padding:"0 16px",background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.4)",borderRadius:6,color:"#A78BFA",fontSize:10,cursor:"pointer",fontWeight:700}}>
+                    🔌 Connecter
+                  </button>
+                </div>
+                <div style={{padding:"10px 12px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:7,fontSize:9,lineHeight:1.7}}>
+                  <div style={{fontWeight:700,color:"var(--tx)",marginBottom:6}}>📖 Guide rapide</div>
+                  <div style={{color:"var(--mu)"}}>1. Installe ComfyUI : <code style={{color:"var(--ac)"}}>git clone https://github.com/comfyanonymous/ComfyUI</code></div>
+                  <div style={{color:"var(--mu)"}}>2. Lance : <code style={{color:"var(--ac)"}}>python main.py --listen</code></div>
+                  <div style={{color:"var(--mu)"}}>3. ComfyUI démarre sur <code style={{color:"var(--ac)"}}>http://127.0.0.1:8188</code></div>
+                  <div style={{color:"var(--mu)"}}>4. Clique Connecter ci-dessus</div>
+                  <div style={{marginTop:6,color:"var(--mu)"}}>Modèles : place tes <code style={{color:"var(--ac)"}}>.safetensors</code> dans <code style={{color:"var(--ac)"}}>ComfyUI/models/checkpoints/</code></div>
+                  <div style={{color:"var(--mu)"}}>LoRAs : dans <code style={{color:"var(--ac)"}}>ComfyUI/models/loras/</code></div>
+                </div>
+                {comfyConnected&&(
+                  <div style={{marginTop:10,padding:"8px 12px",background:"rgba(74,222,128,.07)",border:"1px solid rgba(74,222,128,.25)",borderRadius:6,fontSize:9}}>
+                    <div style={{color:"var(--green)",fontWeight:700,marginBottom:4}}>● Connecté à {comfyUrl}</div>
+                    <div style={{color:"var(--mu)"}}>{comfyModels.length} checkpoint{comfyModels.length!==1?"s":""} · {comfyLoras.length} LoRA{comfyLoras.length!==1?"s":""}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         )}
 
         {tab === "config" && pwaPrompt && !pwaInstalled && (
