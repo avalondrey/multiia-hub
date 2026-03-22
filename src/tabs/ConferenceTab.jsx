@@ -1,6 +1,8 @@
 import React from 'react';
+import { MODEL_DEFS } from "../config/models.js";
+import { callModel } from "../api/ai-service.js";
 
-export default function ConferenceTab({ enabled, apiKeys, MODEL_DEFS, callModel }) {
+export default function ConferenceTab({ enabled, apiKeys }) {
   const [question, setQuestion] = React.useState("");
   const [chain, setChain] = React.useState([]); // [{iaId, role, output, loading}]
   const [running, setRunning] = React.useState(false);
