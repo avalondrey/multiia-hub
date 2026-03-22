@@ -4,20 +4,64 @@
 
 ---
 
-## [v21.1] — 2026-03-20
+## [v21.2] — 2026-03-22
+
+### 🐛 Bugfixes — Pages blanches (multiples onglets)
+
+**Cause racine identifiée** : les onglets extraits en `src/tabs/` dépendaient soit de props non transmises, soit de classes CSS définies dans `App.jsx`, soit de wrappers `overflow:hidden` qui écrasaient leur hauteur à 0 dans le conteneur scroll principal (`.cols`).
+
+- **ConferenceTab** — `MODEL_DEFS` et `callModel` déclarés en props mais jamais transmis depuis App.jsx → `TypeError` silencieux → page blanche. Corrigé par import direct depuis les modules.
+- **TraducteurTab** — dépendait de 6 classes CSS (`trad-wrap`, `trad-left`, `trad-right`, etc.) définies dans le bloc `<style>` de App.jsx. Ces classes ne sont pas disponibles quand le composant est isolé. Réécriture complète avec styles inline.
+- **AgentTab** — wrapper `overflow:hidden` dans App.jsx + `.agent-wrap{overflow:hidden}` dans le CSS global → composant visible dans le DOM mais hauteur 0. Corrigé : `overflow:auto`.
+- **MorningBriefTab** — double problème : wrapper `overflow:hidden` + variable `projects` jamais déclarée dans App.jsx (passée comme prop `projects={projects}` sans `useState`). Ajout du `useState` et correction du wrapper.
+- **SecondBrainTab** — même wrapper `overflow:hidden`. Corrigé : `overflow:auto`.
+
+---
+
+## [v21.1] — 2026-03-21
 
 ### 🏗️ Refactoring (extraction des onglets)
-- **Structure** — App.jsx réduit de ~14 160 à ~12 439 lignes
-- **Nouveaux fichiers** dans `src/tabs/` (11 tabs) :
-  - `NotesTab.jsx` — onglet Notes (~68 lignes)
-  - `PromptsTab.jsx` — onglet Prompts (~253 lignes)
-  - `RedactionTab.jsx` — onglet Rédaction (~87 lignes)
-  - `RechercheTab.jsx` — onglet Recherche (~89 lignes)
-  - `BenchmarkTab.jsx` — onglet Benchmark (~131 lignes)
-  - `AgentTab.jsx` — onglet Agent IA (~153 lignes)
-  - `TraducteurTab.jsx` — onglet Traducteur (~73 lignes)
-- **Composant partagé** `src/components/MarkdownRenderer.jsx` — placeholder pour les tabs
-- **Note** — ~21 onglets restent à extraire (ChatTab, ArenaTab, DebateTab, etc.)
+- **Structure** — App.jsx réduit de ~14 160 à ~7 860 lignes (-44%)
+- **33 composants extraits** dans `src/tabs/` :
+  - `AgentTab`, `AideTab`, `ApiOptimizerTab`, `BenchmarkTab`
+  - `CivilisationsTab`, `ConferenceTab`, `ConsensusTab`, `ContextTranslatorTab`
+  - `ContradictionTab`, `GlossaireTab`, `IaMentorTab`, `JournalisteTab`
+  - `LiveDebateTimerTab`, `ModeFlashTab`, `MorningBriefTab`, `NotesTab`
+  - `ProjectsTab`, `PromptAutopsyTab`, `PromptDNATab`, `PromptsTab`
+  - `RechercheTab`, `RedactionTab`, `SecondBrainTab`, `SkillBuilderTab`
+  - `StatsTab`, `StudioTab`, `TaskToIAsTab`, `TraducteurTab`
+  - `VeilleTab`, `VoiceTab`, `WebIAsTab`, `YouTubeTab`
+- **Composant partagé** `src/components/MarkdownRenderer.jsx`
+- **Exports centralisés** dans `src/tabs/index.js`
+
+---
+
+## [v21.0] — 2026-03-20
+
+### ✨ Nouveaux onglets (17)
+
+- **🔀 Task→IAs** — Décompose une tâche complexe, route chaque sous-tâche vers l'IA la plus adaptée (vitesse, rédaction, code, analyse), assemble un livrable final
+- **🎙 Conférence** — Pipeline séquentiel Explorateur → Critique → Constructeur, chaque IA construit sur la précédente
+- **⏱ Débat Live** — Format Oxford gamifié : 6 tours (Ouverture/Réplique/Conclusion), timer 90s, votes public, score arbitre IA
+- **🔎 Consensus** — Vote croisé de fiabilité : toutes les IAs notent une affirmation indépendamment (vrai/faux/partiel/incertain), score de consensus calculé
+- **⚡ Contradiction** — Détecteur de contradictions, biais cognitifs et arguments fallacieux entre deux textes ou dans un seul
+- **📰 Journaliste** — Rapport multi-angles (3, 5 ou 7 angles) : chaque IA couvre un angle différent en parallèle, une IA rédactrice en chef assemble
+- **☀️ Morning Brief** — Briefing IA personnalisé : actualités, tâches du jour, conseil, citation, IA du jour. Génération automatique à heure programmée
+- **🎓 IA Mentor** — Programme d'apprentissage adaptatif : sessions, leçons, exercices, quiz avec évaluation et système XP
+- **🛠 Skill Builder** — Création d'automatisations IA par description naturelle : l'IA génère le prompt, les paramètres et la configuration
+- **🌍 Civilisations** — 12 civilisations/époques (Grèce antique, Islam, Silicon Valley 2026…) répondent à la même question contemporaine, avec synthèse comparatiste
+- **🔄 Contexte** — Traducteur de complexité : un texte technique traduit simultanément pour enfant 10 ans / lycéen / adulte / expert / tweet
+- **⚡ Mode Flash** — Course de vitesse en temps réel : toutes les IAs reçoivent le même prompt, classement par vitesse avec podium
+- **🔬 Prompt Autopsy** — Analyse d'une mauvaise réponse IA : biais détectés, erreurs de raisonnement, problèmes de prompt, 2 versions améliorées générées
+- **🧬 Prompt DNA** — Bibliothèque arborescente de prompts : variantes hiérarchisées, étoiles, statistiques d'utilisation
+- **💡 API Optimizer** — Analyse l'historique d'usage et recommande les changements de configuration pour réduire coûts et améliorer vitesse
+- **🧠 Second Brain** — Export de toutes les données (conversations, projets, mémoire, stats) en Obsidian / Notion / Markdown / JSON, avec profil utilisateur généré par IA
+- **🎬 Studio Auto** — Pipeline de génération de tutoriels vidéo : IA pose des questions → génère script + narration → filme avec OBS (optionnel) → monte avec Kdenlive (optionnel)
+
+### 🔧 Corrections
+- **PromptDNATab** — import manquant corrigé
+- **Syntax errors** — 15+ occurrences de `condition?.55:1` (optional chaining invalide sur booléens) corrigées en `condition ? 0.55 : 1`
+- **Fuite mémoire** — `appinstalled` listener sans cleanup corrigé
 
 ---
 
@@ -25,101 +69,51 @@
 
 ### 🔧 Corrections (bugs critiques)
 - **Canvas listener leak** — `window.addEventListener('message')` s'accumulait à chaque re-render. Corrigé avec `el.__msgHandler` pour cleanup propre
-- **VALID_TABS incomplet** — les nouveaux onglets `expert`, `veille`, `analytics`, `voice`, `projects`, `advanced` n'étaient pas dans la liste de validation des params URL `?tab=`. Corrigé
-- **Recherche historique** — déjà full-text sur titre + contenu des messages (confirmé)
+- **VALID_TABS incomplet** — nouveaux onglets manquants dans la liste de validation URL
 
 ### 📄 PDF professionnel (jsPDF)
-- Export PDF mis en page avec header doré, couleurs par IA, pagination numérotée
-- Chaque message : bloc coloré avec bordure gauche, label IA, contenu formaté
-- Fallback automatique vers `window.print()` si jsPDF non disponible (activer via plugins)
-- Téléchargement direct `conversation-multiia-[timestamp].pdf`
+- Export PDF avec header doré, couleurs par IA, pagination numérotée
 
-### 🔬 Paramètres Avancés (nouvel onglet)
-- **System prompt global** — injecté dans toutes les requêtes en plus du persona
-- **Température par IA** — slider 0→1 pour chaque modèle actif (défaut 0.7)
-- **Providers custom OpenAI-compatible** — ajouter LM Studio, Jan, n'importe quel endpoint `/v1` avec nom, URL, modèle
-- Sauvegarde localStorage
+### 🔬 Paramètres Avancés
+- System prompt global, température par IA, providers custom OpenAI-compatible
 
 ### ⚡ Diff de réponses
-- Bouton `⚡ Diff` dans la barre de chat
-- Modal avec diff mot-à-mot : vert = mots ajoutés, rouge = mots supprimés
-- Score de similarité en %, barre de progression
-- Sélecteurs d'IAs dans le modal
-- Raccourci dans l'onglet Compare
+- Diff mot-à-mot, score de similarité, modal interactif
 
 ### 🧱 Prompt Builder visuel
-- Bouton `🧱 Builder` dans la barre de chat
-- 5 blocs : Rôle / Contexte / Tâche / Format / Contraintes
-- Exemples cliquables pour chaque bloc
-- Aperçu du prompt assemblé en temps réel
-- Bouton `✦ Optimiser avec l'IA` — envoie à Groq pour amélioration avant injection
+- 5 blocs (Rôle/Contexte/Tâche/Format/Contraintes), optimisation IA
 
 ### 🧠 Auto-mémoire
-- Après chaque 6 messages, Groq extrait automatiquement 2 faits importants
-- Bandeau de suggestion bas-centre : "🧠 Mémoriser ces informations ?"
-- Bouton "✓ Mémoriser" par fait, "Ignorer tout"
-- Les faits acceptés rejoignent la mémoire persistante
+- Extraction automatique de faits après 6 messages, confirmation utilisateur
 
-### 🔗 Partage de prompts par URL
-- Bouton `🔗` sur chaque carte de la bibliothèque de prompts
-- Encode le prompt en base64 dans `?prompt=...`
-- Import automatique à l'ouverture de l'URL → injecté dans le chat
+### 🔗 Partage prompts par URL
+- Encode en base64 dans `?prompt=...`, import automatique
 
 ---
 
 ## [v19.0] — 2026-03-16
-
-### 🔧 Self-Healing Canvas
-- `window.onerror` dans l'iframe capte les erreurs JS
-- Bandeau rouge avec message d'erreur + bouton **🔧 Auto-corriger**
-- L'IA corrige le code automatiquement, l'iframe se recharge
-- Compteur d'auto-corrections dans le header
-
-### 🧠 Panel d'Experts
-- Onglet `🧠 Experts` — 3 panels : Dev / Produit / Contenu
-- Analyse parallèle par 3 experts spécialisés
-- Synthèse : Consensus / Tensions / Recommandation finale
-
-### 📈 Analytics
-- Onglet `📈 Analytics` avec cartes résumé et barres par modèle
-- Coût FREE ou $X par IA, widget session temps réel
-
-### 📰 Veille Intelligente
-- Onglet `📰 Veille` — sujets personnalisables, 10 articles IA générés
-- Résumé exécutif en 5 points, bouton → Chat
-
-### 🎙 Mode Vocal
-- Onglet `🎙 Voice` — gros bouton micro, sélecteur d'IA
-- Reconnaissance → réponse IA → TTS auto, historique session
-
-### 📁 Gestion de Projets
-- Onglet `📁 Projets` — nom, description, contexte IA, notes
-- Contexte injecté automatiquement dans le Chat
-
----
+- 🔧 Self-Healing Canvas (auto-correction d'erreurs JS)
+- 🧠 Panel d'Experts (Dev / Produit / Contenu)
+- 📈 Analytics (coûts et usage par modèle)
+- 📰 Veille Intelligente
+- 🎙 Mode Vocal
+- 📁 Gestion de Projets
 
 ## [v18.2] — 2026-03-15
 - ✦ Consensus Multi-IAs (Mixture of Agents)
-- ⚡ Slash Commands (`/code` `/seo` `/mail` `/pro` `/debug`…)
-- 🧠 Smart Context (compression auto via Groq)
-- 📄 RAG TF-IDF (3 chunks, score sémantique)
+- ⚡ Slash Commands
+- 🧠 Smart Context (compression auto)
+- 📄 RAG TF-IDF
 - 🔀 4 Templates Workflows prédéfinis
-- ▶ YouTube Play dans les réponses IA
 
-## [v18.1] — 2026-03-15
-- Popups flottants, météo auto, news avec images
-
-## [v18.0] — 2026-03-15
-- Dashboard, Prompt Battle, Analyse doc Multi-IAs
-- Traduction EN, Partage URL, Refactoring Phase 1
+## [v18.0–v18.1] — 2026-03-15
+- Dashboard, Prompt Battle, Analyse doc Multi-IAs, Traduction EN
 
 ## [v17.x] — 2026-03-14/15
-- Pipeline Concrétisation, Débat + Fichier
-- Fix Pollinations queue, limites Cerebras
+- Pipeline Concrétisation, Débat + Fichier, Fix Pollinations
 
 ## [v16.x] — 2026-03-10/13
-- Markdown + Prism.js, Mode Zen, Mémoire locale
-- Canvas HTML, CoT Raisonnement, Workflows refonte
+- Markdown + Prism.js, Mode Zen, Mémoire locale, Canvas HTML, Workflows
 
 ## [v14.0–v15.0] — 2026-03-05/08
 - Jury IA, RAG, Ollama local, 12 Plugins JS

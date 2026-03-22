@@ -6,7 +6,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  SECTION CONFIG — Seule partie à modifier lors d'une MAJ    ║
 // ╚══════════════════════════════════════════════════════════════╝
-export const APP_VERSION = "21.1";
+export const APP_VERSION = "21.2";
 export const BUILD_DATE = new Date().toISOString().slice(0,10);
 
 export const MODEL_DEFS = {
