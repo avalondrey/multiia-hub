@@ -5646,15 +5646,7 @@ async function checkCliBridge() {
 
         {/* ── TRADUCTEUR TAB ── */}
         {tab === "traducteur" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
-            <div style={{padding:"10px 14px",borderBottom:"1px solid var(--bd)",flexShrink:0,background:"var(--s1)",display:"flex",alignItems:"center",gap:8}}>
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)"}}>🌍 Traducteur Multi-IA</div>
-              <div style={{fontSize:9,color:"var(--mu)",marginLeft:4}}>Toutes les IAs traduisent en parallèle — compare et choisis la meilleure version</div>
-            </div>
-            <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:0}}>
-              <TraducteurTab enabled={enabled} apiKeys={apiKeys}/>
-            </div>
-          </div>
+          <TraducteurTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {/* ── AGENT TAB ── */}
