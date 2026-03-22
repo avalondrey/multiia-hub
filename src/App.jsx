@@ -5430,6 +5430,7 @@ async function checkCliBridge() {
         {/* ── YOUTUBE TAB ── */}
         {/* ── MÉDIAS TAB (YouTube + Images fusionnés) ── */}
         {tab === "medias" && (
+          <>
           <div className="media-subtabs">
             {[["youtube","▶ YouTube"],["images","🎨 Images IA"],["comfy","⬡ ComfyUI Local"],["webia","🌐 IAs Web"]].map(([k,l])=>(
               <button key={k} className={"media-stab "+(mediaSubTab===k?"on":"")} onClick={()=>setMediaSubTab(k)}>{l}</button>
@@ -5569,6 +5570,7 @@ async function checkCliBridge() {
               )}
             </div>
           </div>
+          </>
         )}
 
         {/* ── PROMPTS TAB ── */}
