@@ -1014,31 +1014,31 @@ html, body{
   /* Masquer la nav top sur mobile (remplacée par bottom tabbar) */
   .nav{ display:none !important; }
   
-  /* ── App header mobile ── */
+  /* ── App header mobile — plus compact ── */
   .mobile-header{
     display:flex !important;
     align-items:center;
-    padding:0 14px;
-    padding-top: max(12px, env(safe-area-inset-top));
-    height: calc(52px + env(safe-area-inset-top));
-    background:var(--s1);
+    padding:0 10px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    height: calc(44px + env(safe-area-inset-top));
+    background:var(--bg);
     border-bottom:1px solid var(--bd);
     flex-shrink:0;
-    gap:10px;
+    gap:6px;
     z-index:50;
   }
   .mobile-header-title{
-    font-family:'Syne',sans-serif; font-weight:800; font-size:18px; color:var(--ac); flex:1;
+    font-family:'Syne',sans-serif; font-weight:800; font-size:16px; color:var(--ac); flex:1;
   }
   .mobile-header-subtitle{
     font-size:10px; color:var(--mu); font-family:'IBM Plex Mono',monospace;
   }
   .mh-btn{
-    background:none; border:1px solid var(--bd); border-radius:8px; color:var(--mu);
-    padding:7px 10px; font-size:13px; cursor:pointer; min-width:40px; min-height:40px;
+    background:none; border:none; border-radius:8px; color:var(--mu);
+    padding:5px; font-size:16px; cursor:pointer; min-width:34px; min-height:34px;
     display:flex; align-items:center; justify-content:center;
   }
-  .mh-btn.on{ border-color:var(--ac); color:var(--ac); }
+  .mh-btn.on{ color:var(--ac); }
 
   /* ── Masquer la barre persona sur mobile (gagne de la place) ── */
   .persona-bar{ display:none !important; }
@@ -1064,22 +1064,21 @@ html, body{
   .mobile-ia-selector{
     display:flex !important;
     overflow-x:auto; scrollbar-width:none;
-    padding:8px 10px; gap:8px; flex-shrink:0;
-    background:var(--s1); border-bottom:1px solid var(--bd);
+    padding:6px 10px; gap:6px; flex-shrink:0;
+    background:var(--bg); border-bottom:1px solid var(--bd);
     align-items:center;
   }
   .mobile-ia-selector::-webkit-scrollbar{ display:none; }
   .mobile-ia-chip{
-    flex-shrink:0; padding:8px 14px; border-radius:20px; border:1.5px solid;
-    font-size:14px; font-weight:600; cursor:pointer; font-family:'IBM Plex Mono',monospace;
+    flex-shrink:0; padding:5px 11px; border-radius:16px; border:1.5px solid;
+    font-size:11px; font-weight:600; cursor:pointer; font-family:'IBM Plex Mono',monospace;
     transition:all .15s; background:var(--s2); white-space:nowrap;
-    display:flex; align-items:center; gap:6px; min-height:40px;
+    display:flex; align-items:center; gap:5px; min-height:32px;
     color: var(--tx);
   }
   .mobile-ia-chip.active{
     font-weight:700;
-    box-shadow: 0 0 10px rgba(255,255,255,.08);
-    transform: scale(1.03);
+    box-shadow: 0 0 8px rgba(255,255,255,.06);
   }
 
   /* ── Input chat mobile ── */
@@ -1087,6 +1086,10 @@ html, body{
   .ta-wrap textarea{ font-size:16px !important; padding:10px 12px !important; } /* 16px évite le zoom iOS */
   .sbtn{ min-height:46px !important; min-width:46px !important; font-size:17px !important; }
   .gbtn, .mic-btn{ min-height:40px !important; font-size:16px !important; }
+  /* Masquer la barre plugins sur mobile — trop encombrante */
+  .foot-plugins-bar{ display:none !important; }
+  /* Bouton toggle plugins mobile */
+  .mobile-plugins-toggle{ display:flex !important; }
 
   /* ── Rédaction mobile ── */
   .red-wrap{ flex-direction:column; }
@@ -4762,7 +4765,7 @@ async function checkCliBridge() {
               </div>
             )}
             {/* Barre d'outils supérieure */}
-            <div style={{display:"flex",gap:4,padding:"3px 8px",borderBottom:"1px solid var(--bd)",flexWrap:"wrap",alignItems:"center"}}>
+            <div className="foot-plugins-bar" style={{display:"flex",gap:4,padding:"3px 8px",borderBottom:"1px solid var(--bd)",flexWrap:"wrap",alignItems:"center"}}>
               <button onClick={()=>setShowRagPanel(r=>!r)} title="RAG — coller un document long"
                 style={{background:showRagPanel?"rgba(96,165,250,.2)":"transparent",border:"1px solid "+(showRagPanel?"rgba(96,165,250,.6)":"var(--bd)"),borderRadius:4,color:showRagPanel?"var(--blue)":"var(--mu)",fontSize:9,padding:"2px 7px",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace"}}>
                 📄 RAG{ragChunks.length>0&&<span style={{color:"var(--green)",marginLeft:3}}>●</span>}
