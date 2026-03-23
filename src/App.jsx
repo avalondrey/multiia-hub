@@ -1081,22 +1081,14 @@ html, body{
     box-shadow: 0 0 8px rgba(255,255,255,.06);
   }
 
-  /* ── Input chat mobile ── */
-  .foot{ padding:10px 12px calc(12px + env(safe-area-inset-bottom)) !important; }
-  .ta-wrap textarea{ font-size:16px !important; padding:10px 12px !important; } /* 16px évite le zoom iOS */
-  .sbtn{ min-height:46px !important; min-width:46px !important; font-size:17px !important; }
-  .gbtn, .mic-btn{ min-height:40px !important; font-size:16px !important; }
-  /* Masquer bandeau Groq + tbar token sur mobile */
-  .tbar{ display:none !important; }
-  /* Foot plus compact */
+  /* ── Input chat mobile — compact et utilisable ── */
   .foot{ padding:7px 10px calc(10px + env(safe-area-inset-bottom)) !important; }
-  .ta-wrap textarea{ font-size:16px !important; padding:9px 11px !important; }
+  .ta-wrap textarea{ font-size:16px !important; padding:9px 11px !important; } /* 16px évite zoom iOS */
   .sbtn{ min-height:42px !important; min-width:42px !important; font-size:16px !important; }
   .gbtn, .mic-btn{ min-height:38px !important; font-size:15px !important; }
-  /* Masquer la barre plugins sur mobile — trop encombrante */
+  /* Masquer bandeau Groq + tbar token + plugins sur mobile */
+  .tbar{ display:none !important; }
   .foot-plugins-bar{ display:none !important; }
-  /* Bouton toggle plugins mobile */
-  .mobile-plugins-toggle{ display:flex !important; }
 
   /* ── Rédaction mobile ── */
   .red-wrap{ flex-direction:column; }
@@ -1122,10 +1114,34 @@ html, body{
   .arena-wrap{ padding:10px; }
   .arena-table td, .arena-table th{ padding:5px 4px !important; font-size:9px !important; }
 
-  /* ── Messages taille tactile + espace au-dessus du foot ── */
-  .msgs{ padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important; }
-  .msg{ font-size:15px !important; line-height:1.7 !important; padding:12px 14px !important; }
+  /* ── Messages — taille tactile + padding safe ── */
+  .msgs{ padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important; padding:8px 10px !important; gap:8px !important; }
+  .msg{ font-size:15px !important; line-height:1.7 !important; padding:11px 13px !important; border-radius:10px !important; }
   .voice-btn{ min-height:36px !important; min-width:36px !important; font-size:15px !important; }
+
+  /* ── Tabbar mobile — plus de contraste + active indicator ── */
+  .mobile-tab-btn{ padding:6px 2px !important; gap:2px !important; font-size:9px !important; }
+  .mobile-tab-btn .ico{ font-size:22px !important; }
+  .mobile-tab-btn.on{ color:var(--ac) !important; }
+  .mobile-tabbar{
+    background: rgba(10,10,14,.97) !important;
+    border-top: 1px solid rgba(212,168,83,.15) !important;
+  }
+
+  /* ── Textarea input — arrondi moderne ── */
+  .ta-wrap textarea{
+    border-radius: 18px !important;
+    background: var(--s1) !important;
+    border: 1.5px solid var(--bd) !important;
+  }
+  .ta-wrap textarea:focus{ border-color: rgba(212,168,83,.5) !important; outline:none !important; }
+  .sbtn{ border-radius: 50% !important; }
+
+  /* ── Chips IA — icône plus grande, texte masqué pour les petits écrans ── */
+  @media(max-width:375px){
+    .mobile-ia-chip span:last-child{ display:none; }
+    .mobile-ia-chip{ padding:5px 9px !important; }
+  }
 
   /* ── Hist sidebar mobile (drawer) ── */
   .hist-sidebar{
