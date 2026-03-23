@@ -5649,16 +5649,12 @@ async function checkCliBridge() {
 
         {/* ── TRADUCTEUR TAB ── */}
         {tab === "traducteur" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <TraducteurTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <TraducteurTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {/* ── AGENT TAB ── */}
         {tab === "agent" && (
-          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <AgentTab enabled={enabled} apiKeys={apiKeys}/>
-          </div>
+          <AgentTab enabled={enabled} apiKeys={apiKeys}/>
         )}
 
         {/* ── STATS TAB ── */}
