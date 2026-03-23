@@ -971,7 +971,7 @@ html, body{
 .attach-preview button:hover{color:var(--red)}
 .msg-file-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(212,168,83,.1);border:1px solid rgba(212,168,83,.3);border-radius:4px;font-size:9px;color:var(--ac);margin-bottom:4px;cursor:pointer}
 /* ══ AGENT AUTONOME ══ */
-.agent-wrap{height:100%;display:flex;flex-direction:column;overflow:hidden}
+.agent-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .agent-hdr{padding:14px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--s1)}
 .agent-body{flex:1;overflow-y:auto;padding:12px 16px;min-height:0}
 .agent-step-card{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:10px;transition:border-color .3s}
@@ -5649,14 +5649,14 @@ async function checkCliBridge() {
 
         {/* ── TRADUCTEUR TAB ── */}
         {tab === "traducteur" && (
-          <div style={{height:0,flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <TraducteurTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
 
         {/* ── AGENT TAB ── */}
         {tab === "agent" && (
-          <div style={{height:0,flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <AgentTab enabled={enabled} apiKeys={apiKeys}/>
           </div>
         )}
