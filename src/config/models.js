@@ -28,8 +28,8 @@ export const MODEL_DEFS = {
   poll_gpt:      { name:"GPT-4o (Pollinations)",    short:"GPT-4o",    provider:"OpenAI via Pollinations",   color:"#74C98C", bg:"#081A0E", border:"#0A3D1E", icon:"◈", apiType:"pollinations_paid", maxTokens:128000, inputLimit:12000, serial:true, free:true,  keyName:"pollen",      keyLink:"https://enter.pollinations.ai", desc:"Clé Pollen gratuite · enter.pollinations.ai", model:"openai" },
   poll_claude:   { name:"Claude (Pollinations)",     short:"Claude✦",  provider:"Anthropic via Pollinations", color:"#D4A853", bg:"#1A1408", border:"#3D3000", icon:"✦", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"claude-airforce" },
   poll_deepseek: { name:"DeepSeek (Pollinations)",   short:"DeepSeek", provider:"DeepSeek via Pollinations", color:"#A0C8FF", bg:"#080E1A", border:"#0A1A3D", icon:"⬡", apiType:"pollinations_paid", maxTokens:128000, free:false, keyName:"pollen",      keyLink:"https://enter.pollinations.ai",  desc:"Clé Pollen gratuite · enter.pollinations.ai (Seed tier)", model:"deepseek" },
-  llama4m:      { name:"DeepSeek V3 (OpenRouter)", short:"DeepSeek V3", provider:"DeepSeek via OpenRouter", color:"#60A5FA", bg:"#050A18", border:"#0A1A3D", icon:"⚡", apiType:"compat", maxTokens:131072, inputLimit:32000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys", desc:"Gratuit — clé OpenRouter · DeepSeek V3-0324, rival GPT-4o", baseUrl:"https://openrouter.ai/api/v1", model:"deepseek/deepseek-chat-v3-0324:free" },
-  qwen3_235b:   { name:"DeepSeek R1 (OpenRouter)",  short:"DeepSeek R1", provider:"DeepSeek via OpenRouter", color:"#34D399", bg:"#041A10", border:"#0A3D20", icon:"🧠", apiType:"compat", maxTokens:131072, inputLimit:32000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys", desc:"Gratuit — clé OpenRouter · raisonnement Chain-of-Thought, 130k ctx", baseUrl:"https://openrouter.ai/api/v1", model:"deepseek/deepseek-r1:free" },
+  llama4m:      { name:"Llama 3.3 70B (OpenRouter)",    short:"Llama 3.3", provider:"Meta via OpenRouter",   color:"#FF6B35", bg:"#180A04", border:"#3D1500", icon:"🦙", apiType:"compat", maxTokens:65536,  inputLimit:32000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys", desc:"Gratuit — clé OpenRouter · Llama 3.3 70B Instruct, rival GPT-4o", baseUrl:"https://openrouter.ai/api/v1", model:"meta-llama/llama-3.3-70b-instruct:free" },
+  qwen3_235b:   { name:"Nemotron Super 120B (OpenRouter)", short:"Nemotron-S", provider:"NVIDIA via OpenRouter", color:"#76C442", bg:"#071A04", border:"#1A3D0A", icon:"⚡", apiType:"compat", maxTokens:262144, inputLimit:32000, free:true, keyName:"openrouter", keyLink:"https://openrouter.ai/keys", desc:"Gratuit — clé OpenRouter · NVIDIA 262K ctx, #1 open-source raisonnement", baseUrl:"https://openrouter.ai/api/v1", model:"nvidia/nemotron-3-super-120b-a12b:free" },
 };
 
 // ── Liste de base des IAs Web ───────────────────────────────────
@@ -384,8 +384,8 @@ export const PRICING = {
   poll_gpt:   { in:0.00, out:0.00, label:"GPT-4o (Pollinations) — Clé Pollen" },
   poll_claude:{ in:0.00, out:0.00, label:"Claude (Pollinations) — Clé Pollen" },
   poll_deepseek:{ in:0.00, out:0.00, label:"DeepSeek (Pollinations) — Clé Pollen" },
-  llama4m:      { in:0.00, out:0.00, label:"DeepSeek V3 (OpenRouter) — Clé OpenRouter" },
-  qwen3_235b:   { in:0.00, out:0.00, label:"DeepSeek R1 (OpenRouter) — Clé OpenRouter" },
+  llama4m:      { in:0.00, out:0.00, label:"Llama 3.3 70B (OpenRouter) — Clé OpenRouter" },
+  qwen3_235b:   { in:0.00, out:0.00, label:"Nemotron Super 120B (OpenRouter) — Clé OpenRouter" },
 };
 
 // ── Prompts par défaut ────────────────────────────────────────────
