@@ -1206,6 +1206,84 @@ html, body{
   .mobile-more-section{ font-size:9px; color:var(--mu); font-weight:700; letter-spacing:1px; padding:12px 6px 6px; }
 }
 
+/* ── Animations mobile premium ── */
+
+/* Transition entrée des onglets */
+@keyframes mobileTabIn{
+  from{ opacity:0; transform:translateY(12px); }
+  to{   opacity:1; transform:translateY(0); }
+}
+.tab-content-mobile > *{
+  animation: mobileTabIn .22s cubic-bezier(.4,0,.2,1) both;
+}
+
+/* Entrée des messages */
+@keyframes msgIn{
+  from{ opacity:0; transform:translateY(6px) scale(.98); }
+  to{   opacity:1; transform:translateY(0) scale(1); }
+}
+.msg{
+  animation: msgIn .18s cubic-bezier(.4,0,.2,1) both;
+}
+
+/* Chips IA — apparition en cascade */
+@keyframes chipIn{
+  from{ opacity:0; transform:scale(.88); }
+  to{   opacity:1; transform:scale(1); }
+}
+@media(max-width:767px){
+  .mobile-ia-chip{
+    animation: chipIn .18s cubic-bezier(.4,0,.2,1) both;
+  }
+  .mobile-ia-chip:nth-child(1){ animation-delay:.02s }
+  .mobile-ia-chip:nth-child(2){ animation-delay:.05s }
+  .mobile-ia-chip:nth-child(3){ animation-delay:.08s }
+  .mobile-ia-chip:nth-child(4){ animation-delay:.11s }
+  .mobile-ia-chip:nth-child(5){ animation-delay:.14s }
+
+  /* Tabbar — slide up à l'ouverture */
+  .mobile-tabbar{
+    animation: tabbarIn .3s cubic-bezier(.4,0,.2,1) both;
+  }
+  @keyframes tabbarIn{
+    from{ transform:translateY(100%); opacity:0; }
+    to{   transform:translateY(0);    opacity:1; }
+  }
+
+  /* Tabbar hide-on-scroll */
+  .mobile-tabbar.hidden{
+    transform: translateY(100%) !important;
+    transition: transform .25s cubic-bezier(.4,0,.2,1) !important;
+  }
+  .mobile-tabbar{
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Header — fade in */
+  .mobile-header{
+    animation: headerIn .25s cubic-bezier(.4,0,.2,1) both;
+  }
+  @keyframes headerIn{
+    from{ opacity:0; transform:translateY(-8px); }
+    to{   opacity:1; transform:translateY(0); }
+  }
+
+  /* Badge version pulse subtil */
+  .mobile-version-badge{
+    animation: badgePulse 3s ease-in-out infinite;
+  }
+  @keyframes badgePulse{
+    0%,100%{ opacity:.8; }
+    50%{ opacity:1; }
+  }
+
+  /* Tap feedback sur les boutons */
+  .mh-btn:active{ transform:scale(.88); transition:transform .1s; }
+  .mobile-tab-btn:active{ transform:scale(.82) !important; }
+  .mobile-ia-chip:active{ transform:scale(.93) !important; }
+  .send-btn:active, .sbtn:active{ transform:scale(.88) !important; }
+}
+
 /* ── Scrolling tactile amélioré partout ── */
 .msgs, .prom-wrap, .stats-wrap, .srch-results, .red-results, .wf-output,
 .yt-ch-grid, .img-wrap, .arena-wrap, .red-left, .wf-left, .wf-steps{
@@ -2895,6 +2973,26 @@ async function checkCliBridge() {
 
   // ── Détection mobile & offline ──
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  // ── Tabbar hide-on-scroll ──────────────────────────────
+  useEffect(() => {
+    if (!isMobile) return;
+    let lastY = 0;
+    const tabbar = document.querySelector('.mobile-tabbar');
+    const handleScroll = (e) => {
+      const el = e.target;
+      const y = el.scrollTop ?? 0;
+      if (!tabbar) return;
+      if (y > lastY + 8 && y > 60) {
+        tabbar.classList.add('hidden');
+      } else if (y < lastY - 8) {
+        tabbar.classList.remove('hidden');
+      }
+      lastY = y;
+    };
+    document.addEventListener('scroll', handleScroll, true);
+    return () => document.removeEventListener('scroll', handleScroll, true);
+  }, [isMobile]);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   // mobileCol unified into mobileCol
   
@@ -4165,6 +4263,15 @@ async function checkCliBridge() {
 
           <span className="mobile-header-title">
             multi<span style={{color:"var(--mu)",fontWeight:400}}>IA</span>
+            <span style={{
+              marginLeft:7,fontSize:9,fontWeight:700,
+              background:"rgba(212,168,83,.15)",
+              color:"var(--ac)",
+              border:"1px solid rgba(212,168,83,.3)",
+              borderRadius:6,padding:"1px 6px",
+              fontFamily:"'IBM Plex Mono',monospace",
+              letterSpacing:".5px",verticalAlign:"middle"
+            }}>v{APP_VERSION} mobile</span>
           </span>
 
 
