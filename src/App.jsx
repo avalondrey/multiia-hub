@@ -1011,216 +1011,199 @@ html, body{
 .mobile-tabbar{ display:none; }
 
 @media(max-width:767px){
-  /* Masquer la nav top sur mobile (remplacée par bottom tabbar) */
+  /* ════════════════════════════════════════════════════
+     MOBILE REDESIGN — Design premium style app moderne
+     ════════════════════════════════════════════════════ */
+
+  /* ── Masquer nav top ── */
   .nav{ display:none !important; }
-  
-  /* ── App header mobile — plus compact ── */
+
+  /* ── Header : typographie forte, propre ── */
   .mobile-header{
     display:flex !important;
     align-items:center;
-    padding:0 10px;
-    padding-top: max(8px, env(safe-area-inset-top));
-    height: calc(44px + env(safe-area-inset-top));
-    background:var(--bg);
-    border-bottom:1px solid var(--bd);
-    flex-shrink:0;
-    gap:6px;
-    z-index:50;
+    padding:0 16px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    height: calc(52px + env(safe-area-inset-top));
+    background: var(--bg);
+    border-bottom: 1px solid var(--bd);
+    flex-shrink:0; gap:10px; z-index:50;
   }
   .mobile-header-title{
-    font-family:'Syne',sans-serif; font-weight:800; font-size:16px; color:var(--ac); flex:1;
+    font-family:'Syne',sans-serif;
+    font-weight:900; font-size:20px;
+    letter-spacing:-0.5px;
+    color:var(--tx); flex:1;
   }
-  .mobile-header-subtitle{
-    font-size:10px; color:var(--mu); font-family:'IBM Plex Mono',monospace;
-  }
+  .mobile-header-subtitle{ font-size:10px; color:var(--mu); font-family:'IBM Plex Mono',monospace; }
   .mh-btn{
-    background:none; border:none; border-radius:8px; color:var(--mu);
-    padding:5px; font-size:16px; cursor:pointer; min-width:34px; min-height:34px;
-    display:flex; align-items:center; justify-content:center;
+    background:var(--s1); border:1px solid var(--bd); border-radius:50%;
+    color:var(--mu); width:36px; height:36px; font-size:15px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
-  .mh-btn.on{ color:var(--ac); }
+  .mh-btn.on{ border-color:var(--ac); color:var(--ac); background:rgba(212,168,83,.1); }
 
-  /* ── Masquer la barre persona sur mobile (gagne de la place) ── */
+  /* ── Masquer persona bar ── */
   .persona-bar{ display:none !important; }
 
-  /* ── Tab content padding pour la tabbar (fixe le chat) ── */
-  .tab-content-mobile{ flex:1; display:flex; flex-direction:column; overflow:hidden; padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+  /* ── Tab content ── */
+  .tab-content-mobile{ flex:1; display:flex; flex-direction:column; overflow:hidden; padding-bottom:calc(74px + env(safe-area-inset-bottom)); }
 
-  /* ── CHAT : une colonne à la fois avec sélecteur ── */
+  /* ── Chat colonnes ── */
   .cols{ flex-direction:column; overflow:hidden; }
   .col{
-    flex:none !important;
-    width:100% !important;
-    min-width:0 !important;
-    border-right:none !important;
-    border-bottom:none !important;
-    display:none;
-    opacity:1 !important;
-    filter:none !important;
+    flex:none !important; width:100% !important; min-width:0 !important;
+    border-right:none !important; border-bottom:none !important;
+    display:none; opacity:1 !important; filter:none !important;
   }
   .col.mobile-active{ display:flex !important; flex:1 !important; }
 
-  /* Sélecteur IA en haut du chat (chips scrollables) */
+  /* ── Sélecteur IA : pills colorées premium ── */
   .mobile-ia-selector{
-    display:flex !important;
-    overflow-x:auto; scrollbar-width:none;
-    padding:6px 10px; gap:6px; flex-shrink:0;
-    background:var(--bg); border-bottom:1px solid var(--bd);
-    align-items:center;
+    display:flex !important; overflow-x:auto; scrollbar-width:none;
+    padding:10px 14px; gap:8px; flex-shrink:0;
+    background:var(--bg); border-bottom:1px solid var(--bd); align-items:center;
   }
   .mobile-ia-selector::-webkit-scrollbar{ display:none; }
   .mobile-ia-chip{
-    flex-shrink:0; padding:5px 11px; border-radius:16px; border:1.5px solid;
-    font-size:11px; font-weight:600; cursor:pointer; font-family:'IBM Plex Mono',monospace;
-    transition:all .15s; background:var(--s2); white-space:nowrap;
-    display:flex; align-items:center; gap:5px; min-height:32px;
-    color: var(--tx);
+    flex-shrink:0; padding:7px 14px; border-radius:20px;
+    border:1.5px solid transparent;
+    font-size:12px; font-weight:600; cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;
+    transition:all .2s cubic-bezier(.4,0,.2,1);
+    background:var(--s1); white-space:nowrap;
+    display:flex; align-items:center; gap:6px; min-height:34px; color:var(--mu);
   }
   .mobile-ia-chip.active{
-    font-weight:700;
-    box-shadow: 0 0 8px rgba(255,255,255,.06);
+    color:#fff; border-color:transparent;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
+    transform:translateY(-1px);
   }
 
-  /* ── Input chat mobile — compact et utilisable ── */
-  .foot{ padding:7px 10px calc(10px + env(safe-area-inset-bottom)) !important; }
-  .ta-wrap textarea{ font-size:16px !important; padding:9px 11px !important; } /* 16px évite zoom iOS */
-  .sbtn{ min-height:42px !important; min-width:42px !important; font-size:16px !important; }
-  .gbtn, .mic-btn{ min-height:38px !important; font-size:15px !important; }
-  /* Masquer bandeau Groq + tbar token + plugins sur mobile */
+  /* ── Masquer bandeau info + plugins ── */
   .tbar{ display:none !important; }
   .foot-plugins-bar{ display:none !important; }
 
-  /* ── Rédaction mobile ── */
+  /* ── Input chat : propre, arrondi pill ── */
+  .foot{
+    padding:8px 12px calc(10px + env(safe-area-inset-bottom)) !important;
+    background:var(--bg) !important; border-top:1px solid var(--bd) !important;
+  }
+  .ta-wrap textarea{
+    font-size:16px !important; padding:10px 14px !important;
+    border-radius:22px !important;
+    background:var(--s1) !important; border:1.5px solid var(--bd) !important;
+    line-height:1.4 !important;
+  }
+  .ta-wrap textarea:focus{ border-color:var(--ac) !important; outline:none !important; }
+  .sbtn{ border-radius:50% !important; min-height:42px !important; min-width:42px !important; font-size:16px !important; box-shadow:0 2px 8px rgba(212,168,83,.3) !important; }
+  .gbtn, .mic-btn{ min-height:38px !important; font-size:15px !important; }
+
+  /* ── Messages : bulles avec shadow ── */
+  .msgs{ padding:12px 14px calc(16px + env(safe-area-inset-bottom)) !important; gap:10px !important; }
+  .msg{ font-size:14px !important; line-height:1.65 !important; padding:12px 14px !important; border-radius:16px !important; box-shadow:0 1px 4px rgba(0,0,0,.15) !important; }
+  .voice-btn{ min-height:36px !important; min-width:36px !important; font-size:15px !important; }
+
+  /* ── Rédaction ── */
   .red-wrap{ flex-direction:column; }
   .red-left{ width:100% !important; border-right:none; border-bottom:1px solid var(--bd); max-height:45vh; flex-shrink:0; }
-  .red-textarea{ font-size:15px !important; }
+  .red-textarea{ font-size:16px !important; }
   .red-actions{ overflow-x:auto; flex-wrap:nowrap; }
 
-  /* ── Workflow mobile ── */
+  /* ── Workflow ── */
   .wf-wrap{ flex-direction:column; }
   .wf-left{ width:100% !important; border-right:none; border-bottom:1px solid var(--bd); max-height:50vh; overflow-y:auto; flex-shrink:0; }
 
-  /* ── Recherche mobile ── */
+  /* ── Divers ── */
   .srch-inp{ font-size:16px !important; }
-
-  /* ── Stats & Prompts mobile ── */
   .stats-grid{ grid-template-columns:1fr 1fr !important; }
   .prom-grid{ grid-template-columns:1fr !important; }
-
-  /* ── YouTube grid mobile ── */
   .yt-ch-grid{ grid-template-columns:1fr 1fr !important; }
-
-  /* ── Arène mobile ── */
   .arena-wrap{ padding:10px; }
   .arena-table td, .arena-table th{ padding:5px 4px !important; font-size:9px !important; }
+  .arena-card{ padding:10px !important; }
+  .debate-cols{ flex-direction:column !important; }
+  .hide-mobile{ display:none !important; }
+  .notes-list{ display:none; }
+  .trad-wrap{ flex-direction:column; min-height:0; }
+  .trad-left{ width:100%; border-right:none; border-bottom:1px solid var(--bd); max-height:40vh; overflow:hidden; }
 
-  /* ── Messages — taille tactile + padding safe ── */
-  .msgs{ padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important; padding:8px 10px !important; gap:8px !important; }
-  .msg{ font-size:15px !important; line-height:1.7 !important; padding:11px 13px !important; border-radius:10px !important; }
-  .voice-btn{ min-height:36px !important; min-width:36px !important; font-size:15px !important; }
-
-  /* ── Tabbar mobile — plus de contraste + active indicator ── */
-  .mobile-tab-btn{ padding:6px 2px !important; gap:2px !important; font-size:9px !important; }
-  .mobile-tab-btn .ico{ font-size:22px !important; }
-  .mobile-tab-btn.on{ color:var(--ac) !important; }
-  .mobile-tabbar{
-    background: rgba(10,10,14,.97) !important;
-    border-top: 1px solid rgba(212,168,83,.15) !important;
-  }
-
-  /* ── Textarea input — arrondi moderne ── */
-  .ta-wrap textarea{
-    border-radius: 18px !important;
-    background: var(--s1) !important;
-    border: 1.5px solid var(--bd) !important;
-  }
-  .ta-wrap textarea:focus{ border-color: rgba(212,168,83,.5) !important; outline:none !important; }
-  .sbtn{ border-radius: 50% !important; }
-
-  /* ── Chips IA — icône plus grande, texte masqué pour les petits écrans ── */
+  /* ── Chips IA petits écrans ── */
   @media(max-width:375px){
     .mobile-ia-chip span:last-child{ display:none; }
-    .mobile-ia-chip{ padding:5px 9px !important; }
+    .mobile-ia-chip{ padding:7px 10px !important; }
   }
 
-  /* ── Hist sidebar mobile (drawer) ── */
+  /* ── Historique sidebar ── */
   .hist-sidebar{
     position:fixed !important; z-index:300; top:0; left:0; bottom:0;
     width:85vw !important; max-width:320px;
     box-shadow:4px 0 30px rgba(0,0,0,.7);
     transform:translateX(-100%); transition:transform .28s cubic-bezier(.4,0,.2,1);
   }
-  .hist-sidebar.open{
-    transform:translateX(0) !important;
-  }
-  .hist-overlay{
-    display:none;
-    position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:299;
-  }
+  .hist-sidebar.open{ transform:translateX(0) !important; }
+  .hist-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:299; }
   .hist-overlay.open{ display:block; }
-  
-  /* ── Cards arena mobile ── */
-  .arena-card{ padding:10px !important; }
-  
-  /* ── Débat mobile ── */
-  .debate-cols{ flex-direction:column !important; }
-  
-  /* ── Masquer des éléments sur mobile ── */
-  .tbar{ display:none !important; }
-  .hide-mobile{ display:none !important; }
 }
 
 @media(max-width:767px){
+  /* ── Tabbar flottante style app premium ── */
   .mobile-tabbar{
     display:flex !important;
     position:fixed; bottom:0; left:0; right:0;
-    background:rgba(14,14,18,.96);
-    border-top:1px solid var(--bd);
-    padding:5px 0 calc(5px + env(safe-area-inset-bottom));
+    background:rgba(10,10,15,.96);
+    border-top:1px solid rgba(255,255,255,.06);
+    padding:4px 6px calc(6px + env(safe-area-inset-bottom));
     z-index:250;
-    backdrop-filter:blur(18px);
-    -webkit-backdrop-filter:blur(18px);
+    backdrop-filter:blur(24px);
+    -webkit-backdrop-filter:blur(24px);
+    gap:2px;
   }
   .mobile-tab-btn{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
-    background:none; border:none; cursor:pointer; padding:7px 2px;
-    color:var(--mu); font-size:10px; font-family:'IBM Plex Mono',monospace;
-    transition:all .18s; -webkit-tap-highlight-color:transparent;
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:none; border:none; cursor:pointer; padding:6px 4px;
+    color:var(--mu); font-size:9px; font-family:'IBM Plex Mono',monospace;
+    transition:all .2s cubic-bezier(.4,0,.2,1);
+    -webkit-tap-highlight-color:transparent;
+    border-radius:10px;
   }
-  .mobile-tab-btn .ico{ font-size:24px; line-height:1; transition:transform .18s; }
-  .mobile-tab-btn.on{ color:var(--ac); }
-  .mobile-tab-btn.on .ico{ transform:scale(1.18); }
+  .mobile-tab-btn .ico{ font-size:22px; line-height:1; transition:all .2s; }
+  .mobile-tab-btn.on{
+    color:var(--ac);
+    background:rgba(212,168,83,.08);
+  }
+  .mobile-tab-btn.on .ico{ transform:scale(1.1); }
   .mobile-tab-btn:active{ transform:scale(.88); }
-  /* Menu "Plus" overlay */
+
+  /* ── Drawer "Plus" ── */
   .mobile-more-overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:248;
-    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+    position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:248;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
     animation:fadeIn .15s ease;
   }
   .mobile-more-drawer{
-    position:fixed; bottom:calc(72px + env(safe-area-inset-bottom)); left:0; right:0;
-    background:rgba(18,18,24,.98); border-top:1px solid var(--bd);
-    border-radius:18px 18px 0 0; z-index:249;
-    padding:16px 14px 10px;
-    animation:slideUp .2s cubic-bezier(.4,0,.2,1);
+    position:fixed; bottom:calc(74px + env(safe-area-inset-bottom)); left:8px; right:8px;
+    background:rgba(16,16,22,.98);
+    border:1px solid var(--bd);
+    border-radius:20px; z-index:249;
+    padding:18px 16px 14px;
+    animation:slideUp .22s cubic-bezier(.4,0,.2,1);
     max-height:65vh; overflow-y:auto;
   }
-  @keyframes slideUp{ from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
-  .mobile-more-grid{
-    display:grid; grid-template-columns:repeat(4,1fr); gap:8px;
-  }
+  @keyframes slideUp{ from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .mobile-more-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
   .mobile-more-btn{
-    display:flex; flex-direction:column; align-items:center; gap:4px;
-    padding:12px 6px; border-radius:12px; border:1px solid var(--bd);
-    background:var(--s2); cursor:pointer; color:var(--mu);
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    padding:14px 6px; border-radius:14px; border:1px solid var(--bd);
+    background:var(--s1); cursor:pointer; color:var(--mu);
     font-size:9px; font-family:'IBM Plex Mono',monospace;
     transition:all .15s; -webkit-tap-highlight-color:transparent;
-    min-height:66px; justify-content:center;
+    min-height:68px; justify-content:center;
   }
-  .mobile-more-btn .mico{ font-size:22px; line-height:1; }
-  .mobile-more-btn.on{ background:rgba(212,168,83,.12); border-color:rgba(212,168,83,.4); color:var(--ac); }
-  .mobile-more-btn:active{ transform:scale(.92); background:rgba(212,168,83,.08); }
-  .mobile-more-section{ font-size:9px; color:var(--mu); font-weight:700; letter-spacing:1px; padding:10px 6px 6px; }
+  .mobile-more-btn .mico{ font-size:24px; line-height:1; }
+  .mobile-more-btn.on{ background:rgba(212,168,83,.12); border-color:rgba(212,168,83,.35); color:var(--ac); }
+  .mobile-more-btn:active{ transform:scale(.92); }
+  .mobile-more-section{ font-size:9px; color:var(--mu); font-weight:700; letter-spacing:1px; padding:12px 6px 6px; }
 }
 
 /* ── Scrolling tactile amélioré partout ── */
