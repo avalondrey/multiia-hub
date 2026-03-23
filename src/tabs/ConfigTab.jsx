@@ -1,6 +1,45 @@
 import React from 'react';
 import PSBlock from '../PSBlock.jsx';
 
+/**
+ * @typedef {Object} ModelDef
+ * @property {string} icon
+ * @property {string} short
+ * @property {string} name
+ * @property {string} desc
+ * @property {string} border
+ * @property {string} bg
+ * @property {string} color
+ * @property {string} [keyName]
+ * @property {string} [url]
+ * @property {boolean} [free]
+ * @property {string} [keyLink]
+ * @property {string} [provider]
+ */
+
+/**
+ * @typedef {Object} ConfigTabProps
+ * @property {Record<string, string>} apiKeys
+ * @property {Record<string, string>} cfgDrafts
+ * @property {function(Record<string, string>): void} setCfgDrafts
+ * @property {function(string, string?): void} saveCfgKey
+ * @property {function(): void} exportKeys
+ * @property {function(): void} importKeys
+ * @property {React.RefObject<HTMLInputElement>} fileRef
+ * @property {Record<string, ModelDef>} MODEL_DEFS
+ * @property {string[]} IDS
+ * @property {Record<string, boolean>} enabled
+ * @property {function(string): boolean} isLimited
+ * @property {function(string): string} fmtCd
+ * @property {function(string, string): void} showToast
+ * @property {function(number): void} saveZoom
+ * @property {number} uiZoom
+ * @property {object} pwaPrompt
+ * @property {boolean} pwaInstalled
+ * @property {function(): void} installPwa
+ */
+
+/** @type {ConfigTabProps} */
 export default function ConfigTab({
   apiKeys, cfgDrafts, setCfgDrafts, saveCfgKey,
   exportKeys, importKeys, fileRef,
@@ -66,12 +105,12 @@ export default function ConfigTab({
             const reader = new FileReader();
             reader.onload = ev => {
               try {
-                const keys = JSON.parse(ev.target.result);
+                const keys = JSON.parse(/** @type {string} */ (ev.target.result));
                 Object.entries(keys).forEach(([k, v]) => {
                   const id = IDS.find(i => MODEL_DEFS[i].keyName === k);
                   if (id) {
-                    setCfgDrafts(d => ({...d, [id]: v}));
-                    saveCfgKey(id, v);
+                    setCfgDrafts(d => ({...d, [id]: /** @type {string} */ (v)}));
+                    saveCfgKey(id, /** @type {string} */ (v));
                   }
                 });
                 showToast('Clés importées ✓', 'var(--green)');
