@@ -44,6 +44,8 @@ import ProjectsTab from "./tabs/ProjectsTab.jsx";
 import AideTab from "./tabs/AideTab.jsx";
 import StudioTab from "./tabs/StudioTab.jsx";
 import PromptDNATab from "./tabs/PromptDNATab.jsx";
+import TraducteurTab from "./tabs/TraducteurTab.jsx";
+import AgentTab from "./tabs/AgentTab.jsx";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
