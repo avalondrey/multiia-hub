@@ -34,7 +34,7 @@ export default function TraducteurTab({ enabled, apiKeys }) {
   const tgtLang = tgt.replace(/^\S+\s/, "");
 
   return (
-    <div style={{flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0}}>
+    <div style={{height:"100%", display:"flex", flexDirection:"column", overflow:"hidden"}}>
       {/* Barre langue + bouton */}
       <div style={{padding:"8px 12px", borderBottom:"1px solid var(--bd)", display:"flex", alignItems:"center", gap:8, flexShrink:0, background:"var(--s1)", flexWrap:"wrap"}}>
         <span style={{fontSize:9, color:"var(--mu)"}}>De :</span>
