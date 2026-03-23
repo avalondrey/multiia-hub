@@ -49,6 +49,10 @@ import AgentTab from "./tabs/AgentTab.jsx";
 import PromptIteratorTab from "./tabs/PromptIteratorTab.jsx";
 import LongTermMemoryTab from "./tabs/LongTermMemoryTab.jsx";
 import ImageFluxTab from "./tabs/ImageFluxTab.jsx";
+import RouterTab from "./tabs/RouterTab.jsx";
+import AdvancedTab from "./tabs/AdvancedTab.jsx";
+import CompareTab from "./tabs/CompareTab.jsx";
+import ConfigTab from "./tabs/ConfigTab.jsx";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -6238,160 +6242,27 @@ async function checkCliBridge() {
 
         {/* ══ SMART ROUTER TAB ══ */}
         {tab === "router" && (
-          <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"clamp(14px,3vw,32px)",gap:0}}>
-            {/* Header */}
-            <div style={{width:"100%",maxWidth:700,marginBottom:24}}>
-              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(18px,3vw,24px)",color:"var(--ac)",marginBottom:4}}>🧭 Smart Router</div>
-              <div style={{fontSize:10,color:"var(--mu)"}}>Dépose un fichier → l'IA l'analyse → propose l'onglet optimal → lance automatiquement la procédure</div>
-            </div>
-
-            {/* DROP ZONE */}
-            {!routerFile && (
-              <div style={{width:"100%",maxWidth:700}}
-                onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="var(--ac)";}}
-                onDragLeave={e=>{e.currentTarget.style.borderColor="rgba(212,168,83,.25)";}}
-                onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="rgba(212,168,83,.25)";const f=e.dataTransfer.files?.[0];if(f)loadRouterFile(f);}}>
-                <input type="file" ref={routerFileRef} style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)loadRouterFile(f);e.target.value="";}}/>
-                <div onClick={()=>routerFileRef.current?.click()}
-                  style={{border:"2px dashed rgba(212,168,83,.25)",borderRadius:16,padding:"60px 24px",textAlign:"center",cursor:"pointer",transition:"all .2s",background:"rgba(212,168,83,.03)"}}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--ac)"}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(212,168,83,.25)"}>
-                  <div style={{fontSize:48,marginBottom:14,opacity:.4}}>🧭</div>
-                  <div style={{fontSize:14,fontWeight:700,color:"var(--tx)",marginBottom:6}}>Dépose ton fichier ici</div>
-                  <div style={{fontSize:10,color:"var(--mu)",marginBottom:16}}>ou clique pour choisir</div>
-                  <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
-                    {["📕 PDF","📊 CSV/JSON","💻 Code","🖼 Image","📝 Texte","📄 Docx"].map(t=>(
-                      <span key={t} style={{fontSize:8,padding:"2px 8px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:10,color:"var(--mu)"}}>{t}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* FILE LOADED */}
-            {routerFile && (
-              <div style={{width:"100%",maxWidth:700}}>
-                {/* File card */}
-                <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",background:"var(--s1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:10,marginBottom:14}}>
-                  <span style={{fontSize:28}}>{routerFile.icon}</span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{routerFile.name}</div>
-                    <div style={{fontSize:9,color:"var(--mu)"}}>{routerFile.ext.toUpperCase()} · {routerFile.sizeKB} KB · {routerFile.type==="image"?"Image":"Texte"}</div>
-                  </div>
-                  <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);}}
-                    style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.25)",borderRadius:5,color:"var(--red)",fontSize:9,padding:"3px 9px",cursor:"pointer"}}>
-                    ✕ Changer
-                  </button>
-                </div>
-
-                {/* Optional question */}
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,marginBottom:5}}>QUESTION OPTIONNELLE <span style={{fontWeight:400}}>(guide le routage et la procédure)</span></div>
-                  <input value={routerQuestion} onChange={e=>setRouterQuestion(e.target.value)}
-                    placeholder='Ex: "Résume ce PDF", "Génère une variante de cette image", "Corrige le code"…'
-                    style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:7,color:"var(--tx)",fontSize:10,padding:"8px 12px",fontFamily:"var(--font-ui)",outline:"none",boxSizing:"border-box"}}
-                    onFocus={e=>e.target.style.borderColor="var(--ac)"}
-                    onBlur={e=>e.target.style.borderColor="var(--bd)"}/>
-                </div>
-
-                {/* Analyze button */}
-                {!routerAnalysis && (
-                  <button onClick={analyzeRouterFile} disabled={routerAnalyzing}
-                    style={{width:"100%",padding:"12px",background:"rgba(212,168,83,.15)",border:"2px solid rgba(212,168,83,.4)",borderRadius:9,color:"var(--ac)",fontSize:13,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity: routerAnalyzing ? 0.6 : 1}}>
-                    {routerAnalyzing?"⟳ Analyse en cours…":"🔍 Analyser et proposer un routage"}
-                  </button>
-                )}
-
-                {/* Analysis result */}
-                {routerAnalysis && !routerDone && (
-                  <div>
-                    {/* Summary */}
-                    <div style={{padding:"10px 14px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,fontSize:10,color:"var(--tx)",lineHeight:1.6,marginBottom:16,fontStyle:"italic"}}>
-                      💡 {routerAnalysis.summary}
-                    </div>
-
-                    {/* Route suggestions */}
-                    <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:10}}>ONGLETS RECOMMANDÉS — Clique pour sélectionner</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
-                      {routerAnalysis.suggestions.map((sug,i)=>{
-                        const route = ROUTER_ROUTES.find(r=>r.id===sug.route);
-                        if(!route) return null;
-                        const isSelected = routerSelected===sug.route;
-                        const conf = Math.round((sug.confidence||0.8)*100);
-                        return (
-                          <div key={sug.route} onClick={()=>setRouterSelected(sug.route)}
-                            style={{padding:"14px 16px",background:isSelected?"rgba(212,168,83,.08)":"var(--s1)",border:`2px solid ${isSelected?"var(--ac)":"var(--bd)"}`,borderRadius:10,cursor:"pointer",transition:"all .15s",position:"relative"}}
-                            onMouseEnter={e=>{if(!isSelected)e.currentTarget.style.borderColor="rgba(212,168,83,.4)";}}
-                            onMouseLeave={e=>{if(!isSelected)e.currentTarget.style.borderColor="var(--bd)";}}>
-                            {i===0&&<div style={{position:"absolute",top:10,right:12,fontSize:8,padding:"2px 7px",background:"rgba(212,168,83,.15)",color:"var(--ac)",borderRadius:4,fontWeight:700}}>⭐ RECOMMANDÉ</div>}
-                            <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <div style={{width:36,height:36,borderRadius:8,background:route.color+"18",border:"1px solid "+route.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
-                                {route.icon}
-                              </div>
-                              <div style={{flex:1,minWidth:0,paddingRight:60}}>
-                                <div style={{fontSize:11,fontWeight:700,color:isSelected?"var(--ac)":"var(--tx)",marginBottom:2}}>{route.label}</div>
-                                <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.4}}>{sug.reason}</div>
-                                {sug.params?.prompt&&<div style={{fontSize:8,color:"var(--ac)",marginTop:4,fontStyle:"italic"}}>Prompt : «{sug.params.prompt.slice(0,60)}{sug.params.prompt.length>60?"…":""}»</div>}
-                              </div>
-                              <div style={{flexShrink:0,textAlign:"right"}}>
-                                <div style={{fontSize:10,fontWeight:700,color:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)"}}>{conf}%</div>
-                                <div style={{fontSize:7,color:"var(--mu)"}}>confiance</div>
-                                <div style={{width:40,height:3,background:"var(--bd)",borderRadius:2,marginTop:4,overflow:"hidden"}}>
-                                  <div style={{height:"100%",width:conf+"%",background:conf>=85?"var(--green)":conf>=65?"var(--orange)":"var(--mu)",borderRadius:2}}/>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* All routes quick-pick */}
-                    <div style={{marginBottom:16}}>
-                      <div style={{fontSize:9,color:"var(--mu)",marginBottom:6}}>Ou choisir manuellement :</div>
-                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                        {ROUTER_ROUTES.map(route=>(
-                          <button key={route.id} onClick={()=>setRouterSelected(route.id)}
-                            style={{fontSize:9,padding:"4px 10px",borderRadius:6,border:"1px solid "+(routerSelected===route.id?route.color:"var(--bd)"),background:routerSelected===route.id?route.color+"18":"transparent",color:routerSelected===route.id?route.color:"var(--mu)",cursor:"pointer",transition:"all .15s"}}>
-                            {route.icon} {route.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* LAUNCH button */}
-                    {routerSelected && (
-                      <button onClick={launchRouterAction} disabled={routerLaunching}
-                        style={{width:"100%",padding:"14px",background:"rgba(212,168,83,.2)",border:"2px solid var(--ac)",borderRadius:10,color:"var(--ac)",fontSize:14,cursor:"pointer",fontWeight:800,fontFamily:"var(--font-display)",opacity: routerLaunching ? 0.6 : 1,transition:"all .2s"}}
-                        onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,168,83,.3)";}}
-                        onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,168,83,.2)";}}>
-                        {routerLaunching?"⟳ Lancement…":"▶ Lancer dans " + (ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label||routerSelected)}
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Done state */}
-                {routerDone && (
-                  <div style={{textAlign:"center",padding:"32px 16px"}}>
-                    <div style={{fontSize:40,marginBottom:12}}>✓</div>
-                    <div style={{fontSize:14,fontWeight:700,color:"var(--green)",marginBottom:6}}>Procédure lancée !</div>
-                    <div style={{fontSize:10,color:"var(--mu)",marginBottom:20}}>L'onglet <strong style={{color:"var(--ac)"}}>{ROUTER_ROUTES.find(r=>r.id===routerSelected)?.label}</strong> a été activé avec ton fichier.</div>
-                    <div style={{display:"flex",gap:8,justifyContent:"center"}}>
-                      <button onClick={()=>{setRouterFile(null);setRouterAnalysis(null);setRouterSelected(null);setRouterDone(false);setRouterQuestion("");}}
-                        style={{padding:"8px 18px",background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--mu)",fontSize:10,cursor:"pointer"}}>
-                        🔄 Nouveau fichier
-                      </button>
-                      <button onClick={()=>navigateTab(routerSelected||"chat")}
-                        style={{padding:"8px 18px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:6,color:"var(--ac)",fontSize:10,cursor:"pointer",fontWeight:700}}>
-                        → Aller à l'onglet
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <RouterTab
+            enabled={enabled}
+            apiKeys={apiKeys}
+            MODEL_DEFS={MODEL_DEFS}
+            IDS={IDS}
+            isLimited={isLimited}
+            callModel={callModel}
+            setChatInput={setChatInput}
+            setDebInput={setDebInput}
+            setDebFile={setDebFile}
+            navigateTab={navigateTab}
+            setComfyPrompt={setComfyPrompt}
+            setComfySubTab={setComfySubTab}
+            comfyConnected={comfyConnected}
+            generateComfy={generateComfy}
+            processRagText={processRagText}
+            ragChunks={ragChunks}
+            showToast={showToast}
+            setRedInput={setRedInput}
+            setRechercheInput={setRechercheInput}
+          />
         )}
         {/* ══ VEILLE INTELLIGENTE TAB ══ */}
         {tab === "veille" && (
@@ -6547,98 +6418,25 @@ async function checkCliBridge() {
 
         {/* ══ ADVANCED SETTINGS TAB ══ */}
         {tab === "advanced" && (
-          <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
-              <div style={{fontFamily:"var(--font-display)",fontWeight:800,fontSize:"clamp(14px,2.5vw,18px)",color:"var(--ac)"}}>🔬 Paramètres Avancés</div>
-              <button onClick={saveAdvSettings} style={{marginLeft:"auto",padding:"5px 14px",background:"rgba(212,168,83,.15)",border:"1px solid rgba(212,168,83,.4)",borderRadius:5,color:"var(--ac)",cursor:"pointer",fontSize:9,fontFamily:"var(--font-mono)",fontWeight:700}}>💾 Sauvegarder</button>
-            </div>
-
-            {/* Thème + Streaming */}
-            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:12}}>APPARENCE & PERFORMANCE</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                {/* Thème */}
-                <div>
-                  <div style={{fontSize:8,color:"var(--mu)",marginBottom:6}}>THÈME DE COULEUR</div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {Object.entries(THEMES).map(([k,t])=>(
-                      <button key={k} onClick={()=>setTheme(k)}
-                        style={{padding:"5px 12px",borderRadius:8,border:"1px solid "+(theme===k?"var(--ac)":"var(--bd)"),background:theme===k?"rgba(212,168,83,.12)":"transparent",color:theme===k?"var(--ac)":"var(--tx)",fontSize:9,cursor:"pointer",fontWeight:theme===k?700:400}}>
-                        {t.icon} {t.label.split(" ").slice(1).join(" ")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Streaming */}
-                <div>
-                  <div style={{fontSize:8,color:"var(--mu)",marginBottom:6}}>STREAMING DES RÉPONSES</div>
-                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-                    <input type="checkbox" checked={streamingEnabled} onChange={e=>setStreamingEnabled(e.target.checked)}/>
-                    <div>
-                      <div style={{fontSize:9,color:"var(--tx)",fontWeight:600}}>⚡ Streaming activé</div>
-                      <div style={{fontSize:8,color:"var(--mu)"}}>Affiche les tokens en temps réel (Groq, Mistral, etc.)</div>
-                    </div>
-                  </label>
-                  <div style={{marginTop:8}}>
-                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>{setShowOnboarding(true);setOnboardStep(0);}}>
-                      <span style={{fontSize:12}}>❓</span>
-                      <div style={{fontSize:9,color:"var(--blue)",cursor:"pointer"}}>Revoir le guide de démarrage</div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>SYSTEM PROMPT GLOBAL</div>
-              <div style={{fontSize:8,color:"var(--mu)",marginBottom:6}}>Ajouté à toutes les requêtes, en plus du persona actif.</div>
-              <textarea value={globalSysPrompt} onChange={e=>setGlobalSysPrompt(e.target.value)}
-                placeholder="Ex: Réponds toujours en français. Sois concis. Utilise des bullet points..."
-                rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
-            </div>
-
-            {/* Temperature per model */}
-            <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>TEMPÉRATURE PAR MODÈLE</div>
-              <div style={{fontSize:8,color:"var(--mu)",marginBottom:10}}>0 = déterministe / 1 = créatif. Défaut : 0.7</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
-                {IDS.filter(id=>enabled[id]).map(id=>{
-                  const m=MODEL_DEFS[id];
-                  const val=modelTemps[id]!==undefined?modelTemps[id]:0.7;
-                  return (
-                    <div key={id} style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{color:m.color,fontSize:10,width:20}}>{m.icon}</span>
-                      <span style={{fontSize:9,color:"var(--tx)",flex:1}}>{m.short}</span>
-                      <input type="range" min="0" max="1" step="0.05" value={val}
-                        onChange={e=>setModelTemps(prev=>({...prev,[id]:parseFloat(e.target.value)}))}
-                        style={{width:80}}/>
-                      <span style={{fontSize:8,color:"var(--mu)",fontFamily:"var(--font-mono)",width:26}}>{val.toFixed(2)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Custom providers */}
-            <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>PROVIDERS CUSTOM (OpenAI-compatible)</div>
-              <div style={{fontSize:8,color:"var(--mu)",marginBottom:10}}>LM Studio, Jan, Ollama API, ou tout provider compatible OpenAI.</div>
-              {customProviders.map((prov,i)=>(
-                <div key={i} style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
-                  <input value={prov.name||""} placeholder="Nom" onChange={e=>{const np=[...customProviders];np[i]={...np[i],name:e.target.value};setCustomProviders(np);}}
-                    style={{flex:"0 0 100px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
-                  <input value={prov.baseUrl||""} placeholder="http://localhost:1234/v1" onChange={e=>{const np=[...customProviders];np[i]={...np[i],baseUrl:e.target.value};setCustomProviders(np);}}
-                    style={{flex:1,minWidth:180,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
-                  <input value={prov.model||""} placeholder="model-name" onChange={e=>{const np=[...customProviders];np[i]={...np[i],model:e.target.value};setCustomProviders(np);}}
-                    style={{flex:"0 0 130px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:4,color:"var(--tx)",fontSize:9,padding:"4px 8px",outline:"none"}}/>
-                  <button onClick={()=>setCustomProviders(prev=>prev.filter((_,j)=>j!==i))} style={{background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:4,color:"var(--red)",fontSize:10,padding:"2px 8px",cursor:"pointer"}}>✕</button>
-                </div>
-              ))}
-              <button onClick={()=>setCustomProviders(prev=>[...prev,{name:"",baseUrl:"",model:"",apiKey:""}])}
-                style={{fontSize:9,padding:"4px 12px",background:"rgba(96,165,250,.1)",border:"1px solid rgba(96,165,250,.3)",borderRadius:5,color:"var(--blue)",cursor:"pointer",marginTop:4}}>
-                ＋ Ajouter un provider
-              </button>
-            </div>
-          </div>
+          <AdvancedTab
+            THEMES={THEMES}
+            theme={theme}
+            setTheme={setTheme}
+            streamingEnabled={streamingEnabled}
+            setStreamingEnabled={setStreamingEnabled}
+            modelTemps={modelTemps}
+            setModelTemps={setModelTemps}
+            customProviders={customProviders}
+            setCustomProviders={setCustomProviders}
+            globalSysPrompt={globalSysPrompt}
+            setGlobalSysPrompt={setGlobalSysPrompt}
+            saveAdvSettings={saveAdvSettings}
+            IDS={IDS}
+            MODEL_DEFS={MODEL_DEFS}
+            enabled={enabled}
+            setShowOnboarding={setShowOnboarding}
+            setOnboardStep={setOnboardStep}
+          />
         )}
 
 
@@ -7062,490 +6860,43 @@ async function checkCliBridge() {
 
         {/* ── ONGLET COMPARE ── */}
         {tab === "compare" && (
-          <div style={{flex:1,overflow:"auto",padding:16,display:"flex",flexDirection:"column",gap:16}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:2}}>
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)",letterSpacing:1}}>⚖ COMPARAISON</div>
-              {IDS.filter(id=>enabled[id]).length>=2&&(
-                <button onClick={()=>{const ids=IDS.filter(id=>enabled[id]);setDiffIA1(ids[0]);setDiffIA2(ids[1]);setDiffModal(true);}} style={{marginLeft:"auto",fontSize:8,padding:"3px 10px",background:"rgba(74,222,128,.1)",border:"1px solid rgba(74,222,128,.3)",borderRadius:5,color:"var(--green)",cursor:"pointer"}}>⚡ Diff dernières réponses</button>
-              )}
-            </div>
-            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:"var(--ac)",letterSpacing:1}}>📊 HISTORIQUE DES COMPARAISONS</div>
-            {voteHistory.length === 0 ? (
-              <div style={{textAlign:"center",color:"var(--mu)",fontSize:11,padding:40}}>
-                Aucune comparaison encore.<br/>
-                <span style={{fontSize:9}}>Active 2+ IAs et envoie un message → le jury notera automatiquement.</span>
-              </div>
-            ) : (<>
-              {/* Win rate cumulé */}
-              <div style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 16px"}}>
-                <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",marginBottom:10,fontFamily:"'Syne',sans-serif"}}>🏆 CLASSEMENT CUMULÉ — {voteHistory.length} verdicts</div>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  {(() => {
-                    const wins = {}; const totals = {}; const counts = {};
-                    IDS.forEach(id => { wins[id]=0; totals[id]=0; counts[id]=0; });
-                    voteHistory.forEach(v => {
-                      if(v.winner) wins[v.winner]=(wins[v.winner]||0)+1;
-                      Object.entries(v.scores||{}).forEach(([id,sc])=>{ const t=typeof sc==="object"?sc.total:sc; if(t){totals[id]=(totals[id]||0)+t; counts[id]=(counts[id]||0)+1;} });
-                    });
-                    const sorted = IDS.filter(id=>wins[id]||counts[id]).sort((a,b)=>wins[b]-wins[a]);
-                    const maxWins = Math.max(...sorted.map(id=>wins[id]),1);
-                    return sorted.map((id,i)=>{
-                      const m=MODEL_DEFS[id];
-                      const avgScore = counts[id]>0?(totals[id]/counts[id]).toFixed(1):"-";
-                      const winRate = voteHistory.length>0?Math.round(wins[id]/voteHistory.length*100):0;
-                      return (
-                        <div key={id} style={{display:"flex",alignItems:"center",gap:10}}>
-                          <span style={{fontSize:12,width:20}}>{["🥇","🥈","🥉"][i]||"  "}</span>
-                          <span style={{width:80,fontSize:10,fontWeight:700,color:m.color,fontFamily:"'Syne',sans-serif"}}>{m.icon} {m.short}</span>
-                          <div style={{flex:1,height:12,background:"var(--s2)",borderRadius:6,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:`${(wins[id]/maxWins)*100}%`,background:m.color,borderRadius:6,transition:"width .5s",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:4}}>
-                            </div>
-                          </div>
-                          <span style={{fontSize:9,color:m.color,width:50,textAlign:"right",fontWeight:700}}>{wins[id]} victoire{wins[id]!==1?"s":""}</span>
-                          <span style={{fontSize:9,color:"var(--mu)",width:40,textAlign:"right"}}>{winRate}%</span>
-                          <span style={{fontSize:9,color:"var(--ac)",width:50,textAlign:"right"}}>⌀ {avgScore}/10</span>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-              {/* Liste des verdicts */}
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <div style={{fontSize:10,fontWeight:700,color:"var(--tx)",fontFamily:"'Syne',sans-serif"}}>📋 TOUS LES VERDICTS</div>
-                {[...voteHistory].reverse().map((v,i)=>{
-                  const wm = MODEL_DEFS[v.winner];
-                  const ranking = v.ranking||[v.winner];
-                  const medals = ["🥇","🥈","🥉"];
-                  return (
-                    <div key={i} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,padding:"8px 12px",display:"flex",gap:10,alignItems:"flex-start"}}>
-                      <div style={{flexShrink:0,textAlign:"center"}}>
-                        <div style={{fontSize:16}}>🏆</div>
-                        <div style={{fontSize:7,color:"var(--mu)",marginTop:2}}>{v.ts?new Date(v.ts).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):""}</div>
-                      </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        {v.question && <div style={{fontSize:9,color:"var(--mu)",marginBottom:4,fontStyle:"italic"}}>« {v.question}… »</div>}
-                        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
-                          {ranking.slice(0,3).map((id,ri)=>{ const m=MODEL_DEFS[id]; const sc=v.scores?.[id]; const tot=typeof sc==="object"?sc?.total:sc; return (
-                            <span key={id} style={{fontSize:9,background:`${m?.color||"#888"}18`,border:`1px solid ${m?.color||"#888"}35`,borderRadius:4,padding:"2px 7px",color:m?.color||"var(--tx)"}}>
-                              {medals[ri]} {m?.icon} {m?.short} {tot?`· ${typeof tot==="number"?tot.toFixed(1):tot}/10`:""}
-                            </span>
-                          );})}
-                        </div>
-                        <div style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace"}}>{v.reason}</div>
-                      </div>
-                      <button onClick={()=>{setBestVote(v);setShowVoteDetail(true);setShowDiffModal(false);navigateTab("chat");}} style={{flexShrink:0,fontSize:8,padding:"3px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>↩ Revoir</button>
-                    </div>
-                  );
-                })}
-              </div>
-              <button onClick={()=>setVoteHistory([])} style={{alignSelf:"flex-start",fontSize:9,padding:"5px 12px",background:"rgba(248,113,113,.1)",border:"1px solid rgba(248,113,113,.3)",borderRadius:5,color:"var(--red)",cursor:"pointer"}}>🗑 Effacer l'historique</button>
-            </>)}
-          </div>
+          <CompareTab
+            voteHistory={voteHistory}
+            setVoteHistory={setVoteHistory}
+            IDS={IDS}
+            MODEL_DEFS={MODEL_DEFS}
+            enabled={enabled}
+            setDiffIA1={setDiffIA1}
+            setDiffIA2={setDiffIA2}
+            setDiffModal={setDiffModal}
+            setBestVote={setBestVote}
+            setShowVoteDetail={setShowVoteDetail}
+            navigateTab={navigateTab}
+          />
         )}
 
-                {tab === "config" && (
-          <div className="cfg-wrap">
-            <div className="sec">
-              <div className="sec-title">⌨️ Raccourcis clavier</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:6,fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}}>
-                {[
-                  ["Ctrl+Enter","Envoyer le message"],
-                  ["Ctrl+1..9","Activer/désactiver l'IA n°X"],
-                  ["Ctrl+F","Recherche globale (conversations, prompts…)"],
-                  ["Ctrl+K","Rechercher dans l'historique"],
-                  ["Ctrl+L","Effacer toutes les conversations"],
-                  ["Ctrl+M","Exporter en Markdown"],
-                  ["Ctrl+T","Réinitialiser le compteur de tokens"],
-                  ["Escape","Quitter focus / solo / RAG / recherche"],
-                ].map(([k,d])=>(
-                  <div key={k} style={{display:"flex",alignItems:"center",gap:8,background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,padding:"5px 10px"}}>
-                    <code style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:3,padding:"2px 6px",color:"var(--ac)",fontSize:9,whiteSpace:"nowrap"}}>{k}</code>
-                    <span style={{color:"var(--mu)"}}>{d}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* ── INFO POLLINATIONS ── */}
-            <div className="sec" style={{background:"rgba(116,201,140,.04)",border:"1px solid rgba(116,201,140,.2)"}}>
-              <div className="sec-title" style={{color:"var(--green)"}}>🌸 IAs Pollinations — Sans clé API</div>
-              <div style={{fontSize:9,color:"var(--mu)",lineHeight:1.7,fontFamily:"'IBM Plex Mono',monospace"}}>
-                {/* Tier 1 : GPT-4o legacy */}
-                <div style={{marginBottom:8,padding:"6px 10px",background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.2)",borderRadius:5}}>
-                  <strong style={{color:"var(--green)"}}>◈ GPT-4o</strong> — <code>text.pollinations.ai/openai</code> · <span style={{color:"var(--green)"}}>100% gratuit, sans clé</span>, 1 req/16s
-                </div>
-                {/* Tier 2 : gen.pollinations.ai avec clé Pollen */}
-                <div style={{marginBottom:8,padding:"6px 10px",background:"rgba(212,168,83,.06)",border:"1px solid rgba(212,168,83,.25)",borderRadius:5}}>
-                  <strong style={{color:"var(--ac)"}}>✦ Claude &nbsp;⬡ DeepSeek</strong> — <code>gen.pollinations.ai/v1</code><br/>
-                  <span style={{color:"var(--ac)"}}>→ Clé Pollen requise (gratuite Seed tier)</span> :<br/>
-                  <span style={{color:"var(--mu)"}}>1. Va sur <strong style={{color:"var(--tx)"}}>enter.pollinations.ai</strong> → crée un compte (gratuit)<br/>
-                  2. Récupère ta clé API (Bearer token)<br/>
-                  3. Colle-la dans le champ <strong style={{color:"var(--tx)"}}>Pollen API Key</strong> ci-dessous (tableau des clés)</span>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
-                  {[
-                    {id:"llama4m",     note:"✅ Gratuit — OpenRouter gratuit",     tier:"free"},
-                    {id:"poll_gpt",     note:"✅ Sans clé — anonymous",            tier:"free"},
-                    {id:"poll_claude",  note:"🔑 Clé Pollen Seed gratuite requise", tier:"paid"},
-                    {id:"poll_deepseek",note:"🔑 Clé Pollen Seed gratuite requise", tier:"paid"},
-                  ].map(p=>(
-                    <div key={p.id} style={{background:"var(--s2)",border:"1px solid "+(p.tier==="free"?"rgba(74,222,128,.3)":"rgba(212,168,83,.3)"),borderRadius:5,padding:"6px 10px"}}>
-                      <div style={{color:"var(--tx)",fontWeight:600,marginBottom:2}}>{MODEL_DEFS[p.id]?.icon} {MODEL_DEFS[p.id]?.name}</div>
-                      <div style={{color:p.tier==="free"?"var(--green)":"var(--ac)",fontSize:8}}>{p.note}</div>
-                      <div style={{color:"var(--mu)",fontSize:8,marginTop:2}}>Modèle : <code style={{color:"var(--ac)"}}>{MODEL_DEFS[p.id]?.model}</code></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="sec">
-              
-              <div className="sec-title">🤖 Modèles & Clés API</div>
-              {/* ── YouTube Data API key ── */}
-              <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(255,0,0,.05)",border:"1px solid rgba(255,80,80,.25)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                <div style={{flex:"0 0 auto"}}>
-                  <div style={{fontSize:10,fontWeight:700,color:"#FF5555",marginBottom:2}}>▶ YouTube Data API v3 — Player intégré</div>
-                  <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
-                    Gratuit · 10 000 req/jour · <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" style={{color:"#FF5555"}}>console.cloud.google.com</a><br/>
-                    <span style={{opacity:.7}}>1. Nouveau projet → Activer "YouTube Data API v3" → Identifiants → Clé API</span><br/>
-                    <span style={{opacity:.7}}>Sans clé : clic vidéo = ouvre YouTube dans un nouvel onglet</span>
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:6,flex:1,minWidth:220,alignItems:"center"}}>
-                  <input className="key-inp" type="password"
-                    placeholder={apiKeys.youtube_data ? "••••••••" : "Coller la clé YouTube Data API v3…"}
-                    value={cfgDrafts.youtube_data||""}
-                    onChange={e=>setCfgDrafts(p=>({...p,youtube_data:e.target.value}))}
-                    onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts.youtube_data)saveCfgKey("youtube_data");}}
-                    style={{flex:1}}
-                  />
-                  <button className="save-btn" disabled={!cfgDrafts.youtube_data} onClick={()=>saveCfgKey("youtube_data")}>✓ Sauvegarder</button>
-                  {apiKeys.youtube_data && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ Player actif</span>}
-                </div>
-              </div>
-
-              {/* ── Pollen key banner ── */}
-              <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(212,168,83,.08)",border:"1px solid rgba(212,168,83,.3)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                <div style={{flex:"0 0 auto"}}>
-                  <div style={{fontSize:10,fontWeight:700,color:"var(--ac)",marginBottom:2}}>🌸 Clé Pollen — ✦ Claude · ⬡ DeepSeek · ◇ Gemini</div>
-                  <div style={{fontSize:8,color:"var(--mu)"}}>Gratuit · <a href="https://enter.pollinations.ai" target="_blank" rel="noreferrer" style={{color:"var(--ac)"}}>enter.pollinations.ai</a> → inscription → copie ton Bearer token</div>
-                </div>
-                <div style={{display:"flex",gap:6,flex:1,minWidth:220,alignItems:"center"}}>
-                  <input className="key-inp" type="password"
-                    placeholder={apiKeys.pollen ? "••••••••" : "Coller ta clé Pollen ici…"}
-                    value={cfgDrafts.pollen||""}
-                    onChange={e=>setCfgDrafts(p=>({...p,pollen:e.target.value}))}
-                    onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts.pollen)saveCfgKey("pollen");}}
-                    style={{flex:1}}
-                  />
-                  <button className="save-btn" disabled={!cfgDrafts.pollen} onClick={()=>saveCfgKey("pollen")}>✓ Sauvegarder</button>
-                  {apiKeys.pollen && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ Clé OK</span>}
-                </div>
-              </div>
-
-              {/* ── Ollama Cloud key banner ── */}
-              <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(6,182,212,.08)",border:"1px solid rgba(6,182,212,.3)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                <div style={{flex:"0 0 auto"}}>
-                  <div style={{fontSize:10,fontWeight:700,color:"#06B6D4",marginBottom:2}}>☁️ Ollama Cloud — ⬡ MiniMax M2.7 · ⬡ MiniMax M2.5</div>
-                  <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
-                    Gratuit · <a href="https://ollama.com/settings/tokens" target="_blank" rel="noreferrer" style={{color:"#06B6D4"}}>ollama.com/settings/tokens</a> → créer un token<br/>
-                    <span style={{opacity:.7}}>Sans compte : utilise Ollama en local (<code style={{color:"#06B6D4"}}>ollama run minimax-m2.7:cloud</code>)</span>
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:6,flex:1,minWidth:220,alignItems:"center"}}>
-                  <input className="key-inp" type="password"
-                    placeholder={apiKeys.ollama_cloud ? "••••••••" : "Coller ton token Ollama ici…"}
-                    value={cfgDrafts.ollama_cloud||""}
-                    onChange={e=>setCfgDrafts(p=>({...p,ollama_cloud:e.target.value}))}
-                    onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts.ollama_cloud)saveCfgKey("ollama_cloud");}}
-                    style={{flex:1}}
-                  />
-                  <button className="save-btn" disabled={!cfgDrafts.ollama_cloud} onClick={()=>saveCfgKey("ollama_cloud")}>✓ Sauvegarder</button>
-                  {apiKeys.ollama_cloud && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ M2.7 + M2.5 actifs</span>}
-                </div>
-              </div>
-
-              {/* ── OpenRouter key banner ── */}
-              <div style={{marginBottom:10,padding:"10px 14px",background:"rgba(118,185,0,.08)",border:"1px solid rgba(118,185,0,.3)",borderRadius:6,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                <div style={{flex:"0 0 auto"}}>
-                  <div style={{fontSize:10,fontWeight:700,color:"#76B900",marginBottom:2}}>⬟ OpenRouter — ⬟ Nemotron 3 Super · + 200 modèles</div>
-                  <div style={{fontSize:8,color:"var(--mu)",lineHeight:1.6}}>
-                    Gratuit (crédits offerts) · <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" style={{color:"#76B900"}}>openrouter.ai/keys</a> → créer une clé<br/>
-                    <span style={{opacity:.7}}>Nemotron 3 Super 120B : #1 open-source pour agents multi-étapes · 1M tokens de contexte</span>
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:6,flex:1,minWidth:220,alignItems:"center"}}>
-                  <input className="key-inp" type="password"
-                    placeholder={apiKeys.openrouter ? "••••••••" : "Coller ta clé OpenRouter ici…"}
-                    value={cfgDrafts.openrouter||""}
-                    onChange={e=>setCfgDrafts(p=>({...p,openrouter:e.target.value}))}
-                    onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts.openrouter)saveCfgKey("openrouter");}}
-                    style={{flex:1}}
-                  />
-                  <button className="save-btn" disabled={!cfgDrafts.openrouter} onClick={()=>saveCfgKey("openrouter")}>✓ Sauvegarder</button>
-                  {apiKeys.openrouter && <span style={{fontSize:8,color:"var(--green)",whiteSpace:"nowrap"}}>✓ Nemotron actif</span>}
-                </div>
-              </div>
-
-              <div className="tbl-wrap">
-                <table className="tbl">
-                  <thead><tr><th>IA</th><th>Provider</th><th>Contexte</th><th>Prix</th><th>Statut</th><th>Clé API</th></tr></thead>
-                  <tbody>
-                    {IDS.map(id => {
-                      const m = MODEL_DEFS[id]; const hasKey = !m.keyName || apiKeys[m.keyName]; const lim = isLimited(id);
-                      return (
-                        <tr key={id}>
-                          <td><span style={{color:m.color,marginRight:4}}>{m.icon}</span><span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,color:m.color,fontSize:10}}>{m.short}</span></td>
-                          <td style={{color:"var(--mu)",fontSize:9}}>{m.provider}</td>
-                          <td style={{fontSize:9}}>{fmt(m.maxTokens)}{m.inputLimit&&m.inputLimit<m.maxTokens?<span style={{fontSize:7,color:"var(--orange)",marginLeft:3}} title={"Limite input : "+fmt(m.inputLimit)+" tokens"}>⚡{fmt(m.inputLimit)}</span>:null}</td>
-                          <td>{m.free?<span className="free-badge">FREE</span>:<span style={{fontSize:8,color:"var(--mu)"}}>Payant</span>}</td>
-                          <td>
-                            {lim?<span className="sbadge" style={{background:"rgba(248,113,113,.1)",color:"var(--red)"}}>⏳ {fmtCd(id)}</span>:
-                            <span className="sbadge" style={{background:enabled[id]?"rgba(74,222,128,.1)":hasKey?"rgba(212,168,83,.08)":"rgba(85,85,104,.08)",color:enabled[id]?"var(--green)":hasKey?"var(--ac)":"var(--mu)"}}>
-                              {enabled[id]?"● Actif":hasKey?"○ Prêt":"✗ Sans clé"}
-                            </span>}
-                          </td>
-                          <td>
-                            {!m.keyName?<span style={{fontSize:8,color:"var(--mu)"}}>Intégré</span>:(
-                              <div className="key-row">
-                                <input className="key-inp" type="password" placeholder={apiKeys[m.keyName]?"••••••••":"Coller ici…"} value={cfgDrafts[m.keyName]||""} onChange={e=>setCfgDrafts(p=>({...p,[m.keyName]:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"&&cfgDrafts[m.keyName])saveCfgKey(m.keyName);}}/>
-                                <button className="save-btn" disabled={!cfgDrafts[m.keyName]} onClick={()=>saveCfgKey(m.keyName)}>✓</button>
-                                {m.keyLink&&<a className="key-link" href={m.keyLink} target="_blank" rel="noreferrer">↗</a>}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="cfg-note">💡 Gratuits sans CB : <strong>Claude</strong> (intégré) · <strong>Gemini</strong> · <strong>Mistral</strong> · <strong style={{color:"var(--orange)"}}>⚡ Groq = Llama 3.3 70B</strong> gratuit (14 400 req/jour) — Llama tourne via l'infrastructure Groq</div>
-            </div>
-
-            <div className="sec">
-              <div className="sec-title">💾 Fichier de Clés</div>
-              <div className="file-btns">
-                <button className="fbtn p" onClick={exportKeys}><span>⬇</span><div><div>Exporter les clés</div><div style={{fontSize:8,opacity:.7}}>multiia-keys.json</div></div></button>
-                <button className="fbtn" onClick={()=>fileRef.current?.click()}><span>⬆</span><div><div>Importer les clés</div><div style={{fontSize:8,opacity:.7}}>Charger un .json</div></div></button>
-                <input type="file" ref={fileRef} accept=".json" onChange={importKeys}/>
-              </div>
-              <div className="cfg-note" style={{marginTop:8}}>📁 Exporte tes clés avant chaque mise à jour. À la réouverture, importe le fichier → toutes tes clés sont restaurées instantanément.</div>
-            </div>
-
-            <div className="sec">
-              <div className="sec">
-                <div className="sec-title">🔍 Zoom de l'interface</div>
-                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                  {[0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.5,1.75,2.0].map(z=>(
-                    <button key={z} onClick={()=>saveZoom(z)}
-                      style={{padding:"5px 12px",borderRadius:5,border:`1px solid ${uiZoom===z?"var(--ac)":"var(--bd)"}`,
-                        background:uiZoom===z?"rgba(212,168,83,.2)":"transparent",
-                        color:uiZoom===z?"var(--ac)":"var(--mu)",cursor:"pointer",fontSize:11,fontFamily:"'IBM Plex Mono',monospace",fontWeight:uiZoom===z?700:400}}>
-                      {Math.round(z*100)}%
-                    </button>
-                  ))}
-                </div>
-                <div className="cfg-note" style={{marginTop:8}}>
-                  🖥️ 4K / grand écran → essaie <strong style={{color:"var(--ac)"}}>150%</strong> ou <strong style={{color:"var(--ac)"}}>175%</strong>. Laptop → 80% ou 90%. Sauvegardé automatiquement.
-                </div>
-              </div>
-
-              <div className="sec-title">☁️ Backup complet (clés + notes + prompts + chaînes)</div>
-              <div className="file-btns">
-                <button className="fbtn p" onClick={() => {
-                  const keys = JSON.parse(localStorage.getItem("multiia_keys")||"{}");
-                  const prompts = JSON.parse(localStorage.getItem("multiia_prompts")||"[]");
-                  const notes = JSON.parse(localStorage.getItem("multiia_notes")||"[]");
-                  const channels = JSON.parse(localStorage.getItem("multiia_yt_channels")||"[]");
-                  const backup = {_v:"multiia_backup_v1",_date:new Date().toISOString(),keys,prompts,notes,channels};
-                  const blob = new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
-                  const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
-                  a.download="multiia-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click();
-                  showToast("✅ Backup complet téléchargé !");
-                }}><span>⬇</span><div><div>Télécharger backup</div><div style={{fontSize:8,opacity:.7}}>Tout en un fichier</div></div></button>
-                <label className="fbtn" style={{cursor:"pointer"}}>
-                  <span>⬆</span><div><div>Restaurer backup</div><div style={{fontSize:8,opacity:.7}}>Importe le .json</div></div>
-                  <input type="file" accept=".json" style={{display:"none"}} onChange={async e => {
-                    const f = e.target.files[0]; if (!f) return;
-                    const text = await f.text();
-                    try {
-                      const backup = JSON.parse(text);
-                      if (!backup._v||!backup._v.startsWith("multiia_backup")) { showToast("❌ Fichier invalide"); return; }
-                      if (backup.keys) { localStorage.setItem("multiia_keys",JSON.stringify(backup.keys)); }
-                      if (backup.prompts) localStorage.setItem("multiia_prompts",JSON.stringify(backup.prompts));
-                      if (backup.notes) localStorage.setItem("multiia_notes",JSON.stringify(backup.notes));
-                      if (backup.channels) localStorage.setItem("multiia_yt_channels",JSON.stringify(backup.channels));
-                      showToast("✅ Tout restauré ! Recharge la page.");
-                    } catch { showToast("❌ Erreur de lecture"); }
-                    e.target.value="";
-                  }}/>
-                </label>
-              </div>
-              <div className="cfg-note" style={{marginTop:8}}>☁️ Ce fichier backup contient TOUT : clés API, prompts perso, notes et chaînes YouTube. Parfait pour sync entre appareils ou après mise à jour.</div>
-            </div>
-
-            {/* ── HISTORIQUE DES VERSIONS ── */}
-            <div className="sec">
-              <div className="sec-title">📋 Historique des versions</div>
-              <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:420,overflowY:"auto",paddingRight:4}}>
-                {[
-                  { v:"v15 — actuelle", date:"Mar 2026", color:"#D4A853", items:[
-                    "🔴 Fix Pollinations 401 : retour sur text.pollinations.ai/openai (endpoint anonyme gratuit)",
-                    "🌸 4ème IA Pollinations : Gemini via Pollinations (sans clé)",
-                    "🌱 Persona Débutant : explications comme à une personne âgée, étapes numérotées, max 3 étapes",
-                    "🧑‍🏫 Persona Tuteur IA : apprend à utiliser les IAs, prompts, LLMs",
-                    "🔌 Plugins JS : tableau de 12 plugins prêts à charger (Chart.js, Marked, Highlight, Math.js…)",
-                    "🎬 Vidéos vues : badge ✓, masquer les vues, reset, bouton +Vu sur chaque carte",
-                    "📋 Config : section Pollinations explicative + historique des versions",
-                  ]},
-                  { v:"v14", date:"Mar 2026", color:"#A78BFA", items:[
-                    "🏆 Jury IA automatique : note les réponses après chaque échange, affiche la meilleure",
-                    "⌨️ Raccourcis clavier : Ctrl+Enter, Ctrl+1..9, Ctrl+K, Ctrl+L, Ctrl+M, Escape",
-                    "🔍 Recherche plein-texte dans l'historique (titres + contenu messages)",
-                    "📝 Export Markdown + 🖨 Export PDF pour chaque colonne IA",
-                    "😈 5 nouveaux Personas : Avocat du diable, Expert, Socrate, Optimiste radical, Philosophe stoïcien",
-                    "📄 RAG : coller un document long, découpage auto en chunks, injection contextuelle",
-                    "⛶ Mode Focus plein écran par colonne IA",
-                    "🖥 Ollama local : auto-détection modèles, sélecteur, toggle chat",
-                    "🔀 Onglet Workflow : éditeur chaîne de prompts séquentiels",
-                    "🔌 Plugins JS : charger scripts JS par URL",
-                  ]},
-                  { v:"v13", date:"Fév 2026", color:"#60A5FA", items:[
-                    "🌐 IAs Web : 37 IAs en 8 catégories (Chatbots, Recherche, Multi-modèles, Image, Code, Audio, Premium)",
-                    "🔭 Bouton Découvrir : appel IA pour trouver 5 nouvelles IAs, sauvegardées en localStorage",
-                  ]},
-                  { v:"v12", date:"Fév 2026", color:"#4ADE80", items:[
-                    "🗂 Nouvelle barre de navigation réorganisée (10 onglets)",
-                    "🌙/☀ Thème clair/sombre",
-                    "🔊 Lecture vocale TTS par réponse IA",
-                    "🎙 Dictée vocale dans la zone de saisie Chat",
-                    "🎭 Personas : 6 modes prêts + créer ses propres system prompts",
-                    "⎘ Bouton Copier sur chaque réponse IA",
-                  ]},
-                  { v:"v11", date:"Jan 2026", color:"#FB923C", items:[
-                    "📺 Médias : ajout chaînes YouTube personnalisées (formulaire + couleurs + localStorage)",
-                    "⭐ Filtre Mes chaînes + badge PERSO + bouton ✕ pour supprimer",
-                  ]},
-                  { v:"v10", date:"Jan 2026", color:"#F97316", items:[
-                    "◀▶ Sidebar historique rétractable",
-                    "💾 Sauvegarde automatique des conversations (max 50, localStorage)",
-                    "📂 Chargement/suppression de conversations depuis l'historique",
-                    "◎ Mode Solo : focalise l'affichage sur une seule IA",
-                    "⬇ Export conversation en .txt (collable dans d'autres IAs)",
-                  ]},
-                  { v:"v9", date:"Déc 2025", color:"#E07FA0", items:[
-                    "▶ Onglet YouTube : 18 chaînes recommandées (FR + EN) avec filtres",
-                    "🎬 Vidéos dynamiques (6 thèmes : Tendances, Tutoriels, Modèles, Local, Images, Agents)",
-                    "🔗 8 raccourcis de recherche YouTube prêts à l'emploi",
-                  ]},
-                  { v:"v8", date:"Nov 2025", color:"#34D399", items:[
-                    "📡 Actualités IA : fallback automatique Gemini → Groq → Mistral → cache statique",
-                    "💬 Descriptif complet des news + accordéon Analyse/Impact",
-                    "✓ Affichage du nom de l'IA source utilisée",
-                  ]},
-                  { v:"v7", date:"Oct 2025", color:"#FCD34D", items:[
-                    "⚔ Onglet Arène : tableau comparatif 18 modèles, filtres, scores, actualités, tops/flops",
-                    "🎨 Onglet Images : 13 générateurs avec jauges qualité/vitesse/facilité",
-                    "⚙ Config : procédure MAJ PowerShell complète avec blocs copier-coller",
-                  ]},
-                  { v:"v6", date:"Sep 2025", color:"#94A3B8", items:[
-                    "📱 Responsive & mobile : colonnes → onglets swipables",
-                    "🌐 Onglet Web IAs : 12 IAs (ChatGPT, Claude.ai, Gemini, DeepSeek, Mistral, Copilot…)",
-                    "⏳ Détection rate-limit : blocage + countdown automatique + bouton Débloquer",
-                    "🔄 Débat : fallback synthèse sur l'IA disponible si Claude KO",
-                  ]},
-                  { v:"v5", date:"Août 2025", color:"#FF8C69", items:[
-                    "🆕 3 nouvelles IAs : DeepSeek V3, Mistral Small, Groq/Llama 3.3 (gratuit 14 400/jour)",
-                    "✎ Correcteur orthographique : popup diff original/corrigé avec Appliquer/Ignorer",
-                  ]},
-                  { v:"v4", date:"Juil 2025", color:"#F87171", items:[
-                    "⚙ Onglet Config complet : tableau modèles, champs clés, liens obtenir",
-                    "💾 Export/Import fichier multiia-keys.json",
-                    "⚡ Mode Débat 3 phases : Tour 1, Tour 2 (réfutation), Synthèse finale",
-                    "IAs ajoutées : DeepSeek, Mistral, Groq (FREE)",
-                  ]},
-                  { v:"v2–v3", date:"Juin 2025", color:"#A78BFA", items:[
-                    "Nouvelles IAs : Kimi (Moonshot), Qwen (Alibaba), Grok (xAI)",
-                    "Clés API multi-providers configurables",
-                  ]},
-                  { v:"v1", date:"Mai 2025", color:"#4ADE80", items:[
-                    "🚀 Lancement Multi-IA Hub",
-                    "Compteur de tokens avec barre de progression par IA",
-                    "Onglet IAs Web : Z.ai, Kimi, Qwen, Grok",
-                    "Chat parallèle multi-IA (Claude, Gemini, GPT)",
-                  ]},
-                ].map(entry=>(
-                  <div key={entry.v} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,padding:"8px 12px"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                      <span style={{background:entry.color+"22",border:"1px solid "+entry.color+"44",borderRadius:4,padding:"2px 8px",fontSize:9,fontWeight:700,color:entry.color,fontFamily:"'Syne',sans-serif"}}>{entry.v}</span>
-                      <span style={{fontSize:9,color:"var(--mu)"}}>{entry.date}</span>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                      {entry.items.map((item,i)=>(
-                        <div key={i} style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",paddingLeft:8,borderLeft:"2px solid "+entry.color+"33"}}>{item}</div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="sec">
-              <div className="sec-title">🔄 Procédure de Mise à Jour — Copier-Coller PowerShell</div>
-              <div className="cfg-note" style={{marginBottom:12}}>
-                ⚠️ <strong>ÉTAPE 0 obligatoire</strong> : Exporte tes clés (bouton ci-dessus) avant de commencer.
-              </div>
-
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:"var(--ac)",margin:"12px 0 6px",letterSpacing:.5}}>ÉTAPE 1 — Aller dans le dossier du projet</div>
-              <PSBlock title="Navigation" comment="Remplace 'Administrateur' par ton nom d'utilisateur si différent" code={`cd C:\\Users\\Administrateur\\multiia-app`}/>
-
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:"var(--ac)",margin:"12px 0 6px",letterSpacing:.5}}>ÉTAPE 2 — Remplacer le fichier App.jsx</div>
-              <div className="cfg-note" style={{marginBottom:6}}>💡 Télécharge d'abord le nouveau <strong>multi-ai-hub.jsx</strong> depuis Claude dans ton dossier Téléchargements.</div>
-              <PSBlock title="Remplacement du fichier" comment="Copie le nouveau fichier jsx vers src/App.jsx" code={`copy C:\\Users\\Administrateur\\Downloads\\multi-ai-hub.jsx src\\App.jsx`}/>
-              <div className="cfg-note" style={{marginBottom:6}}>Si tu as téléchargé sous un autre nom, adapte le chemin :</div>
-              <PSBlock title="Vérifier quel fichier jsx est dans Téléchargements" comment="Cherche tous les fichiers jsx dans Downloads" code={`dir C:\\Users\\Administrateur\\Downloads\\*.jsx`}/>
-
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:"var(--ac)",margin:"12px 0 6px",letterSpacing:.5}}>ÉTAPE 3 — Reconstruire l'application</div>
-              <PSBlock title="Build de production" comment="Reconstruit l'app optimisée pour le .bat (prend 10-30 secondes)" code={`npm run build`}/>
-              <div className="cfg-note" style={{marginBottom:6}}>Tu dois voir <code>✓ built in X.XXs</code> à la fin. Si erreur → relis le message d'erreur et copie-le à Claude.</div>
-
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:"var(--ac)",margin:"12px 0 6px",letterSpacing:.5}}>ÉTAPE 4 — Mettre à jour le dossier portable (ZIP)</div>
-              <div className="cfg-note" style={{marginBottom:6}}>Copie les nouveaux fichiers compilés dans ton dossier portable sur le bureau :</div>
-              <PSBlock title="Mise à jour du dossier portable" comment="Copie le dossier dist/ compilé vers ton portable sur le bureau" code={`xcopy /E /Y dist\\* C:\\Users\\Administrateur\\Desktop\\MultiIA-Portable\\portable\\dist\\`}/>
-
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:"var(--ac)",margin:"12px 0 6px",letterSpacing:.5}}>ÉTAPE 5 — Tester</div>
-              <PSBlock title="Lancement du serveur local pour test" comment="Lance en local pour vérifier avant de fermer l'ancienne version" code={`npm run dev`}/>
-              <div className="cfg-note" style={{marginBottom:6}}>Ouvre <code>http://localhost:5173</code> dans ton navigateur. Vérifie que tout marche. Ensuite ferme avec <code>Ctrl+C</code>.</div>
-
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:"var(--ac)",margin:"12px 0 6px",letterSpacing:.5}}>ÉTAPE 6 — Réimporter tes clés</div>
-              <div className="cfg-note">
-                Ouvre l'app (via <code>MultiIA.bat</code> sur le bureau) → onglet <strong>Config</strong> → bouton <strong>Importer les clés</strong> → sélectionne ton <code>multiia-keys.json</code> sauvegardé à l'étape 0. ✓
-              </div>
-
-              <div style={{margin:"14px 0 6px",padding:"10px 14px",background:"rgba(74,222,128,.05)",border:"1px solid rgba(74,222,128,.2)",borderRadius:7}}>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:10,color:"var(--green)",marginBottom:6}}>✦ RÉSUMÉ RAPIDE — Toutes les commandes en une fois</div>
-                <PSBlock title="Copier-coller intégral (remplace le nom d'utilisateur)" comment="Exécute ces 3 commandes dans l'ordre dans PowerShell" code={`cd C:\\Users\\Administrateur\\multiia-app\ncopy C:\\Users\\Administrateur\\Downloads\\multi-ai-hub.jsx src\\App.jsx\nnpm run build\nxcopy /E /Y dist\\* C:\\Users\\Administrateur\\Desktop\\MultiIA-Portable\\portable\\dist\\`}/>
-              </div>
-            </div>
-
-            <div className="sec">
-              <div className="sec-title">📊 État des connexions</div>
-              <div className="status-cards">
-                {IDS.map(id => { const m=MODEL_DEFS[id]; const ok=!m.keyName||apiKeys[m.keyName]; const lim=isLimited(id); return(
-                  <div key={id} className="sc" style={{borderColor:lim?"var(--red)":ok?m.border:"var(--bd)",background:lim?"rgba(248,113,113,.05)":ok?`${m.bg}44`:"var(--s1)"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:2}}>
-                      <span style={{color:lim?"var(--red)":m.color}}>{m.icon}</span>
-                      <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:9,color:lim?"var(--red)":m.color}}>{m.short}</span>
-                      {m.free&&!lim&&<span className="free-badge">FREE</span>}
-                    </div>
-                    <div style={{fontSize:8,color:lim?"var(--red)":ok?"var(--green)":"var(--mu)"}}>{lim?`⏳ ${fmtCd(id)}`:!m.keyName?"✦ Intégré":ok?"✓ Clé OK":"✗ Manquante"}</div>
-                    <div style={{fontSize:7,color:"var(--mu)",marginTop:1}}>{m.desc}</div>
-                  </div>
-                );})}
-              </div>
-            </div>
-          </div>
+        {/* ── CONFIG TAB ── */}
+        {tab === "config" && (
+          <ConfigTab
+            apiKeys={apiKeys}
+            cfgDrafts={cfgDrafts}
+            setCfgDrafts={setCfgDrafts}
+            saveCfgKey={saveCfgKey}
+            exportKeys={exportKeys}
+            importKeys={importKeys}
+            fileRef={fileRef}
+            MODEL_DEFS={MODEL_DEFS}
+            IDS={IDS}
+            enabled={enabled}
+            isLimited={isLimited}
+            fmtCd={fmtCd}
+            showToast={showToast}
+            saveZoom={saveZoom}
+            uiZoom={uiZoom}
+            pwaPrompt={pwaPrompt}
+            pwaInstalled={pwaInstalled}
+            installPwa={installPwa}
+          />
         )}
       </div>
 
