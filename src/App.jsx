@@ -1086,6 +1086,13 @@ html, body{
   .ta-wrap textarea{ font-size:16px !important; padding:10px 12px !important; } /* 16px évite le zoom iOS */
   .sbtn{ min-height:46px !important; min-width:46px !important; font-size:17px !important; }
   .gbtn, .mic-btn{ min-height:40px !important; font-size:16px !important; }
+  /* Masquer bandeau Groq + tbar token sur mobile */
+  .tbar{ display:none !important; }
+  /* Foot plus compact */
+  .foot{ padding:7px 10px calc(10px + env(safe-area-inset-bottom)) !important; }
+  .ta-wrap textarea{ font-size:16px !important; padding:9px 11px !important; }
+  .sbtn{ min-height:42px !important; min-width:42px !important; font-size:16px !important; }
+  .gbtn, .mic-btn{ min-height:38px !important; font-size:15px !important; }
   /* Masquer la barre plugins sur mobile — trop encombrante */
   .foot-plugins-bar{ display:none !important; }
   /* Bouton toggle plugins mobile */
@@ -4338,7 +4345,7 @@ async function checkCliBridge() {
 
         {/* ── CHAT TAB ── */}
         {tab === "chat" && <>
-          {enabled.groq && <div style={{padding:"3px 14px",background:"rgba(249,115,22,.07)",borderBottom:"1px solid rgba(249,115,22,.2)",fontSize:9,color:"var(--orange)",flexShrink:0}}>⚡ <strong>Groq</strong> = <strong>Llama 3.3 70B</strong> (Meta) propulsé par l'infrastructure Groq — Gratuit jusqu'à 14 400 req/jour · Disponible aussi en Débat</div>}
+          {enabled.groq && !isMobile && <div style={{padding:"3px 14px",background:"rgba(249,115,22,.07)",borderBottom:"1px solid rgba(249,115,22,.2)",fontSize:9,color:"var(--orange)",flexShrink:0}}>⚡ <strong>Groq</strong> = <strong>Llama 3.3 70B</strong> (Meta) propulsé par l'infrastructure Groq — Gratuit jusqu'à 14 400 req/jour · Disponible aussi en Débat</div>}
 
           {/* Layout historique + chat */}
           <div style={{flex:1,display:"flex",overflow:"hidden"}}>
