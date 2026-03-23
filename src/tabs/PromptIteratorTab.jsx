@@ -125,7 +125,7 @@ Réponds UNIQUEMENT avec le nouveau prompt reformulé, sans explication ni comme
             <div>
               <div style={{fontSize:8,color:'var(--mu)',fontWeight:700,marginBottom:5}}>MAUVAISE RÉPONSE (optionnel — aide à mieux reformuler)</div>
               <textarea value={badResponse} onChange={e=>setBadResponse(e.target.value)}
-                placeholder='Colle la réponse décevante pour que l'IA comprenne ce qui cloche...'
+                placeholder="Colle la réponse décevante pour que l'IA comprenne ce qui cloche..."
                 rows={4} style={{width:'100%',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--tx)',fontSize:10,padding:'8px 10px',resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
             </div>
           </div>
@@ -181,7 +181,7 @@ Réponds UNIQUEMENT avec le nouveau prompt reformulé, sans explication ni comme
                       <div style={{fontSize:8,color:'var(--mu)',lineHeight:1.4}}>{v.angle.instruction.slice(0,80)}…</div>
                     </div>
                     {voteCount > 0 && <div style={{fontSize:12,color:v.angle.color,fontWeight:900}}>{voteCount} ★</div>}
-                    <div style={{display:'flex',gap:6'}}>
+                    <div style={{display:'flex',gap:6}}>
                       <button onClick={()=>vote(v.angle.id)}
                         style={{padding:'5px 12px',background:v.angle.color+'22',border:'1px solid '+v.angle.color+'55',borderRadius:6,color:v.angle.color,fontSize:9,cursor:'pointer',fontWeight:700}}>
                         ★ Voter
