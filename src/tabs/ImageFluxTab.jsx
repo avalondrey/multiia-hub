@@ -115,7 +115,7 @@ export default function ImageFluxTab({ apiKeys }) {
             <div style={{fontSize:8,color:'#F472B6',fontWeight:700,marginBottom:5}}>PROMPT *</div>
             <textarea value={prompt} onChange={e=>setPrompt(e.target.value)}
               onKeyDown={e=>{if(e.key==='Enter'&&e.ctrlKey)generate();}}
-              placeholder='Décris l'image à générer… (Ctrl+Enter pour lancer)'
+              placeholder="Décris l'image à générer... (Ctrl+Enter pour lancer)"
               rows={3} style={{width:'100%',background:'var(--s2)',border:'1px solid rgba(244,114,182,.3)',borderRadius:6,color:'var(--tx)',fontSize:11,padding:'9px 12px',resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
           </div>
 
