@@ -1,5 +1,5 @@
 import React from 'react';
-import PSBlock from './PSBlock.jsx';
+import PSBlock from '../PSBlock.jsx';
 
 export default function ConfigTab({
   apiKeys, cfgDrafts, setCfgDrafts, saveCfgKey,
