@@ -46,6 +46,9 @@ import StudioTab from "./tabs/StudioTab.jsx";
 import PromptDNATab from "./tabs/PromptDNATab.jsx";
 import TraducteurTab from "./tabs/TraducteurTab.jsx";
 import AgentTab from "./tabs/AgentTab.jsx";
+import PromptIteratorTab from "./tabs/PromptIteratorTab.jsx";
+import LongTermMemoryTab from "./tabs/LongTermMemoryTab.jsx";
+import ImageFluxTab from "./tabs/ImageFluxTab.jsx";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -1793,7 +1796,7 @@ function App() {
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
-  const TAB_ORDER = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","benchmark","glossaire","autopsy","mentor","dna","conference","consensus","brief","taskia","journaliste","skills","contradict","secondbrain","livedebate","contexttrans","apioptim","civilisations","flash","advanced","config"];
+  const TAB_ORDER = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","benchmark","glossaire","autopsy","mentor","dna","conference","consensus","brief","taskia","journaliste","skills","contradict","secondbrain","livedebate","contexttrans","apioptim","civilisations","flash","advanced","config","promptiter","ltm","imageflux"];
   const navigateTab = (newTab) => {
     const oldIdx = TAB_ORDER.indexOf(prevTabRef.current || "chat");
     const newIdx = TAB_ORDER.indexOf(newTab);
@@ -1804,7 +1807,7 @@ function App() {
 
   const [tabAnimDir, setTabAnimDir] = React.useState('enter');
   const [tab, setTab] = useState(() => {
-    const VALID_TABS = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","benchmark","glossaire","autopsy","mentor","dna","conference","consensus","brief","taskia","journaliste","skills","contradict","secondbrain","livedebate","contexttrans","apioptim","civilisations","flash","advanced","config"];
+    const VALID_TABS = ["aide","studio","router","chat","prompts","redaction","recherche","workflows","workflow","web","medias","comfyui","arena","debate","expert","compare","notes","traducteur","agent","webia","veille","stats","analytics","voice","projects","benchmark","glossaire","autopsy","mentor","dna","conference","consensus","brief","taskia","journaliste","skills","contradict","secondbrain","livedebate","contexttrans","apioptim","civilisations","flash","advanced","config","promptiter","ltm","imageflux"];
     // 1. Raccourcis home screen (posé par main.jsx)
     const fromSession = sessionStorage.getItem("multiia_initial_tab");
     if (fromSession) { sessionStorage.removeItem("multiia_initial_tab"); if (VALID_TABS.includes(fromSession)) return fromSession; }
@@ -4255,6 +4258,9 @@ async function checkCliBridge() {
               ["apioptim","💡 API Optim"],
               ["civilisations","🌍 Civilisations"],
               ["flash","⚡ Flash"],
+              ["promptiter","🔁 Itérateur"],
+              ["ltm","🧠 Mémoire LT"],
+              ["imageflux","🖼 Flux.1"],
               ["advanced","🔬 Avancé"],
               ["config","⚙ Config"],
             ].map(([t,l]) => (
@@ -6406,6 +6412,21 @@ async function checkCliBridge() {
           <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
             <ModeFlashTab enabled={enabled} apiKeys={apiKeys} navigateTab={navigateTab} setChatInput={setChatInput}/>
           </div>
+        )}
+
+        {/* ══ PROMPT ITERATOR TAB ══ */}
+        {tab === "promptiter" && (
+          <PromptIteratorTab enabled={enabled} apiKeys={apiKeys} setChatInput={setChatInput} navigateTab={navigateTab}/>
+        )}
+
+        {/* ══ LONG TERM MEMORY TAB ══ */}
+        {tab === "ltm" && (
+          <LongTermMemoryTab savedConvs={savedConvs} setChatInput={setChatInput} navigateTab={navigateTab}/>
+        )}
+
+        {/* ══ IMAGE FLUX TAB ══ */}
+        {tab === "imageflux" && (
+          <ImageFluxTab apiKeys={apiKeys}/>
         )}
 
         {/* ══ ADVANCED SETTINGS TAB ══ */}
