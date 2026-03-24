@@ -439,9 +439,10 @@ body::before{
   background:rgba(5,3,8,.75);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   flex-shrink:0;flex-wrap:wrap;
-  min-height:52px;
   position:sticky;top:0;z-index:200;
 }
+.nav-row1{display:flex;align-items:center;gap:8px;width:100%;min-height:48px;flex-shrink:0;flex-wrap:wrap}
+.nav-row2{width:100%;overflow:hidden;border-top:1px solid var(--bd);padding:5px 0;flex-shrink:0;box-sizing:border-box;max-width:100vw}
 .logo{
   font-family:var(--font-display);font-weight:900;font-size:clamp(13px,2.2vw,17px);
   background:linear-gradient(135deg,#fff 30%,var(--ac));
@@ -454,13 +455,14 @@ body::before{
 .nav-tabs{
   display:flex;gap:5px;
   overflow-x:auto;scrollbar-width:none;
-  flex-wrap:nowrap;padding:0;background:none;border:none;border-radius:0;
+  flex-wrap:nowrap;padding:0 2px;background:none;border:none;border-radius:0;
+  width:100%;
 }
 .nav-tabs::-webkit-scrollbar{display:none}
 .nt{
-  display:flex;align-items:center;gap:7px;
-  padding:5px 10px 5px 5px;
-  border-radius:10px;
+  display:flex;align-items:center;gap:5px;
+  padding:4px 8px 4px 4px;
+  border-radius:8px;
   border:1px solid var(--bd);
   background:rgba(12,10,24,.55);
   cursor:pointer;transition:all .2s;
@@ -469,11 +471,11 @@ body::before{
 }
 .nt:hover{background:rgba(157,78,255,.1);border-color:var(--bd2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .nt.on{background:rgba(157,78,255,.15);border-color:rgba(157,78,255,.4);box-shadow:0 0 14px rgba(157,78,255,.25)}
-.nt-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;transition:transform .2s}
+.nt-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:transform .2s}
 .nt:hover .nt-icon{transform:scale(1.1)}
-.nt-info{display:flex;flex-direction:column;gap:1px;text-align:left;min-width:0}
-.nt-name{font-size:10px;font-weight:600;color:var(--tx);white-space:nowrap;font-family:var(--font-ui);line-height:1.2}
-.nt-cat{font-size:7px;color:var(--mu);font-family:var(--font-mono);white-space:nowrap}
+.nt-info{display:flex;flex-direction:column;gap:0px;text-align:left;min-width:0}
+.nt-name{font-size:9px;font-weight:600;color:var(--tx);white-space:nowrap;font-family:var(--font-ui);line-height:1.2}
+.nt-cat{font-size:6px;color:var(--mu);font-family:var(--font-mono);white-space:nowrap;line-height:1.3}
 .nt.on .nt-name{color:#fff}
 .nt.on .nt-cat{color:rgba(200,180,255,.6)}
 
@@ -4067,7 +4069,7 @@ async function checkCliBridge() {
         )}
 
         {/* NAV */}
-        <div className="nav" style={isMobile?{display:"none"}:{}}>
+        <div className="nav" style={isMobile?{display:"none"}:{}}><div className="nav-row1">
           <button onClick={()=>setShowMemPanel(m=>!m)} title="Mémoire locale" style={{background:memFacts.length>0?"rgba(212,168,83,.15)":"var(--s1)",border:"1px solid "+(memFacts.length>0?"rgba(212,168,83,.4)":"var(--bd)"),borderRadius:5,color:memFacts.length>0?"var(--ac)":"var(--mu)",fontSize:10,padding:"4px 8px",cursor:"pointer",fontFamily:"var(--font-ui)",whiteSpace:"nowrap",flexShrink:0,position:"relative"}}>
             💾 Mémoire{memFacts.length>0?` (${memFacts.length})`:""}
           </button>
@@ -4078,7 +4080,9 @@ async function checkCliBridge() {
     onClick={()=>{ if(window.caches) window.caches.keys().then(ks=>ks.forEach(k=>window.caches.delete(k))); window.location.reload(true); }}>
     v{APP_VERSION}
   </em>
-</div>
+</div>{/* fin logo */}
+          </div>{/* fin nav-row1 */}
+        <div className="nav-row2">
           <div className="nav-tabs">
             {(() => {
               const CATS = {
@@ -4145,6 +4149,7 @@ async function checkCliBridge() {
               });
             })()}
           </div>
+        </div>{/* fin nav-row2 */}
           <div className="pills">
             {IDS.map(id => {
               const m = MODEL_DEFS[id];
