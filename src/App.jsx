@@ -488,6 +488,11 @@ body::before{
 .pfree{font-size:7px;padding:1px 4px;border-radius:2px;background:rgba(0,255,136,.12);color:var(--green);font-weight:700}
 .btn-xs{background:transparent;border:1px solid var(--bd);color:var(--mu);padding:3px 8px;border-radius:5px;font-size:9px;font-family:var(--font-mono);cursor:pointer;transition:all .15s}
 .btn-xs:hover{border-color:var(--red);color:var(--red)}
+.theme-btn{background:rgba(12,10,24,.7);border:1px solid var(--bd);color:var(--mu);border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;padding:0}
+.theme-btn:hover{border-color:var(--bd2);color:var(--tx);background:rgba(157,78,255,.08)}
+.voice-btn{background:rgba(12,10,24,.7);border:1px solid var(--bd);color:var(--mu);border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;padding:0}
+.voice-btn:hover{border-color:var(--bd2);color:var(--tx);background:rgba(157,78,255,.08)}
+.voice-btn.speaking{border-color:rgba(0,212,255,.4);color:var(--cyan);box-shadow:0 0 10px rgba(0,212,255,.2)}
 
 /* ══ TOOLBAR ══ */
 .tbar{
@@ -932,6 +937,47 @@ textarea::placeholder{color:var(--mu)}
 .status-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px}
 .sc{padding:8px 10px;border-radius:8px;border:1px solid}
 input[type=file]{display:none}
+
+/* ══ CLASSES MANQUANTES ══ */
+.persona-bar{display:flex;align-items:center;gap:8px;padding:5px clamp(10px,2vw,16px);border-bottom:1px solid var(--bd);background:rgba(5,3,8,.6);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.persona-bar::-webkit-scrollbar{display:none}
+.persona-lbl{font-size:9px;color:var(--mu);font-family:var(--font-mono);letter-spacing:1px;white-space:nowrap;flex-shrink:0}
+.persona-chips{display:flex;gap:4px;flex-wrap:nowrap}
+.persona-chip{padding:3px 10px;border-radius:5px;border:1px solid var(--bd);font-size:9px;cursor:pointer;background:transparent;color:var(--mu);font-family:var(--font-mono);white-space:nowrap;transition:all .15s;flex-shrink:0}
+.persona-chip:hover{border-color:var(--bd2);color:var(--tx)}
+.persona-chip.on{font-weight:600}
+.persona-add{padding:3px 10px;border-radius:5px;border:1px dashed rgba(157,78,255,.3);font-size:9px;cursor:pointer;background:transparent;color:var(--ac);font-family:var(--font-mono);white-space:nowrap;transition:all .15s;flex-shrink:0}
+.persona-add:hover{border-color:var(--ac);background:rgba(157,78,255,.06)}
+.zen-mode-btn{background:rgba(12,10,24,.7);border:1px solid var(--bd);color:var(--mu);border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;padding:0}
+.zen-mode-btn:hover{border-color:var(--bd2);color:var(--tx);background:rgba(157,78,255,.08)}
+.canvas-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:rgba(5,3,8,.8)}
+.canvas-hdr{padding:8px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;flex-shrink:0;background:rgba(12,10,24,.7)}
+.canvas-iframe{flex:1;border:none;background:#fff;width:100%;height:100%}
+.media-subtabs{display:flex;gap:3px;padding:6px 14px;border-bottom:1px solid var(--bd);flex-shrink:0;background:rgba(5,3,8,.6);overflow-x:auto;scrollbar-width:none}
+.media-content{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
+.attach-preview{display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(157,78,255,.06);border:1px solid rgba(157,78,255,.2);border-radius:8px;font-size:10px;margin-bottom:6px}
+.offline-bar{padding:5px 14px;background:rgba(255,77,106,.08);border-bottom:1px solid rgba(255,77,106,.2);font-size:9px;color:var(--red);text-align:center;font-family:var(--font-mono);flex-shrink:0}
+.pvar-chip{padding:2px 8px;border-radius:4px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--cyan);font-size:8px;font-family:var(--font-mono);cursor:pointer;transition:all .15s}
+.pvar-chip:hover{background:rgba(0,212,255,.15)}
+.pvar-hint{font-size:8px;color:var(--mu);font-family:var(--font-mono);margin-top:3px}
+.pwa-banner{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(12,10,24,.97);border:1px solid var(--bd2);border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:12px;max-width:340px;width:calc(100vw - 32px);box-shadow:0 20px 60px rgba(0,0,0,.6);backdrop-filter:blur(20px)}
+.pwa-banner-icon{font-size:28px;flex-shrink:0}
+.pwa-banner-text{flex:1}
+.pwa-banner-title{font-family:var(--font-display);font-size:12px;font-weight:700;margin-bottom:2px}
+.pwa-banner-sub{font-size:10px;color:var(--mu)}
+.pwa-install-btn{background:linear-gradient(135deg,var(--ac2),var(--pink));color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:10px;font-family:var(--font-mono);font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.pwa-dismiss-btn{background:transparent;border:none;color:var(--mu);cursor:pointer;font-size:16px;padding:2px 4px;flex-shrink:0}
+.yt-add-modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:400;backdrop-filter:blur(8px)}
+.yt-add-modal-box{background:rgba(12,10,24,.97);border:1px solid var(--bd2);border-radius:14px;padding:24px;width:100%;max-width:380px;box-shadow:0 40px 100px rgba(0,0,0,.6)}
+.yt-add-modal-title{font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:16px}
+.yt-add-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.yt-add-label{font-size:9px;color:var(--mu);font-family:var(--font-mono);letter-spacing:.5px;text-transform:uppercase}
+.yt-add-inp{background:rgba(5,3,8,.8);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-family:var(--font-mono);font-size:11px;padding:7px 10px;outline:none;width:100%;transition:border-color .2s}
+.yt-add-inp:focus{border-color:rgba(157,78,255,.5)}
+.yt-add-field{background:rgba(5,3,8,.8);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-family:var(--font-mono);font-size:11px;padding:7px 10px;outline:none;width:100%}
+.yt-add-colors{display:flex;gap:6px;flex-wrap:wrap}
+.show{display:block!important}
+.md{line-height:1.72}
 
 /* ══ TOAST ══ */
 .toast{
