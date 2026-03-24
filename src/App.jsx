@@ -55,6 +55,7 @@ import CompareTab from "./tabs/CompareTab.jsx";
 import ConfigTab from "./tabs/ConfigTab.jsx";
 import { ConfigProvider } from "./context/ConfigContext.jsx";
 import { AdvancedProvider } from "./context/AdvancedContext.jsx";
+import { CompareProvider } from "./context/CompareContext.jsx";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -6840,19 +6841,13 @@ async function checkCliBridge() {
 
         {/* ── ONGLET COMPARE ── */}
         {tab === "compare" && (
-          <CompareTab
-            voteHistory={voteHistory}
-            setVoteHistory={setVoteHistory}
-            IDS={IDS}
-            MODEL_DEFS={MODEL_DEFS}
-            enabled={enabled}
-            setDiffIA1={setDiffIA1}
-            setDiffIA2={setDiffIA2}
-            setDiffModal={setDiffModal}
-            setBestVote={setBestVote}
-            setShowVoteDetail={setShowVoteDetail}
-            navigateTab={navigateTab}
-          />
+          <CompareProvider value={{
+            voteHistory, setVoteHistory,
+            setDiffIA1, setDiffIA2, setDiffModal,
+            setBestVote, setShowVoteDetail,
+          }}>
+            <CompareTab />
+          </CompareProvider>
         )}
 
         {/* ── CONFIG TAB ── */}

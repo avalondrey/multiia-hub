@@ -1,11 +1,19 @@
 import React from "react";
+import { useApi } from "../context/ApiContext.jsx";
+import { useModels } from "../context/ModelContext.jsx";
+import { useNav } from "../context/NavContext.jsx";
+import { useCompare } from "../context/CompareContext.jsx";
 
-export default function CompareTab({
-  voteHistory, setVoteHistory,
-  IDS, MODEL_DEFS, enabled,
-  setDiffIA1, setDiffIA2, setDiffModal,
-  setBestVote, setShowVoteDetail, navigateTab,
-}) {
+export default function CompareTab() {
+  const { enabled } = useApi();
+  const { MODEL_DEFS, IDS } = useModels();
+  const { navigateTab } = useNav();
+  const {
+    voteHistory, setVoteHistory,
+    setDiffIA1, setDiffIA2, setDiffModal,
+    setBestVote, setShowVoteDetail,
+  } = useCompare();
+
   return (
     <div style={{flex:1,overflow:"auto",padding:16,display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:2}}>
@@ -79,7 +87,7 @@ export default function CompareTab({
                   </div>
                   <div style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace"}}>{v.reason}</div>
                 </div>
-                <button onClick={()=>{setBestVote(v);setShowVoteDetail(true);setShowVoteDetail(false);navigateTab("chat");}} style={{flexShrink:0,fontSize:8,padding:"3px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>↩ Revoir</button>
+                <button onClick={()=>{setBestVote(v);setShowVoteDetail(true);navigateTab("chat");}} style={{flexShrink:0,fontSize:8,padding:"3px 8px",background:"rgba(212,168,83,.1)",border:"1px solid rgba(212,168,83,.3)",borderRadius:4,color:"var(--ac)",cursor:"pointer"}}>↩ Revoir</button>
               </div>
             );
           })}
