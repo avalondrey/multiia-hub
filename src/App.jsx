@@ -54,6 +54,7 @@ import AdvancedTab from "./tabs/AdvancedTab.jsx";
 import CompareTab from "./tabs/CompareTab.jsx";
 import ConfigTab from "./tabs/ConfigTab.jsx";
 import { ConfigProvider } from "./context/ConfigContext.jsx";
+import { AdvancedProvider } from "./context/AdvancedContext.jsx";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -6405,25 +6406,17 @@ async function checkCliBridge() {
 
         {/* ══ ADVANCED SETTINGS TAB ══ */}
         {tab === "advanced" && (
-          <AdvancedTab
-            THEMES={THEMES}
-            theme={theme}
-            setTheme={setTheme}
-            streamingEnabled={streamingEnabled}
-            setStreamingEnabled={setStreamingEnabled}
-            modelTemps={modelTemps}
-            setModelTemps={setModelTemps}
-            customProviders={customProviders}
-            setCustomProviders={setCustomProviders}
-            globalSysPrompt={globalSysPrompt}
-            setGlobalSysPrompt={setGlobalSysPrompt}
-            saveAdvSettings={saveAdvSettings}
-            IDS={IDS}
-            MODEL_DEFS={MODEL_DEFS}
-            enabled={enabled}
-            setShowOnboarding={setShowOnboarding}
-            setOnboardStep={setOnboardStep}
-          />
+          <AdvancedProvider value={{
+            THEMES, theme, setTheme,
+            streamingEnabled, setStreamingEnabled,
+            modelTemps, setModelTemps,
+            customProviders, setCustomProviders,
+            globalSysPrompt, setGlobalSysPrompt,
+            saveAdvSettings,
+            setShowOnboarding, setOnboardStep,
+          }}>
+            <AdvancedTab />
+          </AdvancedProvider>
         )}
 
 

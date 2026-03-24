@@ -1,15 +1,21 @@
 import React from "react";
+import { useApi } from "../context/ApiContext.jsx";
+import { useModels } from "../context/ModelContext.jsx";
+import { useAdvanced } from "../context/AdvancedContext.jsx";
 
-export default function AdvancedTab({
-  THEMES, theme, setTheme,
-  streamingEnabled, setStreamingEnabled,
-  modelTemps, setModelTemps,
-  customProviders, setCustomProviders,
-  globalSysPrompt, setGlobalSysPrompt,
-  saveAdvSettings,
-  IDS, MODEL_DEFS, enabled,
-  setShowOnboarding, setOnboardStep,
-}) {
+export default function AdvancedTab() {
+  const { enabled } = useApi();
+  const { MODEL_DEFS, IDS } = useModels();
+  const {
+    THEMES, theme, setTheme,
+    streamingEnabled, setStreamingEnabled,
+    modelTemps, setModelTemps,
+    customProviders, setCustomProviders,
+    globalSysPrompt, setGlobalSysPrompt,
+    saveAdvSettings,
+    setShowOnboarding, setOnboardStep,
+  } = useAdvanced();
+
   return (
     <div style={{flex:1,overflow:"auto",padding:"clamp(10px,2vw,16px)"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
@@ -60,7 +66,7 @@ export default function AdvancedTab({
           rows={4} style={{width:"100%",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:6,color:"var(--tx)",fontSize:10,padding:"8px 10px",fontFamily:"var(--font-ui)",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
       </div>
 
-      {/* Temperature per model */}
+      {/* temperature per model */}
       <div style={{marginBottom:14,background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 14px"}}>
         <div style={{fontSize:9,color:"var(--mu)",fontWeight:700,letterSpacing:1,marginBottom:8}}>TEMPÉRATURE PAR MODÈLE</div>
         <div style={{fontSize:8,color:"var(--mu)",marginBottom:10}}>0 = déterministe / 1 = créatif. Défaut : 0.7</div>
