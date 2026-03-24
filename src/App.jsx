@@ -4564,7 +4564,8 @@ async function checkCliBridge() {
                         </div>
                       ) : (
                         <div className="empty">{enabled[id]?lim?`⏳ Bloqué — ${fmtCd(id)}`:"En attente…":"Désactivé"}</div>
-                      )}
+                      )
+                    )}
                     {conversations[id].map((msg, i) => (
                       <div key={i} className={`msg ${msg.role==="user"?"u":msg.role==="error"?"e":msg.role==="blocked"?"blocked":"a"}`} style={msg.role==="assistant"?{borderColor:m.border,position:"relative",animation:msg.streaming?"none":"fadeInUp .3s ease-out"}:{animation:"fadeInUp .25s ease-out"}}>
                         {msg.think && <CoTBlock think={msg.think}/>}

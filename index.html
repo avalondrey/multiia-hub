@@ -220,7 +220,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;d
   </div>
   <div class="nav-right">
     <a class="btn-ghost" href="https://github.com/avalondrey/multiia-hub" target="_blank">Documentation</a>
-    <a class="btn-nav" href="https://multiia-hub.vercel.app" target="_blank">Lancer l'app →</a>
+    <a class="btn-nav" href="/app">Lancer l'app →</a>
   </div>
 </nav>
 
@@ -241,7 +241,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;d
     <h1 class="hero-h1">Compare toutes<br>les <span class="g">IAs du monde</span><br>en un instant.</h1>
     <p class="hero-p"><strong>10 modèles en parallèle</strong> — Groq, GPT-4o, Nemotron, DeepSeek et plus. Jury automatique, RAG, personas. <strong>Gratuit. Sans installation.</strong></p>
     <div class="hero-btns">
-      <a class="btn-main" href="https://multiia-hub.vercel.app" target="_blank">⚡ Lancer l'app gratuitement</a>
+      <a class="btn-main" href="/app">⚡ Lancer l'app gratuitement</a>
       <a class="btn-out" href="https://github.com/avalondrey/multiia-hub" target="_blank">⬡ Code source</a>
     </div>
     <div class="hero-stats">
@@ -380,7 +380,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;d
           <div class="pl">Historique 50 conversations</div>
           <div class="pl">PWA installable hors-ligne</div>
         </div>
-        <a class="btn-price sec" href="https://multiia-hub.vercel.app" target="_blank">Commencer →</a>
+        <a class="btn-price sec" href="/app">Commencer →</a>
       </div>
       <div class="pcard featured reveal rd2">
         <div class="price-name">Avec clés API</div><div class="price-desc">Pour tout débloquer</div>
@@ -393,7 +393,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;d
           <div class="pl">DeepSeek V3 + R1</div>
           <div class="pl">Ollama local — modèles privés</div>
         </div>
-        <a class="btn-price pri" href="https://multiia-hub.vercel.app" target="_blank">⚡ Lancer l'app</a>
+        <a class="btn-price pri" href="/app">⚡ Lancer l'app</a>
       </div>
     </div>
   </div>
@@ -406,7 +406,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;d
       <h2 class="cta-h2">Prêt à comparer<br>toutes les IAs ?</h2>
       <p class="cta-p">Aucune installation. Aucune CB. 10 secondes pour commencer.</p>
       <div class="cta-btns">
-        <a class="btn-main" href="https://multiia-hub.vercel.app" target="_blank">⚡ Lancer Multi-IA Hub</a>
+        <a class="btn-main" href="/app">⚡ Lancer Multi-IA Hub</a>
         <a class="btn-out" href="https://github.com/avalondrey/multiia-hub" target="_blank">★ Star sur GitHub</a>
       </div>
     </div>
@@ -563,7 +563,7 @@ const FEATURES={
 function renderFeature(id){
   const f=FEATURES[id];if(!f)return;
   document.getElementById('feat-crumb').textContent=f.icon+' '+f.title.replace(/<[^>]*>/g,'');
-  document.getElementById('feat-cta-link').href='https://multiia-hub.vercel.app?tab='+f.tab;
+  document.getElementById('feat-cta-link').href='/app?tab='+f.tab;
   const prevF=f.prev?FEATURES[f.prev]:null;
   const nextF=f.next?FEATURES[f.next]:null;
   document.getElementById('feat-content').innerHTML=`
