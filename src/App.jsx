@@ -56,6 +56,7 @@ import ConfigTab from "./tabs/ConfigTab.jsx";
 import { ConfigProvider } from "./context/ConfigContext.jsx";
 import { AdvancedProvider } from "./context/AdvancedContext.jsx";
 import { CompareProvider } from "./context/CompareContext.jsx";
+import { RouterProvider } from "./context/RouterContext.jsx";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -6231,27 +6232,15 @@ async function checkCliBridge() {
 
         {/* ══ SMART ROUTER TAB ══ */}
         {tab === "router" && (
-          <RouterTab
-            enabled={enabled}
-            apiKeys={apiKeys}
-            MODEL_DEFS={MODEL_DEFS}
-            IDS={IDS}
-            isLimited={isLimited}
-            callModel={callModel}
-            setChatInput={setChatInput}
-            setDebInput={setDebInput}
-            setDebFile={setDebFile}
-            navigateTab={navigateTab}
-            setComfyPrompt={setComfyPrompt}
-            setComfySubTab={setComfySubTab}
-            comfyConnected={comfyConnected}
-            generateComfy={generateComfy}
-            processRagText={processRagText}
-            ragChunks={ragChunks}
-            showToast={showToast}
-            setRedInput={setRedInput}
-            setRechercheInput={setRechercheInput}
-          />
+          <RouterProvider value={{
+            callModel,
+            setDebInput, setDebFile,
+            setComfyPrompt, setComfySubTab, comfyConnected, generateComfy,
+            processRagText, ragChunks,
+            setRedInput, setRechercheInput,
+          }}>
+            <RouterTab />
+          </RouterProvider>
         )}
         {/* ══ VEILLE INTELLIGENTE TAB ══ */}
         {tab === "veille" && (

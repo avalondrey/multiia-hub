@@ -8,6 +8,14 @@ import React from 'react';
  * @property {function(string): void} setChatInput
  */
 
+/**
+ * @param {{children: React.ReactNode, value: ChatContextValue}} props
+ * @returns {React.ReactElement}
+ */
+export function ChatProvider({ children, value }) {
+  return React.createElement(ChatContext.Provider, { value }, children);
+}
+
 /** @type {import('react').Context<ChatContextValue|null>} */
 export const ChatContext = React.createContext(null);
 

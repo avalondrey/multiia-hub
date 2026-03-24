@@ -1,4 +1,10 @@
 import React, { useState, useRef } from "react";
+import { useApi } from "../context/ApiContext.jsx";
+import { useModels } from "../context/ModelContext.jsx";
+import { useNav } from "../context/NavContext.jsx";
+import { useUI } from "../context/UIContext.jsx";
+import { useRouter } from "../context/RouterContext.jsx";
+import { useChat } from "../context/ChatContext.jsx";
 
 // ── Smart Router ───────────────────────────────────────────────
 const ROUTER_ROUTES = [
@@ -14,13 +20,19 @@ const ROUTER_ROUTES = [
 
 const ROUTER_MAX_SIZE = 15 * 1024 * 1024; // 15MB
 
-export default function RouterTab({
-  enabled, apiKeys, MODEL_DEFS, IDS, isLimited,
-  callModel, setChatInput, setDebInput, setDebFile, navigateTab,
-  setComfyPrompt, setComfySubTab, comfyConnected, generateComfy,
-  processRagText, ragChunks, showToast,
-  setRedInput, setRechercheInput,
-}) {
+export default function RouterTab() {
+  const { enabled, apiKeys } = useApi();
+  const { MODEL_DEFS, IDS, isLimited } = useModels();
+  const { navigateTab } = useNav();
+  const { showToast } = useUI();
+  const { chatInput, setChatInput } = useChat();
+  const {
+    callModel, setDebInput, setDebFile,
+    setComfyPrompt, setComfySubTab, comfyConnected, generateComfy,
+    processRagText, ragChunks,
+    setRedInput, setRechercheInput,
+  } = useRouter();
+
   const [routerFile, setRouterFile]           = useState(null);
   const [routerAnalysis, setRouterAnalysis]   = useState(null);
   const [routerAnalyzing, setRouterAnalyzing] = useState(false);
