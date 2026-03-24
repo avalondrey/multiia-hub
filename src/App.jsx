@@ -442,7 +442,7 @@ body::before{
   position:sticky;top:0;z-index:200;
 }
 .nav-row1{display:flex;align-items:center;gap:8px;width:100%;min-height:48px;flex-shrink:0;flex-wrap:wrap}
-.nav-row2{width:100%;overflow:hidden;border-top:1px solid var(--bd);padding:5px 0;flex-shrink:0;box-sizing:border-box;max-width:100vw}
+.nav-row2{width:100%;border-top:1px solid var(--bd);padding:5px 0;flex-shrink:0;box-sizing:border-box}
 .logo{
   font-family:var(--font-display);font-weight:900;font-size:clamp(13px,2.2vw,17px);
   background:linear-gradient(135deg,#fff 30%,var(--ac));
@@ -453,12 +453,11 @@ body::before{
 
 /* ══ NAV TABS — Google Play Style ══ */
 .nav-tabs{
-  display:flex;gap:5px;
-  overflow-x:auto;scrollbar-width:none;
-  flex-wrap:nowrap;padding:0 2px;background:none;border:none;border-radius:0;
+  display:flex;gap:4px;
+  flex-wrap:wrap;
+  padding:2px 0;background:none;border:none;border-radius:0;
   width:100%;
 }
-.nav-tabs::-webkit-scrollbar{display:none}
 .nt{
   display:flex;align-items:center;gap:5px;
   padding:4px 8px 4px 4px;
