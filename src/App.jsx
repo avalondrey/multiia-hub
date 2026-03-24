@@ -450,29 +450,32 @@ body::before{
 }
 .logo em{-webkit-text-fill-color:rgba(157,78,255,.4);font-style:normal;font-weight:400}
 
-/* ══ NAV TABS ══ */
+/* ══ NAV TABS — Google Play Style ══ */
 .nav-tabs{
-  display:flex;gap:2px;
-  background:rgba(12,10,24,.6);
-  border:1px solid var(--bd);border-radius:8px;
-  padding:3px;flex-wrap:wrap;
-  backdrop-filter:blur(10px);
+  display:flex;gap:5px;
+  overflow-x:auto;scrollbar-width:none;
+  flex-wrap:nowrap;padding:0;background:none;border:none;border-radius:0;
 }
+.nav-tabs::-webkit-scrollbar{display:none}
 .nt{
-  padding:clamp(4px,.9vw,6px) clamp(8px,1.8vw,13px);
-  border-radius:6px;font-size:clamp(9px,1.5vw,11px);
-  font-family:var(--font-mono);border:none;cursor:pointer;
-  transition:all .18s cubic-bezier(.4,0,.2,1);
-  color:var(--mu);background:transparent;white-space:nowrap;
-  position:relative;
+  display:flex;align-items:center;gap:7px;
+  padding:5px 10px 5px 5px;
+  border-radius:10px;
+  border:1px solid var(--bd);
+  background:rgba(12,10,24,.55);
+  cursor:pointer;transition:all .2s;
+  flex-shrink:0;white-space:nowrap;
+  backdrop-filter:blur(8px);
 }
-.nt:hover{color:var(--tx);background:rgba(157,78,255,.08)}
-.nt.on{
-  background:linear-gradient(135deg,rgba(123,47,255,.3),rgba(255,60,172,.15));
-  color:#fff;font-weight:600;
-  border:1px solid rgba(157,78,255,.3);
-  box-shadow:0 0 16px rgba(157,78,255,.2),inset 0 1px 0 rgba(255,255,255,.08);
-}
+.nt:hover{background:rgba(157,78,255,.1);border-color:var(--bd2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.nt.on{background:rgba(157,78,255,.15);border-color:rgba(157,78,255,.4);box-shadow:0 0 14px rgba(157,78,255,.25)}
+.nt-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;transition:transform .2s}
+.nt:hover .nt-icon{transform:scale(1.1)}
+.nt-info{display:flex;flex-direction:column;gap:1px;text-align:left;min-width:0}
+.nt-name{font-size:10px;font-weight:600;color:var(--tx);white-space:nowrap;font-family:var(--font-ui);line-height:1.2}
+.nt-cat{font-size:7px;color:var(--mu);font-family:var(--font-mono);white-space:nowrap}
+.nt.on .nt-name{color:#fff}
+.nt.on .nt-cat{color:rgba(200,180,255,.6)}
 
 /* ══ PILLS (model toggles) ══ */
 .pills{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;align-items:center}
@@ -4077,56 +4080,70 @@ async function checkCliBridge() {
   </em>
 </div>
           <div className="nav-tabs">
-            {[
-              ["aide","❓ Aide"],
-              ["studio","🎬 Studio Auto"],
-              ["router","🧭 Router"],
-              ["chat","◈ Chat"],
-              ["prompts","📋 Prompts"],
-              ["redaction","✍️ Rédaction"],
-              ["recherche","🔎 Recherche"],
-              ["workflows","🔀 Workflows"],
-              ["medias","🎬 Médias"],
-              ["comfyui","⬡ ComfyUI"],
-              ["arena","⚔ Arène"],
-              ["debate","⚡ Débat"],
-              ["expert","🧠 Experts"],
-              ["notes","📝 Notes"],
-              ["traducteur","🌍 Trad."],
-              ["agent","🤖 Agent"],
-              ["webia","🌐 IAs Web"],
-              ["compare","⚖ Comparer"],
-              ["stats","📊 Stats"],
-              ["analytics","📈 Analytics"],
-              ["veille","📰 Veille"],
-              ["voice","🎙 Voice"],
-              ["projects","📁 Projets"],
-              ["benchmark","⚡ Benchmark"],
-              ["glossaire","📖 Glossaire"],
-              ["autopsy","🔬 Autopsy"],
-              ["mentor","🎓 Mentor"],
-              ["dna","🧬 DNA"],
-              ["conference","🎙 Conférence"],
-              ["consensus","🔎 Consensus"],
-              ["brief","☀️ Brief"],
-              ["taskia","🔀 Task→IAs"],
-              ["journaliste","📰 Journaliste"],
-              ["skills","🛠 Skills"],
-              ["contradict","⚡ Contradict"],
-              ["secondbrain","🧠 2nd Brain"],
-              ["livedebate","⏱ Débat Live"],
-              ["contexttrans","🔄 Contexte"],
-              ["apioptim","💡 API Optim"],
-              ["civilisations","🌍 Civilisations"],
-              ["flash","⚡ Flash"],
-              ["promptiter","🔁 Itérateur"],
-              ["ltm","🧠 Mémoire LT"],
-              ["imageflux","🖼 Flux.1"],
-              ["advanced","🔬 Avancé"],
-              ["config","⚙ Config"],
-            ].map(([t,l]) => (
-              <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>navigateTab(t)}>{l}</button>
-            ))}
+            {(() => {
+              const CATS = {
+                aide:"Support",studio:"Studio",router:"IA",chat:"Essentiel",
+                prompts:"Outils",redaction:"Texte",recherche:"Analyse",
+                workflows:"Flux",medias:"Médias",comfyui:"Images",
+                arena:"Stats",debate:"Analyse",expert:"Panel",compare:"Outils",
+                notes:"Notes",traducteur:"Texte",agent:"Agent",webia:"Web",
+                stats:"Stats",analytics:"Stats",veille:"Infos",voice:"Audio",
+                projects:"Travail",benchmark:"Stats",glossaire:"Réf.",
+                autopsy:"Analyse",mentor:"Coach",dna:"Prompts",conference:"IA",
+                consensus:"IA",brief:"Matin",taskia:"Tâches",journaliste:"Rédac.",
+                skills:"Appren.",contradict:"Débat",secondbrain:"Mémoire",
+                livedebate:"Timer",contexttrans:"Traduction",apioptim:"Dev",
+                civilisations:"Jeu",flash:"Quiz",promptiter:"Itérat.",
+                ltm:"LT Memory",imageflux:"Images",advanced:"Avancé",config:"Config"
+              };
+              const COLORS = {
+                aide:"#9D4EFF",studio:"#FF3CAC",router:"#00D4FF",chat:"#9D4EFF",
+                prompts:"#FFB700",redaction:"#FF8C42",recherche:"#00D4FF",
+                workflows:"#9D4EFF",medias:"#FF3CAC",comfyui:"#00FF88",
+                arena:"#FFB700",debate:"#FF4D6A",expert:"#A78BFA",compare:"#00D4FF",
+                notes:"#34D399",traducteur:"#06B6D4",agent:"#9D4EFF",webia:"#60A5FA",
+                stats:"#C084FC",analytics:"#F97316",veille:"#34D399",voice:"#EC4899",
+                projects:"#10B981",benchmark:"#F59E0B",glossaire:"#8B5CF6",
+                autopsy:"#EF4444",mentor:"#9D4EFF",dna:"#00FF88",conference:"#06B6D4",
+                consensus:"#A78BFA",brief:"#FFB700",taskia:"#F97316",journaliste:"#34D399",
+                skills:"#8B5CF6",contradict:"#EF4444",secondbrain:"#10B981",
+                livedebate:"#FF4D6A",contexttrans:"#06B6D4",apioptim:"#60A5FA",
+                civilisations:"#F59E0B",flash:"#FFB700",promptiter:"#9D4EFF",
+                ltm:"#34D399",imageflux:"#FF3CAC",advanced:"#9CA3AF",config:"#6B7280"
+              };
+              return [
+                ["aide","❓","Aide"],["studio","🎬","Studio Auto"],["router","🧭","Router"],
+                ["chat","◈","Chat"],["prompts","📋","Prompts"],["redaction","✍️","Rédaction"],
+                ["recherche","🔎","Recherche"],["workflows","🔀","Workflows"],
+                ["medias","🎬","Médias"],["comfyui","⬡","ComfyUI"],["arena","⚔","Arène"],
+                ["debate","⚡","Débat"],["expert","🧠","Experts"],["notes","📝","Notes"],
+                ["traducteur","🌍","Trad."],["agent","🤖","Agent"],["webia","🌐","IAs Web"],
+                ["compare","⚖","Comparer"],["stats","📊","Stats"],["analytics","📈","Analytics"],
+                ["veille","📰","Veille"],["voice","🎙","Voice"],["projects","📁","Projets"],
+                ["benchmark","⚡","Bench"],["glossaire","📖","Glossaire"],
+                ["autopsy","🔬","Autopsy"],["mentor","🎓","Mentor"],["dna","🧬","DNA"],
+                ["conference","🎙","Conférence"],["consensus","🔎","Consensus"],
+                ["brief","☀️","Brief"],["taskia","🔀","Task→IAs"],["journaliste","📰","Journaliste"],
+                ["skills","🛠","Skills"],["contradict","⚡","Contradict"],
+                ["secondbrain","🧠","2nd Brain"],["livedebate","⏱","Débat Live"],
+                ["contexttrans","🔄","Contexte"],["apioptim","💡","API Optim"],
+                ["civilisations","🌍","Civilisations"],["flash","⚡","Flash"],
+                ["promptiter","🔁","Itérateur"],["ltm","🧠","Mémoire LT"],
+                ["imageflux","🖼","Flux.1"],["advanced","🔬","Avancé"],["config","⚙","Config"],
+              ].map(([t, icon, label]) => {
+                const color = COLORS[t] || "#9D4EFF";
+                return (
+                  <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>navigateTab(t)}
+                    style={tab===t?{borderColor:color,boxShadow:`0 0 14px ${color}44`}:{}}>
+                    <div className="nt-icon" style={{background:`${color}22`,border:`1px solid ${color}44`}}>{icon}</div>
+                    <div className="nt-info">
+                      <span className="nt-name">{label}</span>
+                      <span className="nt-cat">{CATS[t]||""}</span>
+                    </div>
+                  </button>
+                );
+              });
+            })()}
           </div>
           <div className="pills">
             {IDS.map(id => {
