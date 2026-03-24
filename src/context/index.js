@@ -4,3 +4,4 @@ export { ModelContext, useModels } from './ModelContext.jsx';
 export { NavContext, useNav } from './NavContext.jsx';
 export { ChatContext, useChat } from './ChatContext.jsx';
 export { UIContext, useUI } from './UIContext.jsx';
+export { ConfigContext, useConfig, ConfigProvider } from './ConfigContext.jsx';

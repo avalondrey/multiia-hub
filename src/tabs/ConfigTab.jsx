@@ -1,5 +1,9 @@
 import React from 'react';
 import PSBlock from '../PSBlock.jsx';
+import { useApi } from '../context/ApiContext.jsx';
+import { useModels } from '../context/ModelContext.jsx';
+import { useUI } from '../context/UIContext.jsx';
+import { useConfig } from '../context/ConfigContext.jsx';
 
 /**
  * @typedef {Object} ModelDef
@@ -19,34 +23,32 @@ import PSBlock from '../PSBlock.jsx';
 
 /**
  * @typedef {Object} ConfigTabProps
- * @property {Record<string, string>} apiKeys
- * @property {Record<string, string>} cfgDrafts
- * @property {function(Record<string, string>): void} setCfgDrafts
- * @property {function(string, string?): void} saveCfgKey
- * @property {function(): void} exportKeys
- * @property {function(): void} importKeys
- * @property {React.RefObject<HTMLInputElement>} fileRef
- * @property {Record<string, ModelDef>} MODEL_DEFS
- * @property {string[]} IDS
- * @property {Record<string, boolean>} enabled
- * @property {function(string): boolean} isLimited
- * @property {function(string): string} fmtCd
- * @property {function(string, string): void} showToast
- * @property {function(number): void} saveZoom
- * @property {number} uiZoom
- * @property {object} pwaPrompt
- * @property {boolean} pwaInstalled
- * @property {function(): void} installPwa
+ * @property {Record<string, string>} [apiKeys]
+ * @property {Record<string, string>} [cfgDrafts]
+ * @property {function(Record<string, string>): void} [setCfgDrafts]
+ * @property {function(string, string?): void} [saveCfgKey]
+ * @property {function(): void} [exportKeys]
+ * @property {function(): void} [importKeys]
+ * @property {React.RefObject<HTMLInputElement>} [fileRef]
+ * @property {Record<string, ModelDef>} [MODEL_DEFS]
+ * @property {string[]} [IDS]
+ * @property {Record<string, boolean>} [enabled]
+ * @property {function(string): boolean} [isLimited]
+ * @property {function(string): string} [fmtCd]
+ * @property {function(string, string): void} [showToast]
+ * @property {function(number): void} [saveZoom]
+ * @property {number} [uiZoom]
+ * @property {object} [pwaPrompt]
+ * @property {boolean} [pwaInstalled]
+ * @property {function(): void} [installPwa]
  */
 
-/** @type {ConfigTabProps} */
-export default function ConfigTab({
-  apiKeys, cfgDrafts, setCfgDrafts, saveCfgKey,
-  exportKeys, importKeys, fileRef,
-  MODEL_DEFS, IDS, enabled, isLimited, fmtCd,
-  showToast, saveZoom, uiZoom,
-  pwaPrompt, pwaInstalled, installPwa
-}) {
+export default function ConfigTab() {
+  const { apiKeys } = useApi();
+  const { MODEL_DEFS, IDS, isLimited, fmtCd } = useModels();
+  const { showToast, saveZoom, uiZoom } = useUI();
+  const { cfgDrafts, setCfgDrafts, saveCfgKey, exportKeys, importKeys, fileRef, pwaPrompt, pwaInstalled, installPwa } = useConfig();
+
   return (
     <div className="tab-content" style={{padding:'0 0 80px 0'}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
@@ -160,71 +162,71 @@ export default function ConfigTab({
       <div className="sec">
         <div className="sec-title">📜 Historique des Versions</div>
         {[
-                  { v:"v11", date:"Fév 2026", color:"#3B82F6", items:[
-                    "📺 Médias : ajout chaînes YouTube personnalisées (formulaire + couleurs + localStorage)",
-                    "⭐ Filtre Mes chaînes + badge PERSO + bouton ✕ pour supprimer",
-                  ]},
-                  { v:"v10", date:"Jan 2026", color:"#F97316", items:[
-                    "◀▶ Sidebar historique rétractable",
-                    "💾 Sauvegarde automatique des conversations (max 50, localStorage)",
-                    "📂 Chargement/suppression de conversations depuis l'historique",
-                    "◎ Mode Solo : focalise l'affichage sur une seule IA",
-                    "⬇ Export conversation en .txt (collable dans d'autres IAs)",
-                  ]},
-                  { v:"v9", date:"Déc 2025", color:"#E07FA0", items:[
-                    "▶ Onglet YouTube : 18 chaînes recommandées (FR + EN) avec filtres",
-                    "🎬 Vidéos dynamiques (6 thèmes : Tendances, Tutoriels, Modèles, Local, Images, Agents)",
-                    "🔗 8 raccourcis de recherche YouTube prêts à l'emploi",
-                  ]},
-                  { v:"v8", date:"Nov 2025", color:"#34D399", items:[
-                    "📡 Actualités IA : fallback automatique Gemini → Groq → Mistral → cache statique",
-                    "💬 Descriptif complet des news + accordéon Analyse/Impact",
-                    "✓ Affichage du nom de l'IA source utilisée",
-                  ]},
-                  { v:"v7", date:"Oct 2025", color:"#FCD34D", items:[
-                    "⚔ Onglet Arène : tableau comparatif 18 modèles, filtres, scores, actualités, tops/flops",
-                    "🎨 Onglet Images : 13 générateurs avec jauges qualité/vitesse/facilité",
-                    "⚙ Config : procédure MAJ PowerShell complète avec blocs copier-coller",
-                  ]},
-                  { v:"v6", date:"Sep 2025", color:"#94A3B8", items:[
-                    "📱 Responsive & mobile : colonnes → onglets swipables",
-                    "🌐 Onglet Web IAs : 12 IAs (ChatGPT, Claude.ai, Gemini, DeepSeek, Mistral, Copilot…)",
-                    "⏳ Détection rate-limit : blocage + countdown automatique + bouton Débloquer",
-                    "🔄 Débat : fallback synthèse sur l'IA disponible si Claude KO",
-                  ]},
-                  { v:"v5", date:"Août 2025", color:"#FF8C69", items:[
-                    "🆕 3 nouvelles IAs : DeepSeek V3, Mistral Small, Groq/Llama 3.3 (gratuit 14 400/jour)",
-                    "✎ Correcteur orthographique : popup diff original/corrigé avec Appliquer/Ignorer",
-                  ]},
-                  { v:"v4", date:"Juil 2025", color:"#F87171", items:[
-                    "⚙ Onglet Config complet : tableau modèles, champs clés, liens obtenir",
-                    "💾 Export/Import fichier multiia-keys.json",
-                    "⚡ Mode Débat 3 phases : Tour 1, Tour 2 (réfutation), Synthèse finale",
-                    "IAs ajoutées : DeepSeek, Mistral, Groq (FREE)",
-                  ]},
-                  { v:"v2–v3", date:"Juin 2025", color:"#A78BFA", items:[
-                    "Nouvelles IAs : Kimi (Moonshot), Qwen (Alibaba), Grok (xAI)",
-                    "Clés API multi-providers configurables",
-                  ]},
-                  { v:"v1", date:"Mai 2025", color:"#4ADE80", items:[
-                    "🚀 Lancement Multi-IA Hub",
-                    "Compteur de tokens avec barre de progression par IA",
-                    "Onglet IAs Web : Z.ai, Kimi, Qwen, Grok",
-                    "Chat parallèle multi-IA (Claude, Gemini, GPT)",
-                  ]},
-                ].map(entry=>(
-                  <div key={entry.v} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,padding:"8px 12px",marginBottom:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                      <span style={{background:entry.color+"22",border:"1px solid "+entry.color+"44",borderRadius:4,padding:"2px 8px",fontSize:9,fontWeight:700,color:entry.color,fontFamily:"'Syne',sans-serif"}}>{entry.v}</span>
-                      <span style={{fontSize:9,color:"var(--mu)"}}>{entry.date}</span>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                      {entry.items.map((item,i)=>(
-                        <div key={i} style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",paddingLeft:8,borderLeft:"2px solid "+entry.color+"33"}}>{item}</div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+          { v:"v11", date:"Fév 2026", color:"#3B82F6", items:[
+            "📺 Médias : ajout chaînes YouTube personnalisées (formulaire + couleurs + localStorage)",
+            "⭐ Filtre Mes chaînes + badge PERSO + bouton ✕ pour supprimer",
+          ]},
+          { v:"v10", date:"Jan 2026", color:"#F97316", items:[
+            "◀▶ Sidebar historique rétractable",
+            "💾 Sauvegarde automatique des conversations (max 50, localStorage)",
+            "📂 Chargement/suppression de conversations depuis l'historique",
+            "◎ Mode Solo : focalise l'affichage sur une seule IA",
+            "⬇ Export conversation en .txt (collable dans d'autres IAs)",
+          ]},
+          { v:"v9", date:"Déc 2025", color:"#E07FA0", items:[
+            "▶ Onglet YouTube : 18 chaînes recommandées (FR + EN) avec filtres",
+            "🎬 Vidéos dynamiques (6 thèmes : Tendances, Tutoriels, Modèles, Local, Images, Agents)",
+            "🔗 8 raccourcis de recherche YouTube prêts à l'emploi",
+          ]},
+          { v:"v8", date:"Nov 2025", color:"#34D399", items:[
+            "📡 Actualités IA : fallback automatique Gemini → Groq → Mistral → cache statique",
+            "💬 Descriptif complet des news + accordéon Analyse/Impact",
+            "✓ Affichage du nom de l'IA source utilisée",
+          ]},
+          { v:"v7", date:"Oct 2025", color:"#FCD34D", items:[
+            "⚔ Onglet Arène : tableau comparatif 18 modèles, filtres, scores, actualités, tops/flops",
+            "🎨 Onglet Images : 13 générateurs avec jauges qualité/vitesse/facilité",
+            "⚙ Config : procédure MAJ PowerShell complète avec blocs copier-coller",
+          ]},
+          { v:"v6", date:"Sep 2025", color:"#94A3B8", items:[
+            "📱 Responsive & mobile : colonnes → onglets swipables",
+            "🌐 Onglet Web IAs : 12 IAs (ChatGPT, Claude.ai, Gemini, DeepSeek, Mistral, Copilot…)",
+            "⏳ Détection rate-limit : blocage + countdown automatique + bouton Débloquer",
+            "🔄 Débat : fallback synthèse sur l'IA disponible si Claude KO",
+          ]},
+          { v:"v5", date:"Août 2025", color:"#FF8C69", items:[
+            "🆕 3 nouvelles IAs : DeepSeek V3, Mistral Small, Groq/Llama 3.3 (gratuit 14 400/jour)",
+            "✎ Correcteur orthographique : popup diff original/corrigé avec Appliquer/Ignorer",
+          ]},
+          { v:"v4", date:"Juil 2025", color:"#F87171", items:[
+            "⚙ Onglet Config complet : tableau modèles, champs clés, liens obtenir",
+            "💾 Export/Import fichier multiia-keys.json",
+            "⚡ Mode Débat 3 phases : Tour 1, Tour 2 (réfutation), Synthèse finale",
+            "IAs ajoutées : DeepSeek, Mistral, Groq (FREE)",
+          ]},
+          { v:"v2–v3", date:"Juin 2025", color:"#A78BFA", items:[
+            "Nouvelles IAs : Kimi (Moonshot), Qwen (Alibaba), Grok (xAI)",
+            "Clés API multi-providers configurables",
+          ]},
+          { v:"v1", date:"Mai 2025", color:"#4ADE80", items:[
+            "🚀 Lancement Multi-IA Hub",
+            "Compteur de tokens avec barre de progression par IA",
+            "Onglet IAs Web : Z.ai, Kimi, Qwen, Grok",
+            "Chat parallèle multi-IA (Claude, Gemini, GPT)",
+          ]},
+        ].map(entry=>(
+          <div key={entry.v} style={{background:"var(--s1)",border:"1px solid var(--bd)",borderRadius:6,padding:"8px 12px",marginBottom:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+              <span style={{background:entry.color+"22",border:"1px solid "+entry.color+"44",borderRadius:4,padding:"2px 8px",fontSize:9,fontWeight:700,color:entry.color,fontFamily:"'Syne',sans-serif"}}>{entry.v}</span>
+              <span style={{fontSize:9,color:"var(--mu)"}}>{entry.date}</span>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:2}}>
+              {entry.items.map((item,i)=>(
+                <div key={i} style={{fontSize:9,color:"var(--mu)",fontFamily:"'IBM Plex Mono',monospace",paddingLeft:8,borderLeft:"2px solid "+entry.color+"33"}}>{item}</div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="sec">

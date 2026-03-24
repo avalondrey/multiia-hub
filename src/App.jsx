@@ -53,6 +53,7 @@ import RouterTab from "./tabs/RouterTab.jsx";
 import AdvancedTab from "./tabs/AdvancedTab.jsx";
 import CompareTab from "./tabs/CompareTab.jsx";
 import ConfigTab from "./tabs/ConfigTab.jsx";
+import { ConfigProvider } from "./context/ConfigContext.jsx";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -6863,26 +6864,13 @@ async function checkCliBridge() {
 
         {/* ── CONFIG TAB ── */}
         {tab === "config" && (
-          <ConfigTab
-            apiKeys={apiKeys}
-            cfgDrafts={cfgDrafts}
-            setCfgDrafts={setCfgDrafts}
-            saveCfgKey={saveCfgKey}
-            exportKeys={exportKeys}
-            importKeys={importKeys}
-            fileRef={fileRef}
-            MODEL_DEFS={MODEL_DEFS}
-            IDS={IDS}
-            enabled={enabled}
-            isLimited={isLimited}
-            fmtCd={fmtCd}
-            showToast={showToast}
-            saveZoom={saveZoom}
-            uiZoom={uiZoom}
-            pwaPrompt={pwaPrompt}
-            pwaInstalled={pwaInstalled}
-            installPwa={installPwa}
-          />
+          <ConfigProvider value={{
+            cfgDrafts, setCfgDrafts, saveCfgKey,
+            exportKeys, importKeys, fileRef,
+            pwaPrompt, pwaInstalled, installPwa
+          }}>
+            <ConfigTab />
+          </ConfigProvider>
         )}
       </div>
 
