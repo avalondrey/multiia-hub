@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+﻿import React, { useState, useRef, useEffect } from "react";
 import {
   APP_VERSION, BUILD_DATE, MODEL_DEFS, TOKEN_PRICE,
   BASE_WEB_AIS, WEB_AIS, YT_CHANNELS, YT_CATS,
@@ -451,32 +451,50 @@ body::before{
 }
 .logo em{-webkit-text-fill-color:rgba(157,78,255,.4);font-style:normal;font-weight:400}
 
-/* ══ NAV TABS — Google Play Style ══ */
-.nav-tabs{
-  display:flex;gap:4px;
-  flex-wrap:wrap;
-  padding:2px 0;background:none;border:none;border-radius:0;
-  width:100%;
+/* ══ NAV TABS — Carousel Google Play Style ══ */
+.nav-tabs-wrap{
+  position:relative;display:flex;align-items:center;width:100%;overflow:hidden;
 }
+.nav-tabs-arrow{
+  flex-shrink:0;width:28px;height:100%;min-height:72px;
+  background:linear-gradient(90deg,rgba(5,3,8,.95) 40%,transparent);
+  border:none;cursor:pointer;color:var(--mu);font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  transition:color .2s;z-index:2;padding:0;
+}
+.nav-tabs-arrow.right{
+  background:linear-gradient(270deg,rgba(5,3,8,.95) 40%,transparent);
+}
+.nav-tabs-arrow:hover{color:var(--tx)}
+.nav-tabs{
+  display:flex;gap:6px;
+  overflow-x:auto;scrollbar-width:none;
+  flex-wrap:nowrap;padding:6px 2px;
+  scroll-behavior:smooth;
+  flex:1;
+}
+.nav-tabs::-webkit-scrollbar{display:none}
 .nt{
-  display:flex;align-items:center;gap:5px;
-  padding:4px 8px 4px 4px;
-  border-radius:8px;
+  display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+  padding:10px;width:110px;min-width:110px;
+  border-radius:12px;
   border:1px solid var(--bd);
-  background:rgba(12,10,24,.55);
+  background:rgba(12,10,24,.65);
   cursor:pointer;transition:all .2s;
-  flex-shrink:0;white-space:nowrap;
+  flex-shrink:0;
   backdrop-filter:blur(8px);
 }
-.nt:hover{background:rgba(157,78,255,.1);border-color:var(--bd2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
-.nt.on{background:rgba(157,78,255,.15);border-color:rgba(157,78,255,.4);box-shadow:0 0 14px rgba(157,78,255,.25)}
-.nt-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:transform .2s}
-.nt:hover .nt-icon{transform:scale(1.1)}
-.nt-info{display:flex;flex-direction:column;gap:0px;text-align:left;min-width:0}
-.nt-name{font-size:9px;font-weight:600;color:var(--tx);white-space:nowrap;font-family:var(--font-ui);line-height:1.2}
-.nt-cat{font-size:6px;color:var(--mu);font-family:var(--font-mono);white-space:nowrap;line-height:1.3}
+.nt:hover{background:rgba(157,78,255,.1);border-color:var(--bd2);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.nt.on{background:rgba(157,78,255,.15);border-color:rgba(157,78,255,.45);box-shadow:0 0 18px rgba(157,78,255,.25)}
+.nt-top{display:flex;align-items:center;gap:7px;width:100%}
+.nt-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:transform .2s}
+.nt:hover .nt-icon{transform:scale(1.12)}
+.nt-name{font-size:10px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-ui);line-height:1.2;flex:1;min-width:0}
+.nt-cat{font-size:8px;color:var(--mu);font-family:var(--font-mono);white-space:nowrap;letter-spacing:.3px}
+.nt-desc{font-size:8px;color:rgba(160,150,200,.55);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;width:100%;font-family:var(--font-ui)}
 .nt.on .nt-name{color:#fff}
-.nt.on .nt-cat{color:rgba(200,180,255,.6)}
+.nt.on .nt-cat{color:rgba(200,180,255,.7)}
+.nt.on .nt-desc{color:rgba(200,180,255,.45)}
 
 /* ══ PILLS (model toggles) ══ */
 .pills{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;align-items:center}
@@ -4081,74 +4099,7 @@ async function checkCliBridge() {
   </em>
 </div>{/* fin logo */}
           </div>{/* fin nav-row1 */}
-        <div className="nav-row2">
-          <div className="nav-tabs">
-            {(() => {
-              const CATS = {
-                aide:"Support",studio:"Studio",router:"IA",chat:"Essentiel",
-                prompts:"Outils",redaction:"Texte",recherche:"Analyse",
-                workflows:"Flux",medias:"Médias",comfyui:"Images",
-                arena:"Stats",debate:"Analyse",expert:"Panel",compare:"Outils",
-                notes:"Notes",traducteur:"Texte",agent:"Agent",webia:"Web",
-                stats:"Stats",analytics:"Stats",veille:"Infos",voice:"Audio",
-                projects:"Travail",benchmark:"Stats",glossaire:"Réf.",
-                autopsy:"Analyse",mentor:"Coach",dna:"Prompts",conference:"IA",
-                consensus:"IA",brief:"Matin",taskia:"Tâches",journaliste:"Rédac.",
-                skills:"Appren.",contradict:"Débat",secondbrain:"Mémoire",
-                livedebate:"Timer",contexttrans:"Traduction",apioptim:"Dev",
-                civilisations:"Jeu",flash:"Quiz",promptiter:"Itérat.",
-                ltm:"LT Memory",imageflux:"Images",advanced:"Avancé",config:"Config"
-              };
-              const COLORS = {
-                aide:"#9D4EFF",studio:"#FF3CAC",router:"#00D4FF",chat:"#9D4EFF",
-                prompts:"#FFB700",redaction:"#FF8C42",recherche:"#00D4FF",
-                workflows:"#9D4EFF",medias:"#FF3CAC",comfyui:"#00FF88",
-                arena:"#FFB700",debate:"#FF4D6A",expert:"#A78BFA",compare:"#00D4FF",
-                notes:"#34D399",traducteur:"#06B6D4",agent:"#9D4EFF",webia:"#60A5FA",
-                stats:"#C084FC",analytics:"#F97316",veille:"#34D399",voice:"#EC4899",
-                projects:"#10B981",benchmark:"#F59E0B",glossaire:"#8B5CF6",
-                autopsy:"#EF4444",mentor:"#9D4EFF",dna:"#00FF88",conference:"#06B6D4",
-                consensus:"#A78BFA",brief:"#FFB700",taskia:"#F97316",journaliste:"#34D399",
-                skills:"#8B5CF6",contradict:"#EF4444",secondbrain:"#10B981",
-                livedebate:"#FF4D6A",contexttrans:"#06B6D4",apioptim:"#60A5FA",
-                civilisations:"#F59E0B",flash:"#FFB700",promptiter:"#9D4EFF",
-                ltm:"#34D399",imageflux:"#FF3CAC",advanced:"#9CA3AF",config:"#6B7280"
-              };
-              return [
-                ["aide","❓","Aide"],["studio","🎬","Studio Auto"],["router","🧭","Router"],
-                ["chat","◈","Chat"],["prompts","📋","Prompts"],["redaction","✍️","Rédaction"],
-                ["recherche","🔎","Recherche"],["workflows","🔀","Workflows"],
-                ["medias","🎬","Médias"],["comfyui","⬡","ComfyUI"],["arena","⚔","Arène"],
-                ["debate","⚡","Débat"],["expert","🧠","Experts"],["notes","📝","Notes"],
-                ["traducteur","🌍","Trad."],["agent","🤖","Agent"],["webia","🌐","IAs Web"],
-                ["compare","⚖","Comparer"],["stats","📊","Stats"],["analytics","📈","Analytics"],
-                ["veille","📰","Veille"],["voice","🎙","Voice"],["projects","📁","Projets"],
-                ["benchmark","⚡","Bench"],["glossaire","📖","Glossaire"],
-                ["autopsy","🔬","Autopsy"],["mentor","🎓","Mentor"],["dna","🧬","DNA"],
-                ["conference","🎙","Conférence"],["consensus","🔎","Consensus"],
-                ["brief","☀️","Brief"],["taskia","🔀","Task→IAs"],["journaliste","📰","Journaliste"],
-                ["skills","🛠","Skills"],["contradict","⚡","Contradict"],
-                ["secondbrain","🧠","2nd Brain"],["livedebate","⏱","Débat Live"],
-                ["contexttrans","🔄","Contexte"],["apioptim","💡","API Optim"],
-                ["civilisations","🌍","Civilisations"],["flash","⚡","Flash"],
-                ["promptiter","🔁","Itérateur"],["ltm","🧠","Mémoire LT"],
-                ["imageflux","🖼","Flux.1"],["advanced","🔬","Avancé"],["config","⚙","Config"],
-              ].map(([t, icon, label]) => {
-                const color = COLORS[t] || "#9D4EFF";
-                return (
-                  <button key={t} className={`nt ${tab===t?"on":""}`} onClick={()=>navigateTab(t)}
-                    style={tab===t?{borderColor:color,boxShadow:`0 0 14px ${color}44`}:{}}>
-                    <div className="nt-icon" style={{background:`${color}22`,border:`1px solid ${color}44`}}>{icon}</div>
-                    <div className="nt-info">
-                      <span className="nt-name">{label}</span>
-                      <span className="nt-cat">{CATS[t]||""}</span>
-                    </div>
-                  </button>
-                );
-              });
-            })()}
-          </div>
-        </div>{/* fin nav-row2 */}
+        <div className="nav-row2">{(()=>{const tabsRef2=React.useRef(null);const scroll=(dir)=>{if(tabsRef2.current)tabsRef2.current.scrollLeft+=dir*320;};const C={aide:"Support",studio:"Studio",router:"IA",chat:"Essentiel",prompts:"Outils",redaction:"Texte",recherche:"Analyse",workflows:"Flux",medias:"Medias",comfyui:"Images",arena:"Stats",debate:"Analyse",expert:"Panel",compare:"Outils",notes:"Notes",traducteur:"Texte",agent:"Agent",webia:"Web",stats:"Stats",analytics:"Stats",veille:"Infos",voice:"Audio",projects:"Travail",benchmark:"Stats",glossaire:"Ref.",autopsy:"Analyse",mentor:"Coach",dna:"Prompts",conference:"IA",consensus:"IA",brief:"Matin",taskia:"Taches",journaliste:"Redac.",skills:"Appren.",contradict:"Debat",secondbrain:"Memoire",livedebate:"Timer",contexttrans:"Traduction",apioptim:"Dev",civilisations:"Jeu",flash:"Quiz",promptiter:"Iterat.",ltm:"LT Memory",imageflux:"Images",advanced:"Avance",config:"Config"};const D={aide:"Guide et astuces",studio:"Tutoriels video auto",router:"Aiguille la meilleure IA",chat:"10 IAs en parallele",prompts:"Bibliotheque de prompts",redaction:"Reecriture et correction",recherche:"Analyse et Q&A",workflows:"Chaine de prompts",medias:"YouTube IA et decouverte",comfyui:"Images via ComfyUI local",arena:"Comparatif 18 modeles",debate:"Analyse multi-angles",expert:"Panel d experts IA",compare:"Diff et Jury automatique",notes:"Notes persistantes",traducteur:"Traduction contextuelle",agent:"Agent autonome multi-IA",webia:"37 interfaces IA directes",stats:"Statistiques usage",analytics:"Analyse approfondie",veille:"Actualites IA temps reel",voice:"Synthese et dictee vocale",projects:"Gestion de projets IA",benchmark:"Tests de performance",glossaire:"Glossaire IA complet",autopsy:"Autopsie de prompts",mentor:"Coaching IA",dna:"Arbre genealogique prompts",conference:"Conference multi-IA",consensus:"Consensus entre IAs",brief:"Briefing matinal IA",taskia:"Delegation de taches",journaliste:"Redaction journalistique",skills:"Apprentissage guide",contradict:"Debat contradictoire",secondbrain:"Memoire long terme",livedebate:"Timer debat live",contexttrans:"Traduction contexte",apioptim:"Optimisation prompts API",civilisations:"Jeu civilisations IA",flash:"Quiz et memorisation",promptiter:"Iteration de prompts",ltm:"Memoire persistante LT",imageflux:"Generation Flux.1",advanced:"Parametres avances",config:"Cles API et config"};const K={aide:"#9D4EFF",studio:"#FF3CAC",router:"#00D4FF",chat:"#9D4EFF",prompts:"#FFB700",redaction:"#FF8C42",recherche:"#00D4FF",workflows:"#9D4EFF",medias:"#FF3CAC",comfyui:"#00FF88",arena:"#FFB700",debate:"#FF4D6A",expert:"#A78BFA",compare:"#00D4FF",notes:"#34D399",traducteur:"#06B6D4",agent:"#9D4EFF",webia:"#60A5FA",stats:"#C084FC",analytics:"#F97316",veille:"#34D399",voice:"#EC4899",projects:"#10B981",benchmark:"#F59E0B",glossaire:"#8B5CF6",autopsy:"#EF4444",mentor:"#9D4EFF",dna:"#00FF88",conference:"#06B6D4",consensus:"#A78BFA",brief:"#FFB700",taskia:"#F97316",journaliste:"#34D399",skills:"#8B5CF6",contradict:"#EF4444",secondbrain:"#10B981",livedebate:"#FF4D6A",contexttrans:"#06B6D4",apioptim:"#60A5FA",civilisations:"#F59E0B",flash:"#FFB700",promptiter:"#9D4EFF",ltm:"#34D399",imageflux:"#FF3CAC",advanced:"#9CA3AF",config:"#6B7280"};const TD=[["aide","\u2753","Aide"],["studio","\uD83C\uDFAC","Studio Auto"],["router","\uD83E\uDDED","Router"],["chat","\uD83D\uDCAC","Chat"],["prompts","\uD83D\uDCCB","Prompts"],["redaction","\u270D\uFE0F","Redaction"],["recherche","\uD83D\uDD0E","Recherche"],["workflows","\uD83D\uDD00","Workflows"],["medias","\uD83D\uDCFA","Medias"],["comfyui","\u2B21","ComfyUI"],["arena","\u2694","Arene"],["debate","\u26A1","Debat"],["expert","\uD83E\uDDE0","Experts"],["notes","\uD83D\uDCDD","Notes"],["traducteur","\uD83C\uDF0D","Trad."],["agent","\uD83E\uDD16","Agent"],["webia","\uD83C\uDF10","IAs Web"],["compare","\u2696","Comparer"],["stats","\uD83D\uDCCA","Stats"],["analytics","\uD83D\uDCC8","Analytics"],["veille","\uD83D\uDCF0","Veille"],["voice","\uD83C\uDF99","Voice"],["projects","\uD83D\uDCC1","Projets"],["benchmark","\u26A1","Bench"],["glossaire","\uD83D\uDCD6","Glossaire"],["autopsy","\uD83D\uDD2C","Autopsy"],["mentor","\uD83C\uDF93","Mentor"],["dna","\uD83E\uDDEC","DNA"],["conference","\uD83C\uDFA4","Conference"],["consensus","\uD83D\uDD0E","Consensus"],["brief","\u2600\uFE0F","Brief"],["taskia","\uD83D\uDD00","Task-IAs"],["journaliste","\uD83D\uDCF0","Journaliste"],["skills","\uD83D\uDEE0","Skills"],["contradict","\u26A1","Contradict"],["secondbrain","\uD83E\uDDE0","2nd Brain"],["livedebate","\u23F1","Debat Live"],["contexttrans","\uD83D\uDD04","Contexte"],["apioptim","\uD83D\uDCA1","API Optim"],["civilisations","\uD83C\uDF0D","Civilisations"],["flash","\u26A1","Flash"],["promptiter","\uD83D\uDD01","Iterateur"],["ltm","\uD83E\uDDE0","Memoire LT"],["imageflux","\uD83D\uDDBC","Flux.1"],["advanced","\uD83D\uDD2C","Avance"],["config","\u2699","Config"]];return(<div className="nav-tabs-wrap"><button className="nav-tabs-arrow" onClick={()=>scroll(-1)}>&#8249;</button><div className="nav-tabs" ref={tabsRef2}>{TD.map(([t,icon,label])=>{const color=K[t]||"#9D4EFF";return(<button key={t} className={"nt "+(tab===t?"on":"")} onClick={()=>navigateTab(t)} style={tab===t?{borderColor:color,boxShadow:"0 0 18px "+color+"44"}:{}}><div className="nt-top"><div className="nt-icon" style={{background:color+"22",border:"1px solid "+color+"44"}}>{icon}</div><div style={{display:"flex",flexDirection:"column",gap:1,minWidth:0,flex:1}}><span className="nt-name">{label}</span><span className="nt-cat">{C[t]||""}</span></div></div><span className="nt-desc">{D[t]||""}</span></button>);})}</div><button className="nav-tabs-arrow right" onClick={()=>scroll(1)}>&#8250;</button></div>);})()}</div>{/* fin nav-row2 */}
           <div className="pills">
             {IDS.map(id => {
               const m = MODEL_DEFS[id];
