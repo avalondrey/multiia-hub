@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -141,33 +141,27 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .ch-it{font-size:10px;font-weight:600;color:var(--tx);margin-bottom:2px}
 .ch-id{font-size:8px;color:var(--mu)}
 .chat-body{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.ia-bar{padding:5px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:7px;background:rgba(5,3,10,.5);flex-wrap:wrap}
+.ia-bar{padding:4px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:5px;background:rgba(5,3,10,.5);overflow-x:auto;flex-shrink:0;scrollbar-width:none;flex-wrap:nowrap}
+.ia-bar::-webkit-scrollbar{display:none}
+.ia-bar-label{font-size:8px;color:var(--ac);font-weight:700;letter-spacing:2px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
 .tbl{font-size:8px;color:var(--ac);font-weight:700;letter-spacing:2px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase}
-.ia-p{display:flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;border:1px solid;font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;background:transparent;white-space:nowrap;transition:all .2s}
-.ia-p.on{box-shadow:0 0 9px currentColor}
-/* GRILLE IAs HORIZONTALE — cards en grid, scroll vertical */
-.cols-grid{
-  flex:1;overflow-y:auto;
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-  gap:0;
-  align-content:start;
-  scrollbar-width:thin;scrollbar-color:var(--bd) transparent;
+.ia-p{display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;border:1px solid;font-family:'IBM Plex Mono',monospace;font-size:8px;cursor:pointer;background:transparent;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.ia-p.on{box-shadow:0 0 8px currentColor;opacity:1}
+.ia-p:not(.on){opacity:.45}
+/* COLONNES IAs — scroll horizontal, 1 colonne par IA active */
+.cols-h{
+  flex:1;display:flex;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:thin;scrollbar-color:rgba(157,78,255,.25) transparent;
 }
+.cols-h::-webkit-scrollbar{height:4px}
+.cols-h::-webkit-scrollbar-thumb{background:rgba(157,78,255,.25);border-radius:2px}
 .col-h{
+  min-width:240px;flex:0 0 240px;
   display:flex;flex-direction:column;
-  border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);
-  min-height:120px;
+  border-right:1px solid var(--bd);
 }
-.msg-user-full{
-  grid-column:1/-1;
-  padding:10px 16px;
-  background:rgba(157,78,255,.06);
-  border-bottom:1px solid var(--bd);
-  font-size:11px;color:rgba(200,190,240,.75);font-style:italic;
-  font-family:'IBM Plex Mono',monospace;line-height:1.6;
-}
-.msg-user-full::before{content:'▶ ';color:var(--ac);opacity:.5}
+.col-h:last-child{border-right:none}
+.msg-user-full{display:none}/* masqué en mode colonnes */
 .col-hdr-h{padding:9px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;background:rgba(5,3,10,.6);flex-shrink:0}
 .col-name-h{font-family:'Syne',sans-serif;font-weight:700;font-size:11px}
 .col-sub-h{font-size:8px;color:var(--mu);font-family:'IBM Plex Mono',monospace}
@@ -787,7 +781,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
         <button class="ia-p on" style="color:#FF6B35;border-color:#FF6B35" data-ia="llama4m" onclick="toggleIA(this)">⊕ Llama 3.3</button>
         <button class="ia-p on" style="color:#76C442;border-color:#76C442" data-ia="qwen3_235b" onclick="toggleIA(this)">⊙ Nemotron-S</button>
       </div>
-      <div class="cols-grid" id="chat-cols"></div>
+      <div class="cols-h" id="chat-cols"></div>
       <div class="chat-foot">
         <textarea class="inp" id="chat-inp" placeholder="Envoyer aux IAs actives… (Entrée = envoyer)" onkeydown="handleKey(event)" rows="1"></textarea>
         <button class="send" onclick="sendMsg()">↑</button>
@@ -1403,627 +1397,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<script>
-// ═══════════════════════════════════════════════
-// MULTI-IA HUB v22 — JavaScript complet
-// ═══════════════════════════════════════════════
 
-// ─── CONFIG IAs ────────────────────────────────
-const IA_CONFIG = {
-  groq: { name:'Groq', color:'#F97316', model:'llama-3.3-70b-versatile', url:'https://api.groq.com/openai/v1/chat/completions' },
-  mistral: { name:'Mistral', color:'#FF8C69', model:'mistral-small-latest', url:'https://api.mistral.ai/v1/chat/completions' },
-  deepseek: { name:'DeepSeek', color:'#A0C8FF', model:'deepseek-chat', url:'https://api.deepseek.com/v1/chat/completions' },
-  cohere: { name:'Cohere', color:'#06B6D4', model:'command-r-plus-08-2024', url:'https://api.cohere.ai/v2/chat' },
-  openrouter: { name:'OpenRouter', color:'#76B900', model:'nvidia/llama-3.1-nemotron-70b-instruct', url:'https://openrouter.ai/api/v1/chat/completions' }
-};
-
-// ─── CLÉS API (localStorage) ───────────────────
-let KEYS = {};
-function loadKeys() {
-  ['groq','mistral','deepseek','cohere','openrouter'].forEach(k => {
-    KEYS[k] = localStorage.getItem('mia-key-'+k) || '';
-    const el = document.getElementById('key-'+k);
-    if (el && KEYS[k]) el.value = KEYS[k];
-    updateKeyStatus(k);
-  });
-}
-function updateKeyStatus(k) {
-  const st = document.getElementById('st-'+k);
-  if (!st) return;
-  if (KEYS[k]) { st.textContent = 'Configuré ✓'; st.className = 'cfg-status cfg-ok'; }
-  else { st.textContent = 'Non configuré'; st.className = 'cfg-status cfg-no'; }
-}
-function saveAllKeys() {
-  ['groq','mistral','deepseek','cohere','openrouter'].forEach(k => {
-    const el = document.getElementById('key-'+k);
-    if (el) { KEYS[k] = el.value.trim(); localStorage.setItem('mia-key-'+k, KEYS[k]); updateKeyStatus(k); }
-  });
-  showToast('✅ Clés sauvegardées');
-}
-function savePrefs() {
-  const m = document.getElementById('pref-model');
-  const l = document.getElementById('pref-lang');
-  if (m) localStorage.setItem('mia-pref-model', m.value);
-  if (l) localStorage.setItem('mia-pref-lang', l.value);
-  showToast('✅ Préférences sauvegardées');
-}
-function clearAll() {
-  if (!confirm('Effacer toutes les données locales ?')) return;
-  localStorage.clear(); location.reload();
-}
-
-// ─── APPEL API GÉNÉRIQUE ───────────────────────
-async function callIA(iaKey, messages) {
-  const cfg = IA_CONFIG[iaKey];
-  const key = KEYS[iaKey];
-  if (!key) return `[${cfg.name} : clé API non configurée. Va dans Config.]`;
-  try {
-    let body, headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key };
-    if (iaKey === 'cohere') {
-      body = JSON.stringify({ model: cfg.model, messages: messages.map(m => ({ role: m.role === 'assistant' ? 'chatbot' : m.role, content: m.content })) });
-    } else {
-      body = JSON.stringify({ model: cfg.model, messages, max_tokens: 2048 });
-    }
-    if (iaKey === 'openrouter') { headers['HTTP-Referer'] = 'https://multiia-hub.vercel.app'; headers['X-Title'] = 'Multi-IA Hub'; }
-    const r = await fetch(cfg.url, { method: 'POST', headers, body });
-    const d = await r.json();
-    if (!r.ok) return `[Erreur ${cfg.name}: ${d.error?.message || r.status}]`;
-    if (iaKey === 'cohere') return d.message?.content?.[0]?.text || '[Pas de réponse]';
-    return d.choices?.[0]?.message?.content || '[Pas de réponse]';
-  } catch(e) { return `[Erreur réseau ${cfg.name}: ${e.message}]`; }
-}
-
-// ─── SIDEBAR ───────────────────────────────────
-function toggleSb() {
-  document.getElementById('app').classList.toggle('sb-closed');
-  localStorage.setItem('mia-sb', document.getElementById('app').classList.contains('sb-closed'));
-}
-if (localStorage.getItem('mia-sb') === 'true') document.getElementById('app').classList.add('sb-closed');
-
-// ─── NAVIGATION ────────────────────────────────
-const ALL_PANELS = ['chat','router','studio','voice','brief','arena','compare','debate','expert','stats','benchmark','autopsy','prompts','dna','redaction','notes','traducteur','journaliste','veille','recherche','webia','medias','workflows','flash','glossaire','mentor','civilisations','agent','skills','contradict','secondbrain','ltm','conference','consensus','taskia','livedebate','contexttrans','promptiter','imageflux','apioptim','projects','config','aide'];
-
-function nav(id) {
-  ALL_PANELS.forEach(p => { const e = document.getElementById('p-'+p); if (e) { e.classList.remove('active'); e.style.display = 'none'; } });
-  const t = document.getElementById('p-'+id);
-  if (t) { t.classList.add('active'); t.style.display = 'flex'; }
-  document.querySelectorAll('.nt').forEach(b => b.classList.remove('on'));
-  const btn = document.getElementById('btn-'+id);
-  if (btn) btn.classList.add('on');
-}
-
-// Init : cacher tous sauf chat
-ALL_PANELS.forEach(p => { const e = document.getElementById('p-'+p); if (e) e.style.display = 'none'; });
-const startPanel = document.getElementById('p-chat');
-if (startPanel) { startPanel.classList.add('active'); startPanel.style.display = 'flex'; }
-document.getElementById('btn-chat')?.classList.add('on');
-
-// ─── TOAST ─────────────────────────────────────
-function showToast(msg, dur = 2500) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), dur);
-}
-
-// ─── THÈME ─────────────────────────────────────
-function toggleTheme() { showToast('Thème sombre uniquement pour l\'instant'); }
-
-// ─── CHAT ──────────────────────────────────────
-let chatHistory = JSON.parse(localStorage.getItem('mia-chats') || '[]');
-let currentChatId = null;
-let chatMessages = [];
-let activeIAs = ['groq', 'mistral'];
-
-function toggleIA(btn) {
-  const ia = btn.dataset.ia;
-  if (activeIAs.includes(ia)) {
-    if (activeIAs.length <= 1) { showToast('Garde au moins une IA active'); return; }
-    activeIAs = activeIAs.filter(x => x !== ia);
-    btn.classList.remove('on');
-  } else {
-    if (!KEYS[ia] && ia !== 'groq') { showToast('Configure la clé '+IA_CONFIG[ia].name+' dans Config'); return; }
-    activeIAs.push(ia);
-    btn.classList.add('on');
-  }
-  buildCols();
-}
-
-function buildCols() {
-  const cols = document.getElementById('chat-cols');
-  if (!cols) return;
-  cols.innerHTML = '';
-  activeIAs.forEach(ia => {
-    const cfg = IA_CONFIG[ia];
-    const div = document.createElement('div');
-    div.className = 'col-h';
-    div.id = 'col-'+ia;
-    div.innerHTML = `<div class="col-hdr-h"><div style="width:8px;height:8px;border-radius:50%;background:${cfg.color};flex-shrink:0"></div><span class="col-name-h" style="color:${cfg.color}">${cfg.name}</span><span class="col-sub-h">${cfg.model.substring(0,22)}</span><div class="live-dot"></div></div><div class="msgs-h" id="msgs-${ia}"></div>`;
-    cols.appendChild(div);
-  });
-  // Remplir les messages existants
-  chatMessages.forEach(msg => {
-    if (msg.role === 'user') activeIAs.forEach(ia => appendMsg(ia, 'user', msg.content));
-    else if (msg.ia) appendMsg(msg.ia, 'assistant', msg.content);
-  });
-}
-
-function appendMsg(ia, role, content, streaming = false) {
-  const el = document.getElementById('msgs-'+ia);
-  if (!el) return;
-  const div = document.createElement('div');
-  div.className = role === 'user' ? 'msg-u' : 'msg-a' + (streaming ? ' streaming' : '');
-  div.innerHTML = content.replace(/\n/g, '<br>');
-  el.appendChild(div);
-  el.scrollTop = el.scrollHeight;
-  return div;
-}
-
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
-}
-
-async function sendMsg() {
-  const inp = document.getElementById('chat-inp');
-  const msg = inp.value.trim();
-  if (!msg) return;
-  inp.value = '';
-  chatMessages.push({ role: 'user', content: msg });
-  activeIAs.forEach(ia => appendMsg(ia, 'user', msg));
-
-  const promises = activeIAs.map(async ia => {
-    const el = document.getElementById('msgs-'+ia);
-    const typing = document.createElement('div');
-    typing.className = 'msg-a streaming';
-    typing.innerHTML = '...';
-    el?.appendChild(typing);
-    el && (el.scrollTop = el.scrollHeight);
-    const sysMsg = { role: 'system', content: 'Tu es un assistant IA utile et concis. Réponds en français sauf si on te demande autrement.' };
-    const msgs = [sysMsg, ...chatMessages.filter(m => m.role === 'user' || (m.ia === ia)).map(m => ({ role: m.ia ? 'assistant' : 'user', content: m.content }))];
-    const resp = await callIA(ia, msgs);
-    typing.remove();
-    appendMsg(ia, 'assistant', resp);
-    chatMessages.push({ role: 'assistant', ia, content: resp });
-  });
-  await Promise.all(promises);
-  saveChatHistory();
-}
-
-function newChat() {
-  chatMessages = [];
-  if (currentChatId !== null) saveChatHistory();
-  currentChatId = Date.now();
-  chatHistory.unshift({ id: currentChatId, title: 'Nouvelle conv.', ts: new Date().toLocaleDateString('fr') });
-  buildCols();
-  renderChatHistory();
-  localStorage.setItem('mia-chats', JSON.stringify(chatHistory.slice(0, 50)));
-}
-
-function saveChatHistory() {
-  const idx = chatHistory.findIndex(c => c.id === currentChatId);
-  const title = chatMessages.find(m => m.role === 'user')?.content?.substring(0, 36) || 'Conv.';
-  if (idx >= 0) chatHistory[idx].title = title;
-  localStorage.setItem('mia-chats', JSON.stringify(chatHistory.slice(0, 50)));
-  renderChatHistory();
-}
-
-function renderChatHistory() {
-  const el = document.getElementById('chat-hist-list');
-  if (!el) return;
-  el.innerHTML = chatHistory.slice(0, 20).map((c, i) => `<div class="ch-item ${c.id === currentChatId ? 'on' : ''}" onclick="loadChat(${i})"><div class="ch-it">${c.title}</div><div class="ch-id">${c.ts || ''}</div></div>`).join('');
-}
-
-function loadChat(idx) {
-  currentChatId = chatHistory[idx].id;
-  chatMessages = JSON.parse(localStorage.getItem('mia-chat-' + currentChatId) || '[]');
-  buildCols(); renderChatHistory();
-}
-
-// ─── ROUTER ────────────────────────────────────
-const ROUTER_RULES = [
-  { ia:'groq', score:95, why:'Ultra-rapide pour les requêtes simples et la programmation', keywords:['code','python','javascript','bug','script','rapide'] },
-  { ia:'mistral', score:88, why:'Excellent français, rédaction et analyse nuancée', keywords:['rédige','article','email','français','analyse','résume'] },
-  { ia:'openrouter', score:92, why:'Nemotron super — meilleur raisonnement complexe', keywords:['raisonne','complexe','philosophie','stratégie','plan'] },
-  { ia:'deepseek', score:84, why:'Très fort en mathématiques et logique formelle', keywords:['maths','calcul','logique','équation','algèbre'] },
-  { ia:'cohere', score:80, why:'Spécialisé recherche et résumés longs documents', keywords:['résumé','document','recherche','summarize'] }
-];
-
-async function routerSuggest() {
-  const q = document.getElementById('router-inp')?.value.trim().toLowerCase() || '';
-  if (!q) return;
-  const scored = ROUTER_RULES.map(r => {
-    let s = r.score;
-    r.keywords.forEach(kw => { if (q.includes(kw)) s += 8; });
-    return { ...r, final: Math.min(99, s) };
-  }).sort((a, b) => b.final - a.final);
-  const el = document.getElementById('router-result');
-  if (!el) return;
-  el.innerHTML = scored.map((r, i) => {
-    const cfg = IA_CONFIG[r.ia];
-    return `<div class="router-card" onclick="nav('chat')"><div class="router-rank" style="background:${i===0?'linear-gradient(135deg,'+cfg.color+',#fff2)':'rgba(255,255,255,.06)'};color:${i===0?'#000':'#fff'}">${i+1}</div><div style="flex:1"><div class="router-name">${cfg.name}</div><div class="router-why">${r.why}</div><div class="router-score-bar"><div class="router-score-fill" style="width:${r.final}%;background:${cfg.color}"></div></div></div><div style="font-family:'IBM Plex Mono',monospace;font-weight:900;font-size:14px;color:${cfg.color}">${r.final}%</div></div>`;
-  }).join('');
-}
-</script>
-
-<script>
-// ─── COMPARE ───────────────────────────────────
-async function runCompare() {
-  const inp = document.getElementById('cmp-inp')?.value.trim();
-  if (!inp) return;
-  const selA = document.querySelector('#p-compare select:first-of-type')?.value.toLowerCase() || 'groq';
-  const selB = document.querySelector('#p-compare select:last-of-type')?.value.toLowerCase() || 'mistral';
-  const iaA = ['groq','mistral','deepseek','cohere','openrouter'].find(x => IA_CONFIG[x].name.toLowerCase() === selA) || 'groq';
-  const iaB = ['groq','mistral','deepseek','cohere','openrouter'].find(x => IA_CONFIG[x].name.toLowerCase() === selB) || 'mistral';
-  const elA = document.getElementById('cmp-a'); const elB = document.getElementById('cmp-b');
-  if (elA) elA.innerHTML = '<span class="streaming">...</span>';
-  if (elB) elB.innerHTML = '<span class="streaming">...</span>';
-  const msgs = [{ role: 'system', content: 'Réponds de façon complète et structurée.' }, { role: 'user', content: inp }];
-  const [rA, rB] = await Promise.all([callIA(iaA, msgs), callIA(iaB, msgs)]);
-  if (elA) elA.innerHTML = rA.replace(/\n/g, '<br>');
-  if (elB) elB.innerHTML = rB.replace(/\n/g, '<br>');
-}
-
-async function juryCompare() {
-  const elA = document.getElementById('cmp-a')?.textContent || '';
-  const elB = document.getElementById('cmp-b')?.textContent || '';
-  if (!elA || !elB || elA.length < 10) { showToast('Lance d\'abord une comparaison'); return; }
-  const prompt = `Tu es un jury impartial. Compare ces 2 réponses et donne un verdict clair:\n\nRéponse A: ${elA.substring(0,500)}\n\nRéponse B: ${elB.substring(0,500)}\n\nDonne: gagnant, score /10 chacun, justification 2 lignes.`;
-  const verdict = await callIA('groq', [{ role: 'user', content: prompt }]);
-  showToast('⚖ Jury: ' + verdict.substring(0,80) + '…');
-}
-
-// ─── DÉBAT ─────────────────────────────────────
-async function launchDebate() {
-  const topic = document.getElementById('debate-topic')?.value.trim();
-  if (!topic) { showToast('Entrez un sujet de débat'); return; }
-  const el = document.getElementById('debate-result');
-  if (!el) return;
-  el.innerHTML = '<div class="card" style="text-align:center;padding:30px"><span class="streaming">L\'IA prépare le débat…</span></div>';
-  const angles = ['Optimiste (avantages et opportunités)', 'Pessimiste (risques et dangers)', 'Neutre/Expert (analyse factuelle)', 'Philosophique (implications éthiques)'];
-  const prompt = `Génère un débat structuré sur: "${topic}"\n\nPour chacun de ces 4 angles:\n${angles.map((a,i) => `${i+1}. ${a}`).join('\n')}\n\nFormat: [ANGLE X — Nom] puis 3 arguments clés en 2-3 lignes.`;
-  const resp = await callIA('groq', [{ role: 'system', content: 'Tu es un modérateur de débat expert.' }, { role: 'user', content: prompt }]);
-  el.innerHTML = `<div class="card"><div class="c-title" style="margin-bottom:14px;font-size:16px">💬 ${topic}</div><div style="font-size:12px;line-height:1.9;color:rgba(200,190,240,.85)">${resp.replace(/\n/g,'<br>').replace(/\[([^\]]+)\]/g,'<strong style="color:var(--ac)">[$1]</strong>')}</div></div>`;
-}
-
-// ─── EXPERT ────────────────────────────────────
-const expertDefs = {
-  technique: 'Tu es un expert technique senior (15 ans d\'expérience en ingénierie logicielle et IA). Analyse sous l\'angle technique, performance, implémentation.',
-  business: 'Tu es un expert business et stratégie (MBA, consultant McKinsey). Analyse sous l\'angle marché, ROI, opportunités commerciales.',
-  ethique: 'Tu es un philosophe spécialiste d\'éthique de l\'IA. Analyse sous l\'angle moral, biais, risques sociaux.',
-  science: 'Tu es un chercheur PhD en IA. Analyse sous l\'angle scientifique, état de l\'art, publications récentes.'
-};
-async function askExpert(type) {
-  const q = prompt('Quelle question pour l\'expert ?');
-  if (!q) return;
-  const el = document.getElementById('expert-result');
-  if (!el) return;
-  el.innerHTML = '<div class="card"><span class="streaming">L\'expert réfléchit…</span></div>';
-  const resp = await callIA('groq', [{ role: 'system', content: expertDefs[type] }, { role: 'user', content: q }]);
-  el.innerHTML = `<div class="card"><div class="c-title" style="margin-bottom:10px;color:var(--ac)">Expert ${type}</div><div style="font-size:12px;line-height:1.8;color:rgba(200,190,240,.85)">${resp.replace(/\n/g,'<br>')}</div></div>`;
-}
-
-// ─── AUTOPSY ───────────────────────────────────
-async function runAutopsy() {
-  const prompt_txt = document.getElementById('autopsy-inp')?.value.trim();
-  if (!prompt_txt) return;
-  const el = document.getElementById('autopsy-result');
-  if (!el) return;
-  el.innerHTML = '<div class="card"><span class="streaming">Analyse en cours…</span></div>';
-  const sysPrompt = 'Tu es un expert en prompt engineering. Analyse ce prompt et identifie:\n1. ✅ Points forts\n2. ❌ Faiblesses\n3. 💡 Améliorations concrètes\n4. 🚀 Version améliorée\n\nSois précis et actionnable.';
-  const resp = await callIA('groq', [{ role: 'system', content: sysPrompt }, { role: 'user', content: prompt_txt }]);
-  el.innerHTML = `<div class="card"><div class="c-title" style="margin-bottom:14px">🔬 Analyse du prompt</div><div style="font-size:12px;line-height:1.8">${resp.replace(/\n/g,'<br>').replace(/[✅❌💡🚀]/g,'<strong style="font-size:14px">$&</strong>')}</div></div>`;
-}
-
-// ─── PROMPTS ────────────────────────────────────
-const PROMPTS_DATA = [
-  { cat:'Analyse', title:'Avocat du diable', body:'Tu es un avocat du diable expert. Pour chaque argument que je présente, identifie les 3 failles majeures et propose une contre-argumentation solide.', uses:247 },
-  { cat:'Code', title:'Code Review Expert', body:'Tu es un senior dev avec 15 ans d\'expérience. Analyse ce code : bugs, performance, lisibilité, sécurité. Donne un score /100 et tes recommandations.', uses:189 },
-  { cat:'Créatif', title:'Socrate IA', body:'Tu es Socrate. Tu ne donnes jamais de réponse directe. Tu guides uniquement par questions maïeutiques jusqu\'à ce que l\'interlocuteur trouve lui-même la vérité.', uses:134 },
-  { cat:'Rédaction', title:'Rédacteur Pro', body:'Tu es un rédacteur expert. Réécris ce texte en améliorant : style, clarté, impact émotionnel. Garde l\'intention originale mais rends le mémorable.', uses:201 },
-  { cat:'Business', title:'SWOT Generator', body:'Génère une analyse SWOT détaillée pour ce projet/produit. Format structuré avec 5 points par quadrant et une synthèse stratégique.', uses:156 },
-  { cat:'Analyse', title:'Fait vs Opinion', body:'Analyse ce texte et distingue clairement : faits vérifiables, opinions, biais potentiels, éléments manquants. Sois neutre et factuel.', uses:98 },
-  { cat:'Code', title:'Debug Assistant', body:'Tu es un expert debugger. Pour ce code/erreur : identifie la cause racine, explique pourquoi l\'erreur se produit, donne la solution avec test.', uses:312 },
-  { cat:'Créatif', title:'Brainstorm 100', body:'Génère 100 idées pour [sujet]. Quantité > qualité. Pas de filtrage. Inclue des idées folles, impossibles, contre-intuitives. Numérote-les.', uses:88 },
-  { cat:'Business', title:'Pitch Elevator', body:'Crée un pitch elevator de 60 secondes pour ce produit/service. Hook accrocheur, problème, solution unique, appel à l\'action. Mémorable.', uses:145 },
-  { cat:'Rédaction', title:'Newsletter IA', body:'Rédige une newsletter IA hebdomadaire : 3 actus clés, 1 conseil pratique, 1 outil à tester, ton décalé et informatif. 400 mots.', uses:67 }
-];
-
-let currentCat = 'Tout';
-function filterPrompts(cat, btn) {
-  currentCat = cat;
-  document.querySelectorAll('.pcat').forEach(b => b.classList.remove('on'));
-  if (btn) btn.classList.add('on');
-  renderPrompts();
-}
-function renderPrompts() {
-  const el = document.getElementById('prompts-list');
-  if (!el) return;
-  const filtered = currentCat === 'Tout' ? PROMPTS_DATA : PROMPTS_DATA.filter(p => p.cat === currentCat);
-  el.innerHTML = filtered.map(p => `
-    <div class="prompt-item">
-      <div class="pi-top"><span class="badge bg-ac">${p.cat.toUpperCase()}</span><div class="pi-title">${p.title}</div></div>
-      <div class="pi-body">${p.body.substring(0,120)}…</div>
-      <div class="pi-foot">
-        <span class="pi-uses">×${p.uses} utilisations</span>
-        <button class="pi-btn" style="border-color:rgba(107,90,158,.3);color:var(--mu)" onclick="navigator.clipboard.writeText('${p.body.replace(/'/g,"\\'")}');showToast('✅ Copié!')">Copier</button>
-        <button class="pi-btn" style="border-color:rgba(157,78,255,.3);color:var(--ac)" onclick="document.getElementById('chat-inp').value='${p.body.substring(0,100).replace(/'/g,"\\'")}';nav('chat')">▶ Injecter</button>
-      </div>
-    </div>`).join('');
-}
-
-// ─── NOTES ─────────────────────────────────────
-let notes = JSON.parse(localStorage.getItem('mia-notes') || '[]');
-let currentNoteIdx = -1;
-function renderNotes() {
-  const el = document.getElementById('notes-list');
-  if (!el) return;
-  el.innerHTML = notes.map((n, i) => `<div class="note-item ${i === currentNoteIdx ? 'on' : ''}" onclick="selectNote(${i})"><div class="note-t">${n.title || 'Note sans titre'}</div><div class="note-p">${n.body.substring(0,60)}</div><div class="note-d">${n.date || ''}</div></div>`).join('');
-  const cnt = document.getElementById('notes-count');
-  if (cnt) cnt.textContent = notes.length;
-}
-function selectNote(i) {
-  currentNoteIdx = i;
-  const editor = document.getElementById('note-editor');
-  if (editor && notes[i]) editor.value = notes[i].body;
-  renderNotes();
-}
-function addNote() {
-  const n = { title:'Nouvelle note', body:'', date:new Date().toLocaleDateString('fr') };
-  notes.unshift(n); currentNoteIdx = 0;
-  localStorage.setItem('mia-notes', JSON.stringify(notes));
-  renderNotes();
-  const editor = document.getElementById('note-editor');
-  if (editor) { editor.value = ''; editor.focus(); }
-}
-function saveCurrentNote() {
-  if (currentNoteIdx < 0) return;
-  const editor = document.getElementById('note-editor');
-  if (!editor) return;
-  notes[currentNoteIdx].body = editor.value;
-  notes[currentNoteIdx].title = editor.value.split('\n')[0].replace(/^#+\s*/, '').substring(0, 36) || 'Note';
-  notes[currentNoteIdx].date = new Date().toLocaleDateString('fr');
-  localStorage.setItem('mia-notes', JSON.stringify(notes));
-  renderNotes();
-  const st = document.getElementById('note-save-status');
-  if (st) { st.textContent = 'Sauvegardé ✓'; setTimeout(() => st.textContent = 'Auto-save ✓', 1500); }
-}
-function deleteNote() {
-  if (currentNoteIdx < 0 || !confirm('Supprimer cette note ?')) return;
-  notes.splice(currentNoteIdx, 1); currentNoteIdx = Math.max(0, currentNoteIdx - 1);
-  localStorage.setItem('mia-notes', JSON.stringify(notes));
-  renderNotes();
-  const editor = document.getElementById('note-editor');
-  if (editor) editor.value = notes[currentNoteIdx]?.body || '';
-}
-function noteFormat(pre, suf) {
-  const ed = document.getElementById('note-editor');
-  if (!ed) return;
-  const s = ed.selectionStart, e = ed.selectionEnd, sel = ed.value.substring(s, e);
-  ed.value = ed.value.substring(0, s) + pre + sel + suf + ed.value.substring(e);
-  ed.selectionStart = s + pre.length; ed.selectionEnd = e + pre.length;
-  saveCurrentNote();
-}
-
-// ─── DNA ───────────────────────────────────────
-let dnaData = JSON.parse(localStorage.getItem('mia-dna') || JSON.stringify([
-  { id:1, title:'Avocat du diable', body:'Tu es un avocat du diable expert...', stars:3, uses:247, children:[{id:2,title:'Version Débat',body:'Adapté pour le débat oral...',stars:1,uses:34,children:[]},{id:3,title:'Version Tech',body:'Focus sur les failles techniques...',stars:2,uses:56,children:[]}] },
-  { id:4, title:'Code Review Expert', body:'Tu es un senior dev 15 ans...', stars:2, uses:189, children:[{id:5,title:'Version Python',body:'Spécialisé Python/Django...',stars:1,uses:78,children:[]}] },
-  { id:6, title:'Socrate IA', body:'Tu es Socrate...', stars:1, uses:134, children:[] }
-]));
-let currentDnaId = null;
-function renderDnaTree() {
-  const el = document.getElementById('dna-nodes');
-  if (!el) return;
-  function renderNode(n, depth) {
-    let html = `<${depth > 0 ? 'div class="dna-child"' : 'div'}><button class="dna-node ${n.id === currentDnaId ? 'on' : ''}" onclick="selectDna(${n.id})">${n.title}<span class="dna-star">★${n.stars}</span></button>`;
-    if (n.children) n.children.forEach(c => html += renderNode(c, depth + 1));
-    return html + '</div>';
-  }
-  el.innerHTML = dnaData.map(n => renderNode(n, 0)).join('');
-}
-function findDna(id, nodes) {
-  for (const n of nodes) {
-    if (n.id === id) return n;
-    const f = findDna(id, n.children || []);
-    if (f) return f;
-  }
-  return null;
-}
-function selectDna(id) {
-  currentDnaId = id;
-  const n = findDna(id, dnaData);
-  if (!n) return;
-  const el = document.getElementById('dna-main');
-  if (el) el.innerHTML = `<div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;margin-bottom:14px;background:linear-gradient(135deg,var(--tx),rgba(200,180,255,.8));-webkit-background-clip:text;-webkit-text-fill-color:transparent">${n.title}</div><div class="dna-kpis"><div class="dna-kpi"><span class="dna-kpi-n">★ ${n.stars}</span><span class="dna-kpi-l">Stars</span></div><div class="dna-kpi"><span class="dna-kpi-n">${n.uses}</span><span class="dna-kpi-l">Usages</span></div><div class="dna-kpi"><span class="dna-kpi-n">${(n.children||[]).length}</span><span class="dna-kpi-l">Variantes</span></div></div><div class="dna-box">${n.body}<button class="dna-copy" onclick="navigator.clipboard.writeText('${n.body.replace(/'/g,"\\'")}');showToast('✅ Copié!')">Copier</button></div><div class="dna-btns"><button class="dna-btn" style="border-color:rgba(255,183,0,.3);color:var(--gold)" onclick="starDna(${id})">★ Star</button><button class="dna-btn" style="border-color:rgba(0,255,136,.3);color:var(--green)" onclick="document.getElementById('chat-inp').value='${n.body.substring(0,80).replace(/'/g,"\\'")}';nav('chat')">▶ Utiliser</button></div>`;
-  renderDnaTree();
-}
-function starDna(id) { const n = findDna(id, dnaData); if (n) { n.stars++; localStorage.setItem('mia-dna', JSON.stringify(dnaData)); renderDnaTree(); selectDna(id); } }
-function dnaAdd() { const title = prompt('Titre du prompt racine ?'); if (!title) return; dnaData.unshift({ id: Date.now(), title, body: 'Nouveau prompt…', stars:0, uses:0, children:[] }); localStorage.setItem('mia-dna', JSON.stringify(dnaData)); renderDnaTree(); }
-
-// ─── RÉDACTION ─────────────────────────────────
-let redaType = 'article';
-const redaPrompts = {
-  article:'Rédige un article de blog professionnel et engageant (600-800 mots) sur ce sujet/texte. Structure : accroche forte, 3 parties, conclusion mémorable.',
-  email:'Rédige un email professionnel clair et percutant. Objet accrocheur, corps structuré, call-to-action final.',
-  linkedin:'Rédige un post LinkedIn viral (300 mots). Hook puissant, valeur ajoutée, storytelling, hashtags pertinents.',
-  twitter:'Rédige un thread Twitter de 8 tweets sur ce sujet. Premier tweet accrocheur, développement logique, dernier tweet memorable.',
-  rapport:'Rédige un rapport exécutif structuré. Résumé, contexte, analyse, recommandations, prochaines étapes.',
-  resume:'Rédige un résumé exécutif en 5 points clés. Synthétique, orienté décision, clair pour un dirigeant.'
-};
-function setRedaType(type, el) {
-  redaType = type;
-  const labels = { article:'✏ Rédiger un article', email:'✉ Email professionnel', linkedin:'👔 Post LinkedIn', twitter:'🐦 Thread Twitter', rapport:'📄 Rapport', resume:'📋 Résumé exécutif' };
-  const title = document.getElementById('reda-title');
-  if (title) title.textContent = labels[type] || type;
-  document.querySelectorAll('#p-redaction .note-item').forEach(i => i.classList.remove('on'));
-  if (el) el.classList.add('on');
-}
-async function genRedaction() {
-  const src = document.getElementById('reda-src')?.value.trim();
-  const result = document.getElementById('reda-result');
-  if (!result) return;
-  result.innerHTML = '<span class="streaming">Génération en cours…</span>';
-  const resp = await callIA('groq', [{ role: 'system', content: redaPrompts[redaType] || redaPrompts.article }, { role: 'user', content: src || 'Génère un exemple sur l\'intelligence artificielle.' }]);
-  result.innerHTML = resp.replace(/\n/g, '<br>');
-}
-
-// ─── TRADUCTEUR ────────────────────────────────
-async function translateText() {
-  const src = document.getElementById('trad-src')?.value.trim();
-  const from = document.getElementById('trad-from')?.value;
-  const to = document.getElementById('trad-to')?.value;
-  const result = document.getElementById('trad-result');
-  if (!src || !result) return;
-  result.innerHTML = '<span class="streaming">Traduction…</span>';
-  const prompt = `Traduis ce texte du ${from} vers le ${to}. Préserve le style, le ton et les nuances. Donne uniquement la traduction, sans commentaires.\n\nTexte : ${src}`;
-  const resp = await callIA('groq', [{ role: 'user', content: prompt }]);
-  result.innerHTML = resp.replace(/\n/g, '<br>');
-}
-
-// ─── RECHERCHE ─────────────────────────────────
-async function doSearch() {
-  const q = document.getElementById('rech-inp')?.value.trim();
-  const el = document.getElementById('rech-result');
-  if (!q || !el) return;
-  el.innerHTML = '<div style="padding:40px;text-align:center"><span class="streaming">Recherche en cours…</span></div>';
-  const prompt = `Tu es un expert en recherche. Réponds à cette question de façon exhaustive:\n\n"${q}"\n\nStructure : réponse directe, contexte, sources/références si pertinentes, points clés à retenir.`;
-  const resp = await callIA('groq', [{ role: 'user', content: prompt }]);
-  el.innerHTML = `<div class="card" style="margin:20px"><div class="c-title" style="margin-bottom:12px;color:var(--cyan)">⌕ ${q}</div><div style="font-size:13px;line-height:1.9;color:rgba(200,190,240,.9)">${resp.replace(/\n/g,'<br>')}</div></div>`;
-}
-
-// ─── WEB IA ────────────────────────────────────
-function openIA(url) { window.open(url, '_blank'); }
-
-// ─── FLASH ─────────────────────────────────────
-const FLASH_DATA = [
-  { q:'Quelle architecture est à la base de GPT ?', choices:['CNN','RNN','Transformer','LSTM'], correct:2 },
-  { q:'Que signifie RLHF ?', choices:['Reinforcement Learning from Human Feedback','Recursive Learning via Hierarchical Features','Random Learning for Helpful Frameworks','Reinforced Large-scale Human Fine-tuning'], correct:0 },
-  { q:'Combien de paramètres possède GPT-4 (estimation) ?', choices:['7 milliards','70 milliards','1 trilliard','170+ milliards'], correct:3 },
-  { q:'Qu\'est-ce que le "temperature" dans un LLM ?', choices:['Chaleur du processeur','Paramètre de créativité/aléatoire','Taille du contexte','Vitesse de génération'], correct:1 },
-  { q:'Qu\'est-ce que RAG ?', choices:['Rapid AI Generation','Retrieval Augmented Generation','Recursive Attention Gradient','Random Activation Gating'], correct:1 },
-  { q:'Quel est le rôle du "context window" ?', choices:['Fenêtre d\'affichage','Nombre de tokens mémorisés','Temps de réponse max','Taille du modèle'], correct:1 },
-  { q:'Que fait le "prompt engineering" ?', choices:['Programme le modèle','Optimise les instructions pour guider l\'IA','Entraîne le modèle','Mesure les performances'], correct:1 },
-  { q:'Qu\'est-ce que le fine-tuning ?', choices:['Ajustement du prompt','Entraînement complémentaire sur données spécifiques','Compression du modèle','Évaluation des biais'], correct:1 },
-  { q:'LLM signifie :', choices:['Large Language Model','Low Latency Machine','Layered Learning Method','Linear Logic Module'], correct:0 },
-  { q:'Quel est l\'avantage principal de Groq ?', choices:['Meilleure qualité','Vitesse de génération ultra-rapide','Gratuit illimité','Multimodal'], correct:1 }
-];
-let flashIdx = 0, flashScore = 0, flashAnswered = [];
-function renderFlash() {
-  const q = FLASH_DATA[flashIdx];
-  const prog = document.getElementById('flash-prog');
-  const num = document.getElementById('flash-num');
-  const qEl = document.getElementById('flash-q');
-  const choices = document.getElementById('flash-choices');
-  const score = document.getElementById('flash-score');
-  if (!q || !choices) return;
-  if (prog) prog.innerHTML = FLASH_DATA.map((_,i) => `<div class="fp ${i < flashIdx ? 'done' : i === flashIdx ? 'cur' : ''}"></div>`).join('');
-  if (num) num.textContent = `QUESTION ${flashIdx + 1}/${FLASH_DATA.length}`;
-  if (qEl) qEl.textContent = q.q;
-  if (score) score.textContent = `Score: ${flashScore}/${flashAnswered.length}`;
-  choices.innerHTML = q.choices.map((c, i) => {
-    let cls = 'flash-c';
-    if (flashAnswered[flashIdx] !== undefined) { if (i === q.correct) cls += ' ok'; else if (i === flashAnswered[flashIdx]) cls += ' ko'; }
-    return `<button class="${cls}" onclick="flashAnswer(${i})">${c}</button>`;
-  }).join('');
-}
-function flashAnswer(i) {
-  if (flashAnswered[flashIdx] !== undefined) return;
-  flashAnswered[flashIdx] = i;
-  if (i === FLASH_DATA[flashIdx].correct) flashScore++;
-  renderFlash();
-}
-function flashNext() { if (flashIdx < FLASH_DATA.length - 1) { flashIdx++; renderFlash(); } else showToast(`🎉 Score final: ${flashScore}/${FLASH_DATA.length}`); }
-function flashPrev() { if (flashIdx > 0) { flashIdx--; renderFlash(); } }
-
-// ─── GLOSSAIRE ─────────────────────────────────
-const GLOSSAIRE_DATA = [
-  { t:'Transformer', d:'Architecture de réseau de neurones basée sur l\'attention (2017, "Attention is All You Need"). Base de tous les LLMs modernes.', cat:'Architecture' },
-  { t:'LLM', d:'Large Language Model — modèle IA entraîné sur d\'enormes corpus textuels pour générer et comprendre du langage naturel.', cat:'Modèle' },
-  { t:'Token', d:'Unité de base du texte pour un LLM. Peut être un mot, une partie de mot ou un symbole. GPT-4 traite ~100k tokens max.', cat:'Technique' },
-  { t:'Prompt Engineering', d:'Art d\'écrire des instructions précises pour guider un LLM vers la réponse souhaitée. Discipline à part entière.', cat:'Pratique' },
-  { t:'RAG', d:'Retrieval Augmented Generation — combine un LLM avec une base documentaire pour répondre sur des données fraîches.', cat:'Technique' },
-  { t:'Fine-tuning', d:'Entraînement complémentaire d\'un modèle pré-entraîné sur un dataset spécifique pour spécialiser ses réponses.', cat:'Entraînement' },
-  { t:'Temperature', d:'Paramètre (0-2) contrôlant l\'aléatoire des réponses. 0 = déterministe, 1 = créatif, >1 = très aléatoire.', cat:'Paramètre' },
-  { t:'Context Window', d:'Nombre maximum de tokens qu\'un LLM peut traiter en une fois. Gemini 1.5 Pro : 1M tokens, GPT-4 : 128k.', cat:'Paramètre' },
-  { t:'RLHF', d:'Reinforcement Learning from Human Feedback — technique pour aligner les LLMs sur les préférences humaines.', cat:'Entraînement' },
-  { t:'Hallucination', d:'Tendance d\'un LLM à générer des informations plausibles mais fausses, avec confiance. Principal défi actuel.', cat:'Problème' },
-  { t:'Embeddings', d:'Représentation vectorielle du texte permettant de mesurer la similarité sémantique entre concepts.', cat:'Technique' },
-  { t:'Chain of Thought', d:'Technique de prompting qui demande à l\'IA de raisonner étape par étape avant de répondre.', cat:'Pratique' },
-  { t:'Agent IA', d:'LLM augmenté d\'outils (web, code, fichiers) qui peut planifier et exécuter des tâches multi-étapes de façon autonome.', cat:'Architecture' },
-  { t:'MoE', d:'Mixture of Experts — architecture où différents "experts" spécialisés traitent chaque token, réduisant les coûts.', cat:'Architecture' },
-  { t:'VRAM', d:'Mémoire GPU requise pour exécuter un modèle. Llama 3 70B : ~40GB, GPT-4 : >1TB (estimation).', cat:'Hardware' }
-];
-function filterGloss(q) {
-  const el = document.getElementById('gloss-list');
-  if (!el) return;
-  const filtered = q ? GLOSSAIRE_DATA.filter(g => g.t.toLowerCase().includes(q.toLowerCase()) || g.d.toLowerCase().includes(q.toLowerCase())) : GLOSSAIRE_DATA;
-  el.innerHTML = filtered.map(g => `<div class="prompt-item" style="margin:0 24px 10px"><div class="pi-top"><span class="badge bg-ac">${g.cat}</span><div class="pi-title">${g.t}</div></div><div class="pi-body">${g.d}</div></div>`).join('');
-}
-
-// ─── AGENT ─────────────────────────────────────
-async function launchAgent() {
-  const mission = document.getElementById('agent-inp')?.value.trim();
-  const el = document.getElementById('agent-result');
-  if (!mission || !el) return;
-  el.innerHTML = '<div class="card"><span class="streaming">Agent en cours de planification…</span></div>';
-  const sysPrompt = `Tu es un agent IA autonome. Pour cette mission, génère:\n1. Plan d'action (3-5 étapes numérotées)\n2. Exécution simulée de chaque étape avec résultats\n3. Rapport final synthétique\n\nSois concret et précis.`;
-  const resp = await callIA('groq', [{ role: 'system', content: sysPrompt }, { role: 'user', content: 'Mission: ' + mission }]);
-  el.innerHTML = `<div class="card"><div class="c-title" style="margin-bottom:12px">🤖 Mission: ${mission.substring(0,50)}</div><div style="font-size:12px;line-height:1.8">${resp.replace(/\n/g,'<br>').replace(/(\d+\.)/g,'<strong style="color:var(--ac)">$1</strong>')}</div></div>`;
-}
-
-// ─── VOICE ─────────────────────────────────────
-function startDictation() {
-  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) { showToast('⚠ Dictée non supportée dans ce navigateur'); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const recog = new SR();
-  recog.lang = 'fr-FR'; recog.continuous = false; recog.interimResults = true;
-  recog.onresult = e => { const txt = Array.from(e.results).map(r => r[0].transcript).join(''); const el = document.getElementById('voice-text'); if (el) el.value = txt; };
-  recog.onerror = () => showToast('⚠ Erreur de dictée');
-  recog.start(); showToast('🎤 Écoute en cours…');
-}
-function speakText() {
-  const txt = document.getElementById('voice-text')?.value;
-  if (!txt) { showToast('Pas de texte à lire'); return; }
-  const utt = new SpeechSynthesisUtterance(txt);
-  utt.lang = 'fr-FR'; speechSynthesis.speak(utt);
-}
-
-// ─── BRIEF ─────────────────────────────────────
-function initBrief() {
-  const el = document.getElementById('brief-date');
-  if (el) el.textContent = new Date().toLocaleDateString('fr', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-}
-
-// ─── KEYBOARD SHORTCUTS ────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.key === 'b') { e.preventDefault(); toggleSb(); }
-  if (e.ctrlKey && e.key === 'k') { e.preventDefault(); nav('recherche'); document.getElementById('rech-inp')?.focus(); }
-});
-
-// ─── INIT ──────────────────────────────────────
-loadKeys();
-buildCols();
-renderChatHistory();
-currentChatId = chatHistory[0]?.id || Date.now();
-renderNotes();
-renderPrompts();
-renderDnaTree();
-renderFlash();
-filterGloss('');
-initBrief();
-
-// Restaurer préférences
-const pm = localStorage.getItem('mia-pref-model');
-const pl = localStorage.getItem('mia-pref-lang');
-if (pm && document.getElementById('pref-model')) document.getElementById('pref-model').value = pm;
-if (pl && document.getElementById('pref-lang')) document.getElementById('pref-lang').value = pl;
-</script>
-</body>
-</html>
-
-<script>
-// ══════════════════════════════════════════════════════
-// MULTI-IA HUB v22 — JS COMPLET
-// ══════════════════════════════════════════════════════
 
 // ── DONNÉES STATIQUES ──────────────────────────────────
 const PROMPTS_DATA = [
@@ -2184,12 +1558,33 @@ function toggleHist(){
 
 function buildCols(){
   const wrap=document.getElementById('chat-cols');
+  if(!wrap) return;
   wrap.innerHTML='';
+  const FREE_IAS=['groq','qwen3','llama4s','gemma2','poll_gpt','poll_deepseek','poll_claude'];
   activeIAs.forEach(ia=>{
     const cfg=IA_CONFIG[ia];
+    const isFree=FREE_IAS.includes(ia)||!cfg.keyField;
+    const hasKey=KEYS[cfg.keyField];
+    const statusBadge=isFree
+      ? '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(0,255,136,.1);color:#00FF88;border:1px solid rgba(0,255,136,.2);font-family:monospace">FREE</span>'
+      : hasKey
+        ? '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(157,78,255,.1);color:#9D4EFF;border:1px solid rgba(157,78,255,.2);font-family:monospace">KEY ✓</span>'
+        : '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(255,183,0,.1);color:#FFB700;border:1px solid rgba(255,183,0,.2);font-family:monospace">NO KEY</span>';
+    const modelShort=cfg.model.split('/').pop().replace(':free','').slice(0,22);
     const col=document.createElement('div');
-    col.className='col-h'; col.id='col-'+ia;
-    col.innerHTML=`<div class="col-hdr-h"><div><div class="col-name-h" style="color:${cfg.color}">${cfg.label}</div><div class="col-sub-h">${cfg.model}</div></div><div class="live-dot"></div></div><div class="msgs-h" id="msgs-${ia}"></div>`;
+    col.className='col-h';col.id='col-'+ia;
+    col.innerHTML=`
+      <div class="col-hdr-h">
+        <div style="flex:1;min-width:0">
+          <div class="col-name-h" style="color:${cfg.color}">${cfg.label}</div>
+          <div class="col-sub-h" style="overflow:hidden;text-overflow:ellipsis">${modelShort}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+          ${statusBadge}
+          <div class="live-dot"></div>
+        </div>
+      </div>
+      <div class="msgs-h" id="msgs-${ia}"></div>`;
     wrap.appendChild(col);
   });
 }
