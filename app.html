@@ -720,12 +720,23 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
     </div>
     <div class="chat-body">
       <div class="ia-bar">
-        <span class="tbl">IAs actives :</span>
+        <span class="tbl">IAs :</span>
         <button class="ia-p on" style="color:#F97316;border-color:#F97316" data-ia="groq" onclick="toggleIA(this)">⚡ Groq</button>
         <button class="ia-p on" style="color:#FF8C69;border-color:#FF8C69" data-ia="mistral" onclick="toggleIA(this)">▲ Mistral</button>
-        <button class="ia-p on" style="color:#A0C8FF;border-color:#A0C8FF" data-ia="deepseek" onclick="toggleIA(this)">○ DeepSeek</button>
-        <button class="ia-p on" style="color:#06B6D4;border-color:#06B6D4" data-ia="cohere" onclick="toggleIA(this)">⬡ Cohere</button>
-        <button class="ia-p on" style="color:#76B900;border-color:#76B900" data-ia="openrouter" onclick="toggleIA(this)">⊛ OpenRouter</button>
+        <button class="ia-p on" style="color:#39D353;border-color:#39D353" data-ia="cohere" onclick="toggleIA(this)">⬡ Cohere</button>
+        <button class="ia-p on" style="color:#A78BFA;border-color:#A78BFA" data-ia="cerebras" onclick="toggleIA(this)">✦ Cerebras</button>
+        <button class="ia-p on" style="color:#34D399;border-color:#34D399" data-ia="sambanova" onclick="toggleIA(this)">⬟ SambaNova</button>
+        <button class="ia-p on" style="color:#C084FC;border-color:#C084FC" data-ia="qwen3" onclick="toggleIA(this)">◈ Qwen3</button>
+        <button class="ia-p on" style="color:#06B6D4;border-color:#06B6D4" data-ia="minimax_m27" onclick="toggleIA(this)">◉ M2.7</button>
+        <button class="ia-p on" style="color:#0891B2;border-color:#0891B2" data-ia="minimax_m25" onclick="toggleIA(this)">◎ M2.5</button>
+        <button class="ia-p on" style="color:#76B900;border-color:#76B900" data-ia="nemotron3" onclick="toggleIA(this)">⊛ Nemotron</button>
+        <button class="ia-p on" style="color:#FF6B35;border-color:#FF6B35" data-ia="llama4s" onclick="toggleIA(this)">🦙 L4 Scout</button>
+        <button class="ia-p on" style="color:#34D399;border-color:#34D399" data-ia="gemma2" onclick="toggleIA(this)">⚡ L3.1-8B</button>
+        <button class="ia-p on" style="color:#74C98C;border-color:#74C98C" data-ia="poll_gpt" onclick="toggleIA(this)">◆ GPT-4o</button>
+        <button class="ia-p on" style="color:#D4A853;border-color:#D4A853" data-ia="poll_claude" onclick="toggleIA(this)">◇ Claude P.</button>
+        <button class="ia-p on" style="color:#A0C8FF;border-color:#A0C8FF" data-ia="poll_deepseek" onclick="toggleIA(this)">○ DeepSeek P.</button>
+        <button class="ia-p on" style="color:#FF6B35;border-color:#FF6B35" data-ia="llama4m" onclick="toggleIA(this)">⊕ Llama 3.3</button>
+        <button class="ia-p on" style="color:#76C442;border-color:#76C442" data-ia="qwen3_235b" onclick="toggleIA(this)">⊙ Nemotron-S</button>
       </div>
       <div class="cols-h" id="chat-cols"></div>
       <div class="chat-foot">
@@ -1273,11 +1284,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
     <p style="font-size:12px;color:var(--mu);margin-bottom:4px">Clés API enregistrées localement dans le navigateur (localStorage).</p>
     <div class="cfg-section">
       <div class="cfg-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--ac)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Clés API</div>
-      <div class="cfg-row"><span class="cfg-lbl">⚡ Groq</span><input class="cfg-inp" id="key-groq" type="password" placeholder="gsk_…"><span class="cfg-status cfg-no" id="st-groq">Non configuré</span></div>
+      <div class="cfg-row"><span class="cfg-lbl">⚡ Groq (groq_inf)</span><input class="cfg-inp" id="key-groq_inf" type="password" placeholder="gsk_…"><span class="cfg-status cfg-no" id="st-groq_inf">Non configuré</span></div>
       <div class="cfg-row"><span class="cfg-lbl">▲ Mistral</span><input class="cfg-inp" id="key-mistral" type="password" placeholder="•••"><span class="cfg-status cfg-no" id="st-mistral">Non configuré</span></div>
-      <div class="cfg-row"><span class="cfg-lbl">○ DeepSeek</span><input class="cfg-inp" id="key-deepseek" type="password" placeholder="sk-…"><span class="cfg-status cfg-no" id="st-deepseek">Non configuré</span></div>
       <div class="cfg-row"><span class="cfg-lbl">⬡ Cohere</span><input class="cfg-inp" id="key-cohere" type="password" placeholder="•••"><span class="cfg-status cfg-no" id="st-cohere">Non configuré</span></div>
+      <div class="cfg-row"><span class="cfg-lbl">✦ Cerebras</span><input class="cfg-inp" id="key-cerebras" type="password" placeholder="•••"><span class="cfg-status cfg-no" id="st-cerebras">Non configuré</span></div>
+      <div class="cfg-row"><span class="cfg-lbl">⬟ SambaNova</span><input class="cfg-inp" id="key-sambanova" type="password" placeholder="•••"><span class="cfg-status cfg-no" id="st-sambanova">Non configuré</span></div>
       <div class="cfg-row"><span class="cfg-lbl">⊛ OpenRouter</span><input class="cfg-inp" id="key-openrouter" type="password" placeholder="sk-or-…"><span class="cfg-status cfg-no" id="st-openrouter">Non configuré</span></div>
+      <div class="cfg-row"><span class="cfg-lbl">◉ Ollama Cloud</span><input class="cfg-inp" id="key-ollama_cloud" type="password" placeholder="ollama_…"><span class="cfg-status cfg-no" id="st-ollama_cloud">Non configuré</span></div>
+      <div class="cfg-row"><span class="cfg-lbl">◆ Pollinations (pollen)</span><input class="cfg-inp" id="key-pollen" type="password" placeholder="enter.pollinations.ai"><span class="cfg-status cfg-no" id="st-pollen">Non configuré</span></div>
       <button class="btn-main" style="margin-top:14px" onclick="saveAllKeys()">💾 Sauvegarder les clés</button>
     </div>
     <div class="cfg-section">
@@ -2007,7 +2021,7 @@ let notes = [];
 let currentNote = -1;
 let chatHistory = [];
 let currentChat = { id: Date.now(), title: 'Nouvelle conversation', messages: [] };
-let activeIAs = ['groq','mistral','deepseek','cohere','openrouter'];
+let activeIAs = ['groq','mistral','cohere','cerebras','sambanova','qwen3','minimax_m27','minimax_m25','nemotron3','llama4s','gemma2','poll_gpt','poll_claude','poll_deepseek','llama4m','qwen3_235b'];
 let flashIdx = 0, flashScore = 0, flashAnswered = false;
 let redaType = 'article';
 let dnaData = [
@@ -2073,11 +2087,22 @@ function showToast(msg, dur=2600){
 
 // ── CHAT FONCTIONNEL ───────────────────────────────────
 const IA_CONFIG = {
-  groq:     {label:'⚡ Groq',    color:'#F97316', url:'https://api.groq.com/openai/v1/chat/completions',  model:'llama-3.3-70b-versatile', keyField:'groq'},
-  mistral:  {label:'▲ Mistral', color:'#FF8C69', url:'https://api.mistral.ai/v1/chat/completions',       model:'mistral-small-latest',     keyField:'mistral'},
-  deepseek: {label:'○ DeepSeek',color:'#A0C8FF', url:'https://api.deepseek.com/v1/chat/completions',    model:'deepseek-chat',             keyField:'deepseek'},
-  cohere:   {label:'⬡ Cohere',  color:'#06B6D4', url:'https://api.cohere.ai/v2/chat',                   model:'command-r-plus',            keyField:'cohere'},
-  openrouter:{label:'⊛ OpenRouter',color:'#76B900',url:'https://openrouter.ai/api/v1/chat/completions',model:'nvidia/llama-3.1-nemotron-70b-instruct',keyField:'openrouter'},
+  groq:        {label:'⚡ Groq',        color:'#F97316', apiType:'compat',   baseUrl:'https://api.groq.com/openai/v1',         model:'llama-3.3-70b-versatile',                          keyField:'groq_inf'},
+  mistral:     {label:'▲ Mistral',      color:'#FF8C69', apiType:'compat',   baseUrl:'https://api.mistral.ai/v1',              model:'mistral-small-latest',                             keyField:'mistral'},
+  cohere:      {label:'⬡ Cohere',       color:'#39D353', apiType:'cohere',   baseUrl:'https://api.cohere.ai/v2',               model:'command-r-plus-08-2024',                           keyField:'cohere'},
+  cerebras:    {label:'✦ Cerebras',     color:'#A78BFA', apiType:'compat',   baseUrl:'https://api.cerebras.ai/v1',             model:'llama3.1-8b',                                      keyField:'cerebras'},
+  sambanova:   {label:'⬟ SambaNova',    color:'#34D399', apiType:'compat',   baseUrl:'https://api.sambanova.ai/v1',            model:'Meta-Llama-3.3-70B-Instruct',                     keyField:'sambanova'},
+  qwen3:       {label:'◈ Qwen3',        color:'#C084FC', apiType:'compat',   baseUrl:'https://api.groq.com/openai/v1',         model:'qwen/qwen3-32b',                                   keyField:'groq_inf'},
+  minimax_m27: {label:'◉ MiniMax M2.7', color:'#06B6D4', apiType:'ollama',   baseUrl:'https://ollama.com',                     model:'minimax-m2.7:cloud',                               keyField:'ollama_cloud'},
+  minimax_m25: {label:'◎ MiniMax M2.5', color:'#0891B2', apiType:'ollama',   baseUrl:'https://ollama.com',                     model:'minimax-m2.5:cloud',                               keyField:'ollama_cloud'},
+  nemotron3:   {label:'⊛ Nemotron',     color:'#76B900', apiType:'compat',   baseUrl:'https://openrouter.ai/api/v1',           model:'nvidia/nemotron-3-super-120b-a12b:free',           keyField:'openrouter'},
+  llama4s:     {label:'🦙 Llama 4 Scout',color:'#FF6B35',apiType:'compat',   baseUrl:'https://api.groq.com/openai/v1',         model:'meta-llama/llama-4-scout-17b-16e-instruct',        keyField:'groq_inf'},
+  gemma2:      {label:'⚡ L3.1-8B',      color:'#34D399', apiType:'compat',   baseUrl:'https://api.groq.com/openai/v1',         model:'llama-3.1-8b-instant',                             keyField:'groq_inf'},
+  poll_gpt:    {label:'◆ GPT-4o',        color:'#74C98C', apiType:'pollinations', baseUrl:'https://text.pollinations.ai',       model:'openai',                                           keyField:'pollen'},
+  poll_claude: {label:'◇ Claude P.',     color:'#D4A853', apiType:'pollinations', baseUrl:'https://text.pollinations.ai',       model:'claude-airforce',                                  keyField:'pollen'},
+  poll_deepseek:{label:'○ DeepSeek P.',  color:'#A0C8FF', apiType:'pollinations', baseUrl:'https://text.pollinations.ai',       model:'deepseek',                                         keyField:'pollen'},
+  llama4m:     {label:'⊕ Llama 3.3 OR', color:'#FF6B35', apiType:'compat',   baseUrl:'https://openrouter.ai/api/v1',           model:'meta-llama/llama-3.3-70b-instruct:free',           keyField:'openrouter'},
+  qwen3_235b:  {label:'⊙ Nemotron-S',   color:'#76C442', apiType:'compat',   baseUrl:'https://openrouter.ai/api/v1',           model:'nvidia/nemotron-3-super-120b-a12b:free',           keyField:'openrouter'},
 };
 
 function toggleIA(btn){
@@ -2134,35 +2159,51 @@ async function sendMsg(){
 
 async function callIA(iaId, msg){
   const cfg=IA_CONFIG[iaId];
-  const key=KEYS[cfg.keyField];
-  if(!key){addMsg(iaId,'ai','⚠ Clé API manquante. Va dans Config pour la renseigner.');return;}
+  const key=KEYS[cfg.keyField]||'';
   const placeholder=addMsg(iaId,'ai','…');
   placeholder.classList.add('streaming');
+  const sysContent='Tu es un assistant IA utile et concis. Réponds en '+(PREFS.lang==='fr'?'français':'anglais')+'.';
+  const msgs=[...currentChat.messages.slice(-6)];
   try{
-    const messages=[
-      {role:'system',content:'Tu es un assistant IA utile et concis. Réponds en '+( PREFS.lang==='fr'?'français':'anglais')+'.'},
-      ...currentChat.messages.slice(-6),
-    ];
-    let body, headers={};
-    if(iaId==='cohere'){
-      body=JSON.stringify({model:cfg.model,messages});
-      headers={'Content-Type':'application/json','Authorization':'Bearer '+key};
-    } else {
-      body=JSON.stringify({model:cfg.model,messages,max_tokens:1024});
-      headers={'Content-Type':'application/json','Authorization':'Bearer '+key};
-    }
-    const r=await fetch(cfg.url,{method:'POST',headers,body});
-    const d=await r.json();
     let reply='';
-    if(d.choices&&d.choices[0]) reply=d.choices[0].message?.content||d.choices[0].text||JSON.stringify(d);
-    else if(d.message&&d.message.content) reply=d.message.content[0]?.text||JSON.stringify(d);
-    else if(d.error) reply='❌ '+( d.error.message||JSON.stringify(d.error));
-    else reply=JSON.stringify(d).slice(0,300);
+    // ── Pollinations (gratuit, no key needed) ──
+    if(cfg.apiType==='pollinations'){
+      const prompt=sysContent+'\n\n'+msg;
+      const url=`${cfg.baseUrl}/${encodeURIComponent(prompt)}?model=${cfg.model}&seed=42&json=false`;
+      const r=await fetch(url);
+      reply=await r.text();
+    }
+    // ── Ollama Cloud ──
+    else if(cfg.apiType==='ollama'){
+      if(!key){reply='⚠ Clé Ollama manquante → ollama.com/settings/tokens';throw new Error(reply);}
+      const r=await fetch('https://ollama.com/api/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:cfg.model,messages:[{role:'system',content:sysContent},...msgs],stream:false})});
+      const d=await r.json();
+      reply=d.message?.content||d.error||JSON.stringify(d);
+    }
+    // ── Cohere ──
+    else if(cfg.apiType==='cohere'){
+      if(!key){reply='⚠ Clé Cohere manquante → dashboard.cohere.com';throw new Error(reply);}
+      const cohHist=msgs.slice(0,-1).map(m=>({role:m.role==='assistant'?'CHATBOT':'USER',message:m.content}));
+      const r=await fetch('https://api.cohere.ai/v2/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:cfg.model,messages:[{role:'system',content:sysContent},...msgs],max_tokens:1024})});
+      const d=await r.json();
+      reply=d.message?.content?.[0]?.text||d.choices?.[0]?.message?.content||d.text||d.error?.message||JSON.stringify(d);
+    }
+    // ── OpenAI-compat (Groq, Mistral, Cerebras, SambaNova, OpenRouter) ──
+    else{
+      const needsKey=['mistral','cerebras','sambanova'].includes(cfg.keyField)||cfg.keyField==='openrouter';
+      if(needsKey&&!key){reply='⚠ Clé '+cfg.keyField+' manquante → Config';throw new Error(reply);}
+      const headers={'Content-Type':'application/json'};
+      if(key) headers['Authorization']='Bearer '+key;
+      if(cfg.keyField==='openrouter') headers['HTTP-Referer']='https://multiia-hub.vercel.app';
+      const r=await fetch(cfg.baseUrl+'/chat/completions',{method:'POST',headers,body:JSON.stringify({model:cfg.model,messages:[{role:'system',content:sysContent},...msgs],max_tokens:1024})});
+      const d=await r.json();
+      reply=d.choices?.[0]?.message?.content||d.error?.message||JSON.stringify(d).slice(0,300);
+    }
     placeholder.textContent=reply;
     placeholder.classList.remove('streaming');
     currentChat.messages.push({role:'assistant',content:reply,ia:iaId});
   }catch(e){
-    placeholder.textContent='❌ Erreur réseau : '+e.message;
+    if(!placeholder.textContent||placeholder.textContent==='…') placeholder.textContent='❌ '+e.message;
     placeholder.classList.remove('streaming');
   }
 }
@@ -2648,7 +2689,7 @@ function loadKeys(){
   }
 }
 function saveAllKeys(){
-  ['groq','mistral','deepseek','cohere','openrouter'].forEach(k=>{
+  ['groq_inf','mistral','cohere','cerebras','sambanova','openrouter','ollama_cloud','pollen'].forEach(k=>{
     const val=document.getElementById('key-'+k)?.value?.trim();
     if(val){KEYS[k]=val;const st=document.getElementById('st-'+k);if(st){st.textContent='✓ Configuré';st.className='cfg-status cfg-ok';}}
   });
