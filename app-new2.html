@@ -723,9 +723,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
         <span class="tbl">IAs actives :</span>
         <button class="ia-p on" style="color:#F97316;border-color:#F97316" data-ia="groq" onclick="toggleIA(this)">⚡ Groq</button>
         <button class="ia-p on" style="color:#FF8C69;border-color:#FF8C69" data-ia="mistral" onclick="toggleIA(this)">▲ Mistral</button>
-        <button class="ia-p" style="color:#A0C8FF;border-color:#A0C8FF" data-ia="deepseek" onclick="toggleIA(this)">○ DeepSeek</button>
-        <button class="ia-p" style="color:#06B6D4;border-color:#06B6D4" data-ia="cohere" onclick="toggleIA(this)">⬡ Cohere</button>
-        <button class="ia-p" style="color:#76B900;border-color:#76B900" data-ia="openrouter" onclick="toggleIA(this)">⊛ OpenRouter</button>
+        <button class="ia-p on" style="color:#A0C8FF;border-color:#A0C8FF" data-ia="deepseek" onclick="toggleIA(this)">○ DeepSeek</button>
+        <button class="ia-p on" style="color:#06B6D4;border-color:#06B6D4" data-ia="cohere" onclick="toggleIA(this)">⬡ Cohere</button>
+        <button class="ia-p on" style="color:#76B900;border-color:#76B900" data-ia="openrouter" onclick="toggleIA(this)">⊛ OpenRouter</button>
       </div>
       <div class="cols-h" id="chat-cols"></div>
       <div class="chat-foot">
@@ -2007,7 +2007,7 @@ let notes = [];
 let currentNote = -1;
 let chatHistory = [];
 let currentChat = { id: Date.now(), title: 'Nouvelle conversation', messages: [] };
-let activeIAs = ['groq','mistral'];
+let activeIAs = ['groq','mistral','deepseek','cohere','openrouter'];
 let flashIdx = 0, flashScore = 0, flashAnswered = false;
 let redaType = 'article';
 let dnaData = [
