@@ -31,10 +31,21 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .tb-ico{width:32px;height:32px;border-radius:7px;background:transparent;border:1px solid var(--bd);color:var(--mu);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
 .tb-ico:hover{border-color:var(--bd2);color:var(--tx)}
 .tb-btn{padding:8px 16px;border-radius:8px;font-size:11px;font-weight:600;background:linear-gradient(135deg,var(--ac2),var(--pink));color:#fff;border:none;cursor:pointer;box-shadow:0 0 16px rgba(123,47,255,.25);white-space:nowrap}
-.sb-toggle{width:32px;height:32px;border-radius:7px;background:rgba(157,78,255,.08);border:1px solid rgba(157,78,255,.2);color:var(--ac);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
-.sb-toggle:hover{background:rgba(157,78,255,.16)}
-.sb-toggle svg{transition:transform .3s}
-.app.sb-closed .sb-toggle svg{transform:rotate(180deg)}
+/* SIDEBAR TOGGLE BUTTON — explicite */
+.sb-toggle{
+  height:34px;padding:0 12px;border-radius:8px;
+  background:rgba(157,78,255,.1);border:1px solid rgba(157,78,255,.25);
+  color:var(--ac);cursor:pointer;display:flex;align-items:center;gap:7px;
+  transition:all .2s;flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;
+  white-space:nowrap;
+}
+.sb-toggle:hover{background:rgba(157,78,255,.2);border-color:var(--ac);box-shadow:0 0 10px rgba(157,78,255,.2)}
+.sb-toggle .sb-ico{transition:transform .3s;font-size:13px}
+.app.sb-closed .sb-toggle .sb-ico{transform:rotate(180deg)}
+.sb-toggle .sb-lbl-open{display:inline}
+.sb-toggle .sb-lbl-closed{display:none}
+.app.sb-closed .sb-toggle .sb-lbl-open{display:none}
+.app.sb-closed .sb-toggle .sb-lbl-closed{display:inline}
 </style>
 
 <style>
@@ -111,11 +122,19 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 
 <style>
 /* CHAT */
+/* CHAT HIST SIDEBAR indépendante */
 .chat-wrap{display:flex;flex:1;overflow:hidden}
-.chat-hist{width:190px;flex-shrink:0;border-right:1px solid var(--bd);background:rgba(5,3,10,.55);display:flex;flex-direction:column}
-.ch-hdr{padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px}
-.ch-t{font-family:'Syne',sans-serif;font-weight:700;font-size:12px;flex:1}
-.ch-new{background:rgba(157,78,255,.12);border:1px solid rgba(157,78,255,.28);border-radius:6px;color:var(--ac);font-size:9px;font-weight:700;cursor:pointer;padding:3px 8px;font-family:'IBM Plex Mono',monospace}
+.chat-hist{
+  width:210px;flex-shrink:0;border-right:1px solid var(--bd);
+  background:rgba(5,3,10,.55);display:flex;flex-direction:column;
+  transition:width .25s cubic-bezier(.4,0,.2,1);overflow:hidden;
+}
+.chat-hist.hist-closed{width:0;border-right:none}
+.ch-hdr{padding:10px 12px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ch-t{font-family:'Syne',sans-serif;font-weight:700;font-size:12px;flex:1;white-space:nowrap}
+.ch-new{background:rgba(157,78,255,.12);border:1px solid rgba(157,78,255,.28);border-radius:6px;color:var(--ac);font-size:9px;font-weight:700;cursor:pointer;padding:3px 8px;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.ch-toggle{width:22px;height:22px;border-radius:5px;background:rgba(157,78,255,.1);border:1px solid rgba(157,78,255,.2);color:var(--ac);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.ch-toggle:hover{background:rgba(157,78,255,.2)}
 .ch-item{padding:10px 14px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s}
 .ch-item:hover{background:rgba(157,78,255,.04)}
 .ch-item.on{background:rgba(157,78,255,.09);border-left:2px solid var(--ac)}
@@ -126,9 +145,29 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .tbl{font-size:8px;color:var(--ac);font-weight:700;letter-spacing:2px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase}
 .ia-p{display:flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;border:1px solid;font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;background:transparent;white-space:nowrap;transition:all .2s}
 .ia-p.on{box-shadow:0 0 9px currentColor}
-.cols-h{flex:1;display:flex;overflow-x:auto;scrollbar-width:thin}
-.col-h{min-width:300px;flex:1;display:flex;flex-direction:column;border-right:1px solid var(--bd)}
-.col-h:last-child{border-right:none}
+/* GRILLE IAs HORIZONTALE — cards en grid, scroll vertical */
+.cols-grid{
+  flex:1;overflow-y:auto;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:0;
+  align-content:start;
+  scrollbar-width:thin;scrollbar-color:var(--bd) transparent;
+}
+.col-h{
+  display:flex;flex-direction:column;
+  border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);
+  min-height:120px;
+}
+.msg-user-full{
+  grid-column:1/-1;
+  padding:10px 16px;
+  background:rgba(157,78,255,.06);
+  border-bottom:1px solid var(--bd);
+  font-size:11px;color:rgba(200,190,240,.75);font-style:italic;
+  font-family:'IBM Plex Mono',monospace;line-height:1.6;
+}
+.msg-user-full::before{content:'▶ ';color:var(--ac);opacity:.5}
 .col-hdr-h{padding:9px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;background:rgba(5,3,10,.6);flex-shrink:0}
 .col-name-h{font-family:'Syne',sans-serif;font-weight:700;font-size:11px}
 .col-sub-h{font-size:8px;color:var(--mu);font-family:'IBM Plex Mono',monospace}
@@ -375,8 +414,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 
 <!-- TOPBAR -->
 <div class="topbar">
-  <button class="sb-toggle" onclick="toggleSb()">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  <button class="sb-toggle" onclick="toggleSb()" title="Afficher/masquer le menu latéral">
+    <span class="sb-ico">◀</span>
+    <span class="sb-lbl-open">Masquer menu</span>
+    <span class="sb-lbl-closed">Afficher menu</span>
   </button>
   <div class="logo">multi<em> </em>IA</div>
   <div class="vbadge">v22.0</div>
@@ -714,11 +755,19 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 <!-- ════════════════════ PANEL CHAT ════════════════════ -->
 <div id="p-chat" class="panel active">
   <div class="chat-wrap">
-    <div class="chat-hist">
-      <div class="ch-hdr"><div class="ch-t">Historique</div><button class="ch-new" onclick="newChat()">+ Nouveau</button></div>
-      <div id="chat-hist-list"></div>
+    <div class="chat-hist" id="chat-hist-sb">
+      <div class="ch-hdr">
+        <div class="ch-t">📋 Historique</div>
+        <button class="ch-new" onclick="newChat()">+ Nouveau</button>
+        <button class="ch-toggle" onclick="toggleHist()" title="Masquer l'historique">◀</button>
+      </div>
+      <div id="chat-hist-list" style="flex:1;overflow-y:auto"></div>
     </div>
     <div class="chat-body">
+      <div style="padding:4px 10px;border-bottom:1px solid var(--bd);background:rgba(5,3,10,.4);display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <button onclick="toggleHist()" id="hist-show-btn" style="display:none;background:rgba(157,78,255,.1);border:1px solid rgba(157,78,255,.25);border-radius:6px;color:var(--ac);font-size:9px;font-weight:700;cursor:pointer;padding:3px 9px;font-family:'IBM Plex Mono',monospace">▶ Historique</button>
+        <span style="font-size:9px;color:var(--mu);font-family:'IBM Plex Mono',monospace">MODÈLES ACTIFS :</span>
+      </div>
       <div class="ia-bar">
         <span class="tbl">IAs :</span>
         <button class="ia-p on" style="color:#F97316;border-color:#F97316" data-ia="groq" onclick="toggleIA(this)">⚡ Groq</button>
@@ -738,7 +787,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
         <button class="ia-p on" style="color:#FF6B35;border-color:#FF6B35" data-ia="llama4m" onclick="toggleIA(this)">⊕ Llama 3.3</button>
         <button class="ia-p on" style="color:#76C442;border-color:#76C442" data-ia="qwen3_235b" onclick="toggleIA(this)">⊙ Nemotron-S</button>
       </div>
-      <div class="cols-h" id="chat-cols"></div>
+      <div class="cols-grid" id="chat-cols"></div>
       <div class="chat-foot">
         <textarea class="inp" id="chat-inp" placeholder="Envoyer aux IAs actives… (Entrée = envoyer)" onkeydown="handleKey(event)" rows="1"></textarea>
         <button class="send" onclick="sendMsg()">↑</button>
@@ -2118,6 +2167,21 @@ function toggleIA(btn){
   buildCols();
 }
 
+function toggleHist(){
+  const sb=document.getElementById('chat-hist-sb');
+  const btn=document.getElementById('hist-show-btn');
+  const tog=sb.querySelector('.ch-toggle');
+  if(sb.classList.contains('hist-closed')){
+    sb.classList.remove('hist-closed');
+    if(btn) btn.style.display='none';
+    if(tog) tog.textContent='◀';
+  } else {
+    sb.classList.add('hist-closed');
+    if(btn) btn.style.display='flex';
+    if(tog) tog.textContent='▶';
+  }
+}
+
 function buildCols(){
   const wrap=document.getElementById('chat-cols');
   wrap.innerHTML='';
@@ -2151,9 +2215,21 @@ async function sendMsg(){
   if(!msg) return;
   inp.value=''; inp.style.height='44px';
   currentChat.messages.push({role:'user',content:msg});
-  activeIAs.forEach(ia=>addMsg(ia,'user',msg));
+  // Afficher le message user en pleine largeur
+  const grid=document.getElementById('chat-cols');
+  const userRow=document.createElement('div');
+  userRow.className='msg-user-full';
+  userRow.textContent=msg;
+  grid.appendChild(userRow);
+  grid.scrollTop=grid.scrollHeight;
+  // Réinitialiser les zones de messages des IAs actives
+  activeIAs.forEach(ia=>{
+    let box=document.getElementById('msgs-'+ia);
+    if(box) box.innerHTML='';
+  });
   const promises=activeIAs.map(ia=>callIA(ia, msg));
   await Promise.all(promises);
+  grid.scrollTop=grid.scrollHeight;
   saveChat();
 }
 
