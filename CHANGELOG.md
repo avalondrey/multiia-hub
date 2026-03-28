@@ -1,128 +1,220 @@
-# 📋 Changelog — Multi-IA Hub
+# Changelog
 
-> Mis à jour à chaque session. Version courante : `APP_VERSION` dans `src/config/models.js`.
-
----
-
-## [v21.2] — 2026-03-22
-
-### 🐛 Bugfixes — Pages blanches (multiples onglets)
-
-**Cause racine identifiée** : les onglets extraits en `src/tabs/` dépendaient soit de props non transmises, soit de classes CSS définies dans `App.jsx`, soit de wrappers `overflow:hidden` qui écrasaient leur hauteur à 0 dans le conteneur scroll principal (`.cols`).
-
-- **ConferenceTab** — `MODEL_DEFS` et `callModel` déclarés en props mais jamais transmis depuis App.jsx → `TypeError` silencieux → page blanche. Corrigé par import direct depuis les modules.
-- **TraducteurTab** — dépendait de 6 classes CSS (`trad-wrap`, `trad-left`, `trad-right`, etc.) définies dans le bloc `<style>` de App.jsx. Ces classes ne sont pas disponibles quand le composant est isolé. Réécriture complète avec styles inline.
-- **AgentTab** — wrapper `overflow:hidden` dans App.jsx + `.agent-wrap{overflow:hidden}` dans le CSS global → composant visible dans le DOM mais hauteur 0. Corrigé : `overflow:auto`.
-- **MorningBriefTab** — double problème : wrapper `overflow:hidden` + variable `projects` jamais déclarée dans App.jsx (passée comme prop `projects={projects}` sans `useState`). Ajout du `useState` et correction du wrapper.
-- **SecondBrainTab** — même wrapper `overflow:hidden`. Corrigé : `overflow:auto`.
+Toutes les modifications notables de ce projet sont documentées dans ce fichier.
 
 ---
 
-## [v21.1] — 2026-03-21
+## [v22.0] — 27 Mars 2026
 
-### 🏗️ Refactoring (extraction des onglets)
-- **Structure** — App.jsx réduit de ~14 160 à ~7 860 lignes (-44%)
-- **33 composants extraits** dans `src/tabs/` :
-  - `AgentTab`, `AideTab`, `ApiOptimizerTab`, `BenchmarkTab`
-  - `CivilisationsTab`, `ConferenceTab`, `ConsensusTab`, `ContextTranslatorTab`
-  - `ContradictionTab`, `GlossaireTab`, `IaMentorTab`, `JournalisteTab`
-  - `LiveDebateTimerTab`, `ModeFlashTab`, `MorningBriefTab`, `NotesTab`
-  - `ProjectsTab`, `PromptAutopsyTab`, `PromptDNATab`, `PromptsTab`
-  - `RechercheTab`, `RedactionTab`, `SecondBrainTab`, `SkillBuilderTab`
-  - `StatsTab`, `StudioTab`, `TaskToIAsTab`, `TraducteurTab`
-  - `VeilleTab`, `VoiceTab`, `WebIAsTab`, `YouTubeTab`
-- **Composant partagé** `src/components/MarkdownRenderer.jsx`
-- **Exports centralisés** dans `src/tabs/index.js`
+### 🎉 **NOUVEAUTÉS MAJEURES**
+
+#### ⚡ **Mode 100% Gratuit (SANS CLÉ API)**
+- **Pollinations.ai** : Llama 3.3 70B, Mistral, SDXL, FLUX
+  - Texte : API compatible OpenAI
+  - Image : Génération via URL simple
+  - Audio : TTS gratuit
+  - 100% open source, pas de compte, CDN mondial
+- **Smart Fallback System** :
+  - Ordre : Pollinations → WebLLM → Hugging Face → Clé user
+  - Cache intelligent des réponses (1h)
+  - Stats par provider
+  - Graceful degradation automatique
+- **WebLLM** : IA 100% dans le navigateur
+  - Offline après chargement
+  - 100% privé, rien ne sort du navigateur
+  - Modèles : Llama 3 8B, Mistral 7B, Phi-3, Qwen2, Gemma 2
+  - WebGPU requis (Chrome/Edge récent)
+
+#### 🌱 **Multi-IA Greenhouse** — Jardin Intelligent
+- **Dashboard** : Stats en temps réel (plants, tâches, récoltes)
+- **Mes Plants** :
+  - Catalogue avec conseils IA auto
+  - Suivi par plant (arrosage, lumière, température)
+  - Emplacement (serre, extérieur, balcon, intérieur)
+  - Photos (à venir)
+- **Conseiller Jardin IA** :
+  - Analyse climat + plantes + saison
+  - Conseils personnalisés (arrosage, entretien, maladies)
+  - Tâches hebdomadaires prioritaires
+- **Diagnostic Photo** :
+  - Upload de photo
+  - 3 IAs analysent simultanément
+  - Détection maladies, carences, ravageurs
+- **Planning Intelligent** :
+  - Adapté à TES contraintes (temps, physique, outils)
+  - Export vers Google Calendar (.ics)
+- **Journal des Récoltes** :
+  - Track tes productions (poids, qualité, date)
+  - Historique complet
+  - Stats de rendement
+- **Météo** :
+  - Prévisions 3 jours
+  - Conseils adaptés
+
+#### 🔐 **Chiffrement Web Crypto API**
+- AES-GCM 256-bit pour clés API
+- Protection même en cas de XSS
+- SecureStorage wrapper
+- Hash SHA-256, signatures HMAC
+
+#### 💾 **IndexedDB**
+- Stockage illimité (2GB+) pour l'historique
+- Migration automatique depuis localStorage
+- Meilleures performances
+- Requêtes complexes (filtrage, recherche)
+
+#### 📊 **Heatmap de Confiance**
+- Visualisation consensus/divergences entre IAs
+- Similarité de Jaccard
+- Stats globales (moyenne, max, min)
+- Analyse textuelle automatique
+
+#### 🎭 **Mode Persona (10 personas)**
+- Expert Jardin 🌱
+- Coach Productivité ⚡
+- Le Sceptique 🤔
+- Le Créatif 🎨
+- Le Pédagogue 📚
+- Expert Business 💼
+- Coach Sportif 🏋️
+- Chef Cuisinier 🍳
+- Coach Mindfulness 🧘
+- Optimiseur Technique 🤖
+
+#### 📋 **Audit des Permissions API**
+- Transparence totale sur chaque clé
+- Permissions détaillées (✅/⚠️/❌)
+- Pricing, limits, free tier
+- 9 providers documentés
+
+#### 🚀 **Déploiement Cloudflare Pages**
+- Script `deploy-cloudflare.sh`
+- Alternative Vercel (plus rapide en EU)
+- 100GB gratuit, build minutes illimitées
+
+#### 🆕 **Système de Badges "NEW"**
+- Modal de bienvenue (première visite)
+- Badges animés sur les onglets
+- Tooltips au survol
+- Disparaît après 7 jours
 
 ---
 
-## [v21.0] — 2026-03-20
+### 📦 **NOUVELLES DÉPENDANCES**
 
-### ✨ Nouveaux onglets (17)
-
-- **🔀 Task→IAs** — Décompose une tâche complexe, route chaque sous-tâche vers l'IA la plus adaptée (vitesse, rédaction, code, analyse), assemble un livrable final
-- **🎙 Conférence** — Pipeline séquentiel Explorateur → Critique → Constructeur, chaque IA construit sur la précédente
-- **⏱ Débat Live** — Format Oxford gamifié : 6 tours (Ouverture/Réplique/Conclusion), timer 90s, votes public, score arbitre IA
-- **🔎 Consensus** — Vote croisé de fiabilité : toutes les IAs notent une affirmation indépendamment (vrai/faux/partiel/incertain), score de consensus calculé
-- **⚡ Contradiction** — Détecteur de contradictions, biais cognitifs et arguments fallacieux entre deux textes ou dans un seul
-- **📰 Journaliste** — Rapport multi-angles (3, 5 ou 7 angles) : chaque IA couvre un angle différent en parallèle, une IA rédactrice en chef assemble
-- **☀️ Morning Brief** — Briefing IA personnalisé : actualités, tâches du jour, conseil, citation, IA du jour. Génération automatique à heure programmée
-- **🎓 IA Mentor** — Programme d'apprentissage adaptatif : sessions, leçons, exercices, quiz avec évaluation et système XP
-- **🛠 Skill Builder** — Création d'automatisations IA par description naturelle : l'IA génère le prompt, les paramètres et la configuration
-- **🌍 Civilisations** — 12 civilisations/époques (Grèce antique, Islam, Silicon Valley 2026…) répondent à la même question contemporaine, avec synthèse comparatiste
-- **🔄 Contexte** — Traducteur de complexité : un texte technique traduit simultanément pour enfant 10 ans / lycéen / adulte / expert / tweet
-- **⚡ Mode Flash** — Course de vitesse en temps réel : toutes les IAs reçoivent le même prompt, classement par vitesse avec podium
-- **🔬 Prompt Autopsy** — Analyse d'une mauvaise réponse IA : biais détectés, erreurs de raisonnement, problèmes de prompt, 2 versions améliorées générées
-- **🧬 Prompt DNA** — Bibliothèque arborescente de prompts : variantes hiérarchisées, étoiles, statistiques d'utilisation
-- **💡 API Optimizer** — Analyse l'historique d'usage et recommande les changements de configuration pour réduire coûts et améliorer vitesse
-- **🧠 Second Brain** — Export de toutes les données (conversations, projets, mémoire, stats) en Obsidian / Notion / Markdown / JSON, avec profil utilisateur généré par IA
-- **🎬 Studio Auto** — Pipeline de génération de tutoriels vidéo : IA pose des questions → génère script + narration → filme avec OBS (optionnel) → monte avec Kdenlive (optionnel)
-
-### 🔧 Corrections
-- **PromptDNATab** — import manquant corrigé
-- **Syntax errors** — 15+ occurrences de `condition?.55:1` (optional chaining invalide sur booléens) corrigées en `condition ? 0.55 : 1`
-- **Fuite mémoire** — `appinstalled` listener sans cleanup corrigé
+```json
+{
+  "@mlc-ai/web-llm": "^0.2.78",
+  "wrangler": "^3.0.0"
+}
+```
 
 ---
 
-## [v20.0] — 2026-03-16
+### 🐛 **CORRECTIONS**
 
-### 🔧 Corrections (bugs critiques)
-- **Canvas listener leak** — `window.addEventListener('message')` s'accumulait à chaque re-render. Corrigé avec `el.__msgHandler` pour cleanup propre
-- **VALID_TABS incomplet** — nouveaux onglets manquants dans la liste de validation URL
-
-### 📄 PDF professionnel (jsPDF)
-- Export PDF avec header doré, couleurs par IA, pagination numérotée
-
-### 🔬 Paramètres Avancés
-- System prompt global, température par IA, providers custom OpenAI-compatible
-
-### ⚡ Diff de réponses
-- Diff mot-à-mot, score de similarité, modal interactif
-
-### 🧱 Prompt Builder visuel
-- 5 blocs (Rôle/Contexte/Tâche/Format/Contraintes), optimisation IA
-
-### 🧠 Auto-mémoire
-- Extraction automatique de faits après 6 messages, confirmation utilisateur
-
-### 🔗 Partage prompts par URL
-- Encode en base64 dans `?prompt=...`, import automatique
+- Fix pages blanches (ConferenceTab, TraducteurTab)
+- Fix overflow CSS (AgentTab, MorningBriefTab, SecondBrainTab)
+- Fix imports manquants
+- Nettoyage caractères Unicode (compatibilité parse5)
+- .gitignore amélioré (protection données sensibles)
 
 ---
 
-## [v19.0] — 2026-03-16
-- 🔧 Self-Healing Canvas (auto-correction d'erreurs JS)
-- 🧠 Panel d'Experts (Dev / Produit / Contenu)
-- 📈 Analytics (coûts et usage par modèle)
-- 📰 Veille Intelligente
-- 🎙 Mode Vocal
-- 📁 Gestion de Projets
+### 📚 **DOCUMENTATION**
 
-## [v18.2] — 2026-03-15
-- ✦ Consensus Multi-IAs (Mixture of Agents)
-- ⚡ Slash Commands
-- 🧠 Smart Context (compression auto)
-- 📄 RAG TF-IDF
-- 🔀 4 Templates Workflows prédéfinis
+- `README.md` — Mis à jour avec mode gratuit
+- `CHANGELOG.md` — Tenu à jour
+- `NOUVELLES_FEATURES.md` — Guide complet
+- `INTEGRATION_NEW_FEATURES.md` — Intégration
 
-## [v18.0–v18.1] — 2026-03-15
-- Dashboard, Prompt Battle, Analyse doc Multi-IAs, Traduction EN
+---
 
-## [v17.x] — 2026-03-14/15
-- Pipeline Concrétisation, Débat + Fichier, Fix Pollinations
+### ⬆️ **AMÉLIORATIONS**
 
-## [v16.x] — 2026-03-10/13
-- Markdown + Prism.js, Mode Zen, Mémoire locale, Canvas HTML, Workflows
+- Build Vite optimisé (370ms)
+- CSS réduit de 1317 lignes
+- Scripts npm ajoutés (`dev`, `preview`, `deploy:*`)
+- Backup automatique avant modification
 
-## [v14.0–v15.0] — 2026-03-05/08
-- Jury IA, RAG, Ollama local, 12 Plugins JS
+---
 
-## [v13.0] — 2026-03-01
-- 37 IAs Web, découverte automatique
+## [v21.6] — 26 Mars 2026
 
-## [v12.0] — 2026-02-25
-- Navigation 10 onglets, TTS+Dictée, Personas, Thème sombre/clair
+### Ajouts
+- new-s CSS avec thèmes Nord/Dracula
+- Nettoyage caractères Unicode
+- Sidebar moderne avec icônes
 
-## [v1.0–v10.0] — 2026-01-20 → 02-20
-- Lancement, Débat 3 phases, Config, Arène, YouTube, Mobile
+### Corrections
+- Suppression bordures Unicode (compatibilité parse5)
+
+---
+
+## [v21.2] — 25 Mars 2026
+
+### Corrections
+- Fix pages blanches
+- Fix imports dans ConferenceTab, TraducteurTab
+- Fix overflow CSS
+
+---
+
+## [v21.1] — 24 Mars 2026
+
+### Refactoring
+- Extraction de 33 onglets depuis `App.jsx`
+- Architecture modulaire
+- `App.jsx` réduit de 14160 à 7860 lignes
+
+### Nouveaux onglets
+- AgentTab, BenchmarkTab, CompareTab
+- ConferenceTab, ConsensusTab, ContradictionTab
+- ContextTranslatorTab, GlossaireTab, IaMentorTab
+- ImageFluxTab, JournalisteTab, LiveDebateTimerTab
+- LongTermMemoryTab, ModeFlashTab, MorningBriefTab
+- NotesTab, ProjectsTab, PromptAutopsyTab
+- PromptDNATab, PromptIteratorTab, PromptsTab
+- RechercheTab, RedactionTab, RouterTab
+- SecondBrainTab, SkillBuilderTab, StatsTab
+- StudioTab, TaskToIAsTab, TraducteurTab
+- VeilleTab, VoiceTab, WebIAsTab, YouTubeTab
+
+---
+
+## [v21.0] — 23 Mars 2026
+
+### Nouveautés
+- 10+ nouveaux onglets
+- Parallel chat (jusqu'à 12 IAs)
+- Expert panels, débats, workflows
+- Prompt management, voice conversation
+- Analytics
+
+---
+
+## Versions Antérieures
+
+- v20.x — Architecture initiale
+- v19.x — Premières fonctionnalités
+- v18.x — Prototype
+
+---
+
+## 📊 Statistiques
+
+| Version | Lignes | Fichiers | Features |
+|---------|--------|----------|----------|
+| v22.0 | ~25 000 | 100+ | 33 onglets, mode gratuit |
+| v21.0 | ~15 000 | 50+ | 20 onglets |
+| v20.0 | ~8 000 | 20+ | Chat de base |
+
+---
+
+**Total des commits :** 254+  
+**Contributeurs :** 1  
+**License :** MIT
+
+---
+
+*Pour plus de détails, voir les commits sur GitHub.*
