@@ -1,15 +1,30 @@
 ﻿# MULTI-IA HUB — .gitignore
 # -------------------------
 
-# Dépendances
-node_modules/
+# ⚠️ SÉCURITÉ - Données sensibles (NOUVEAU)
+# Données chiffrées et IndexedDB
+*.enc
+*.encrypted
+*.key
+*.pem
+*.crt
+secrets/
+keys.json
+api-keys.json
+credentials.json
+multiia-keys.json
+multiia-backup-*.json
 
 # Build Vite / React
 dist/
 build/
 .vercel/
 
-# Variables d'environnement et secrets
+# Dépendances
+node_modules/
+.pnpm-store/
+
+# Variables d'environnement
 .env
 .env.local
 .env.*.local
@@ -18,11 +33,14 @@ relay_config.json
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # Système
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # IDE / outils locaux
 .vscode/
@@ -62,12 +80,38 @@ src/App.jsx.bak
 src/App.jsx.clean
 src/App.jsx.182
 src/App.jsx.212
+src/App.jsx.backup
+*.backup
+*.bak
+*.old
 
 # Fichiers temp à la racine
 app-new.html
 app-new2.html
-
 new_styles.css
 new-app-styles.js
 preview_*.jpg
 debug-out.txt
+
+# PowerShell scripts (locaux)
+*.ps1
+
+# Shell scripts (sauf deploy-cloudflare.sh qui est utile)
+*.sh
+!deploy-cloudflare.sh
+
+# Documentation temporaire
+*.md.tmp
+*.md.bak
+
+# Coverage / tests
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Wrangler (Cloudflare)
+.wrangler/
+.dev.vars
