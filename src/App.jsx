@@ -52,7 +52,7 @@ import ImageFluxTab from "./tabs/ImageFluxTab.jsx";
 import GreenhouseTab from "./tabs/GreenhouseTab.jsx";
 
 // New Features Utils
-import { initFirstVisit } from "./utils/newFeatures.js";
+import { initFirstVisit } from "./utils/newFeatures.jsx";
 import { db } from "./db/index.js";
 
 function tokenizeCode(code, lang) {
