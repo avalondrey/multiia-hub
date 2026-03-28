@@ -49,6 +49,11 @@ import AgentTab from "./tabs/AgentTab.jsx";
 import PromptIteratorTab from "./tabs/PromptIteratorTab.jsx";
 import LongTermMemoryTab from "./tabs/LongTermMemoryTab.jsx";
 import ImageFluxTab from "./tabs/ImageFluxTab.jsx";
+import GreenhouseTab from "./tabs/GreenhouseTab.jsx";
+
+// New Features Utils
+import { initFirstVisit } from "./utils/newFeatures.js";
+import { db } from "./db/index.js";
 
 function tokenizeCode(code, lang) {
   const l = (lang || "").toLowerCase();
@@ -1954,6 +1959,13 @@ function AINewsBlock() {
 
 // PromptDNATab extracted to src/tabs/PromptDNATab.jsx
 function App() {
+  // Initialiser les nouvelles features (IndexedDB, first visit tracking)
+  React.useEffect(() => {
+    initFirstVisit();
+    // Migration IndexedDB (optionnel, si tu veux migrer depuis localStorage)
+    // db.migrateFromLocalStorage().catch(console.error);
+  }, []);
+
   const prevTabRef = React.useRef(null);
 
   // Tab order for transition direction
@@ -4351,6 +4363,7 @@ async function checkCliBridge() {
 <button className={"sb-nt"+(tab==="studio"?" on":"")} onClick={()=>navigateTab("studio")}><div className="sb-nt-ico" style={{background:"rgba(255,60,172,.15)",boxShadow:"0 0 0 1px #FF3CAC22"}}>🎬</div><div className="sb-nt-txt"><span className="sb-nt-name">Studio Auto</span><span className="sb-nt-sub">Workflows enchaînés</span></div><div className="sb-nt-right"><span className="sb-badge sb-badge-new">NEW</span></div><span className="sb-tooltip">Studio Auto</span></button>
 <button className={"sb-nt"+(tab==="voice"?" on":"")} onClick={()=>navigateTab("voice")}><div className="sb-nt-ico" style={{background:"rgba(167,139,250,.15)",boxShadow:"0 0 0 1px #A78BFA22"}}>🎤</div><div className="sb-nt-txt"><span className="sb-nt-name">Voix</span><span className="sb-nt-sub">Dictée & TTS</span></div><span className="sb-tooltip">Voix</span></button>
 <button className={"sb-nt"+(tab==="brief"?" on":"")} onClick={()=>navigateTab("brief")}><div className="sb-nt-ico" style={{background:"rgba(251,146,60,.15)",boxShadow:"0 0 0 1px #FB923C22"}}>🌅</div><div className="sb-nt-txt"><span className="sb-nt-name">Brief Matin</span><span className="sb-nt-sub">Récap IA du jour</span></div><span className="sb-tooltip">Brief Matin</span></button>
+<button className={"sb-nt"+(tab==="greenhouse"?" on":"")} onClick={()=>navigateTab("greenhouse")}><div className="sb-nt-ico" style={{background:"rgba(74,222,128,.18)",boxShadow:"0 0 0 1px #4ADE8022"}}>🌱</div><div className="sb-nt-txt"><span className="sb-nt-name">Greenhouse</span><span className="sb-nt-sub">Ton jardin IA</span></div><div className="sb-nt-right"><span className="sb-badge sb-badge-new">NEW</span></div><span className="sb-tooltip">Greenhouse — Jardin intelligent</span></button>
 <div className="sb-sep"/>
 <div className="sb-grp">Analyse</div>
 <button className={"sb-nt"+(tab==="arena"?" on":"")} onClick={()=>navigateTab("arena")}><div className="sb-nt-ico" style={{background:"rgba(255,183,0,.15)",boxShadow:"0 0 0 1px #FFB70022"}}>🏆</div><div className="sb-nt-txt"><span className="sb-nt-name">Arène</span><span className="sb-nt-sub">18 modèles comparés</span></div><div className="sb-nt-right"><span className="sb-badge sb-badge-hot">HOT</span></div><span className="sb-tooltip">Arène</span></button>
@@ -6616,6 +6629,15 @@ async function checkCliBridge() {
               usageStats={{}}
               savedConvs={savedConvs}
               conversations={conversations}
+            />
+          </div>
+        )}
+
+        {tab === "greenhouse" && (
+          <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column",minHeight:0}}>
+            <GreenhouseTab
+              enabled={enabled}
+              apiKeys={apiKeys}
             />
           </div>
         )}
