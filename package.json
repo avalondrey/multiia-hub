@@ -2,25 +2,50 @@
   "name": "multiia-portable",
   "version": "7.0.0",
   "main": "server.cjs",
+  "description": "Parallel web interface to compare, combine, and automate multiple AIs simultaneously",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/avalondrey/multiia-hub"
+  },
+  "keywords": [
+    "ai",
+    "multi-ai",
+    "llm",
+    "chatbot",
+    "comparison",
+    "groq",
+    "claude",
+    "gemini",
+    "mistral"
+  ],
   "dependencies": {
     "@vercel/speed-insights": "^2.0.0",
     "autoprefixer": "^10.4.27",
     "express": "^4.22.1",
     "postcss": "^8.5.8",
+    "puppeteer": "^24.40.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.1",
     "recharts": "^3.8.0",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^4.7.0",
     "typescript": "^6.0.2",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^3.0.0"
   },
   "scripts": {
-    "build": "npx vite build"
-  }
+    "dev": "npx vite",
+    "build": "npx vite build",
+    "preview": "npx vite preview",
+    "deploy:vercel": "vercel --prod",
+    "deploy:cloudflare": "bash deploy-cloudflare.sh"
+  },
+  "author": "Avalon Drey",
+  "license": "MIT"
 }

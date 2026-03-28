@@ -16,7 +16,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Outfit',sans-serif;overfl
 .bg-wrap{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
 .bg-grad{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 15% 30%,rgba(80,20,200,.4) 0%,transparent 55%),radial-gradient(ellipse 50% 40% at 85% 70%,rgba(255,60,172,.2) 0%,transparent 50%),radial-gradient(ellipse 40% 50% at 50% 100%,rgba(0,212,255,.12) 0%,transparent 50%)}
 .bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(140,90,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(140,90,255,.05) 1px,transparent 1px);background-size:80px 80px;mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 30%,transparent 80%)}
-nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;display:flex;align-items:center;gap:16px;background:rgba(5,3,8,.5);backdrop-filter:blur(24px);border-bottom:1px solid rgba(140,90,255,.08);transition:background .3s}
+nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;display:flex;align-items:center;gap:16px;background:rgba(5,3,8,.5);backdrop-filter:blur(24px);border-bottom:1px solid rgba(140,90,255,.08);transition:background .3s;overflow:visible}
 .logo{font-family:'Syne',sans-serif;font-weight:900;font-size:17px;background:linear-gradient(135deg,#fff 40%,rgba(157,78,255,.8));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .logo span{font-weight:400;opacity:.5}
 .nav-mid{display:flex;gap:4px;margin-left:32px}
@@ -160,12 +160,62 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;d
 .footer-bottom{max-width:1200px;margin:32px auto 0;padding-top:24px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .footer-copy{font-size:11px;color:var(--mu);font-family:'IBM Plex Mono',monospace}
 @keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
-.reveal.vis{opacity:1;transform:translateY(0)}
-.rd1{transition-delay:.08s}.rd2{transition-delay:.16s}.rd3{transition-delay:.24s}.rd4{transition-delay:.32s}.rd5{transition-delay:.4s}.rd6{transition-delay:.48s}
+
+/* ── Reveal amélioré — cubic-bezier organique + scale ── */
+.reveal{
+  opacity:0;
+  transform:translateY(28px) scale(.97);
+  transition:opacity .75s cubic-bezier(.22,1,.36,1), transform .75s cubic-bezier(.22,1,.36,1);
+}
+.reveal.vis{opacity:1;transform:translateY(0) scale(1)}
+.rd1{transition-delay:.08s}.rd2{transition-delay:.16s}.rd3{transition-delay:.24s}
+.rd4{transition-delay:.32s}.rd5{transition-delay:.4s}.rd6{transition-delay:.48s}
+
+/* ── Cartes modèles — staggered 80ms ── */
+.mcard{
+  opacity:0;
+  transform:translateY(24px) scale(.96);
+  transition:opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1),
+    border-color .3s, background .3s;
+}
+.mcard.vis{opacity:1;transform:translateY(0) scale(1)}
+.mcard:nth-child(1){transition-delay:.00s}
+.mcard:nth-child(2){transition-delay:.08s}
+.mcard:nth-child(3){transition-delay:.16s}
+.mcard:nth-child(4){transition-delay:.24s}
+.mcard:nth-child(5){transition-delay:.32s}
+.mcard:nth-child(6){transition-delay:.40s}
+.mcard:nth-child(7){transition-delay:.48s}
+.mcard:nth-child(8){transition-delay:.56s}
+.mcard:nth-child(9){transition-delay:.64s}
+.mcard:nth-child(10){transition-delay:.72s}
+
+/* ── Cartes prix — même traitement ── */
+.pcard{
+  opacity:0;
+  transform:translateY(24px) scale(.97);
+  transition:opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1);
+}
+.pcard.vis{opacity:1;transform:translateY(0) scale(1)}
+.pcard:nth-child(2){transition-delay:.12s}
+
+/* ── Barre de progression scroll ── */
+#scroll-bar{
+  position:absolute;bottom:-2px;left:0;height:2px;width:0%;
+  background:linear-gradient(90deg,#9D4EFF,#FF3CAC,#00D4FF);
+  border-radius:0 2px 2px 0;
+  box-shadow:0 0 10px rgba(157,78,255,.6), 0 0 20px rgba(255,60,172,.3);
+  transition:width .05s linear;
+  z-index:10;pointer-events:none;
+}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:rgba(157,78,255,.25);border-radius:2px}
 @media(max-width:900px){.mockup-section,.feat-row,.feat-row.three,.fcard2.big,.price-grid{grid-template-columns:1fr}.fcard2.big{grid-column:span 1}.fc3,.fc4,.fc5,.fc6,.fc7,.fc8{display:none}}
-@media(max-width:768px){nav{padding:0 20px}.section{padding:80px 20px}.hero{padding:90px 24px 0}.hero-h1{font-size:40px}.nav-mid,.btn-ghost{display:none}.models-grid{grid-template-columns:repeat(2,1fr)}.cta-wrap{padding:48px 28px}.footer{padding:32px 20px}}
+@media(max-width:768px){nav{padding:0 20px}.section{padding:80px 20px}.hero{padding:90px 24px 0}.hero-h1{font-size:40px}.nav-mid,.btn-ghost{display:none}.models-grid{grid-template-columns:repeat(2,1fr)}.cta-wrap{padding:48px 28px}.footer{padding:32px 20px}
+/* Fix mobile — texte chat IA visible */
+.mcol-msg{color:rgba(200,190,240,.75);font-size:9px}
+.mprompt{font-size:8px}
+.mjury-n{font-size:7px}
+}
 
 /* ═══ FEATURE DETAIL OVERLAY ═══ */
 #feat-overlay{position:fixed;inset:0;z-index:500;background:var(--bg);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .4s cubic-bezier(.22,1,.36,1);overflow-y:auto}
@@ -211,6 +261,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:0 48px;height:64px;d
 <div class="bg-wrap"><div class="bg-grad"></div><div class="bg-grid"></div></div>
 
 <nav id="nav">
+  <div id="scroll-bar"></div>
   <div class="logo">Multi<span>·</span>IA Hub</div>
   <div class="nav-mid">
     <a class="nl" href="#features">Fonctionnalités</a>
@@ -471,21 +522,34 @@ cards.forEach(c=>{
   c.addEventListener('mouseleave',()=>{c.style.transition='transform .4s ease'});
 });
 
-// SCROLL REVEAL
-const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis')})},{threshold:.1});
+// SCROLL REVEAL — réutilisé pour .mcard aussi
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis')})},{threshold:.08});
 document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
 
-// MODEL BARS
+// MCARD — staggered reveal individuel
+const mcObs=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('vis');mcObs.unobserve(e.target);}});
+},{threshold:.1});
+document.querySelectorAll('.mcard').forEach(el=>mcObs.observe(el));
+
+// PCARD — reveal individuel
+const pcObs=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('vis');pcObs.unobserve(e.target);}});
+},{threshold:.1});
+document.querySelectorAll('.pcard').forEach(el=>pcObs.observe(el));
+
+// MODEL BARS — animation individuelle au reveal
 const bObs=new IntersectionObserver(es=>{
   es.forEach(e=>{
     if(e.isIntersecting){
-      e.target.querySelectorAll('.mc-bar').forEach(b=>{setTimeout(()=>b.style.width=b.dataset.w+'%',150)});
+      const delay=(parseInt(e.target.style.transitionDelay)||0)*1000;
+      const bar=e.target.querySelector('.mc-bar');
+      if(bar) setTimeout(()=>{ bar.style.width=bar.dataset.w+'%'; }, delay+200);
       bObs.unobserve(e.target);
     }
   });
 },{threshold:.2});
-const mg=document.getElementById('mgrid');
-if(mg)bObs.observe(mg);
+document.querySelectorAll('.mcard').forEach(el=>bObs.observe(el));
 
 // COUNTERS
 const cObs=new IntersectionObserver(es=>{
@@ -503,10 +567,17 @@ const cObs=new IntersectionObserver(es=>{
 const hs=document.querySelector('.hero-stats');
 if(hs)cObs.observe(hs);
 
-// NAV on scroll
+// SCROLL PROGRESS BAR + NAV background
+const scrollBar=document.getElementById('scroll-bar');
 window.addEventListener('scroll',()=>{
-  document.getElementById('nav').style.background=window.scrollY>50?'rgba(5,3,8,.88)':'rgba(5,3,8,.5)';
-});
+  const nav=document.getElementById('nav');
+  nav.style.background=window.scrollY>50?'rgba(5,3,8,.88)':'rgba(5,3,8,.5)';
+  // Barre de progression
+  const scrolled=window.scrollY;
+  const total=document.documentElement.scrollHeight-window.innerHeight;
+  const pct=total>0?Math.round(scrolled/total*100):0;
+  if(scrollBar) scrollBar.style.width=pct+'%';
+},{passive:true});
 </script>
 <!-- ═══ FEATURE DETAIL OVERLAY ═══ -->
 <div id="feat-overlay" role="dialog" aria-modal="true">
